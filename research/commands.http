@@ -1,0 +1,108 @@
+VS Code REST Client
+
+# KEF LS60 Wireless base URL
+@baseurl = http://10.0.0.93
+
+### Get Poll Queue
+GET {{baseurl}}/api/event/pollQueue
+Accept: application/json
+Content-Type: application/json
+
+
+### Get MAC Address
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{"path": "settings:/system/primaryMacAddress", "roles": "value"}
+
+### Get Device Name
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{"path": "settings:/deviceName", "roles": "value"}
+
+
+### Get Device Status
+# Possible Statuses are:
+# standby or powerOn
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{"path": "settings:/kef/host/speakerStatus", "roles": "value"}
+
+### Get Device Source
+# Possible Sources are:
+# standby (not powered on), wifi, bluetooth, tv, optic, coaxial or analog (aux in KEF Control)
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{"path": "settings:/kef/play/physicalSource", "roles": "value"}
+
+### Set Device Source
+# Possible Sources are:
+# standby (not powered on), wifi, bluetooth, tv, optic, coaxial or analog (aux in KEF Control)
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "settings:/kef/play/physicalSource", 
+  "roles": "value",
+  "value": {
+    "type": "kefPhysicalSource",
+    "kefPhysicalSource": "wifi"
+  }
+}
+
+### Get Volume
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "player:volume",
+  "roles": "value"
+}
+
+
+### Set Volume
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "player:volume",
+  "roles": "value",
+  "value": {
+    "type": "i32_",
+    "i32_": 15
+  }
+}
+
+
+
+
+
+### Song Progress
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "player:player/data/playTime",
+  "roles": "value"
+}
+
+### Player data (large object)
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "player:player/data",
+  "roles": "value"
+}
