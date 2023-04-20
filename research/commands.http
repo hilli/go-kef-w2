@@ -23,7 +23,6 @@ Content-Type: application/json
 
 {"path": "settings:/deviceName", "roles": "value"}
 
-
 ### Get Device Status
 # Possible Statuses are:
 # standby or powerOn
@@ -68,7 +67,6 @@ Content-Type: application/json
   "roles": "value"
 }
 
-
 ### Set Volume
 POST {{baseurl}}/api/setData
 Accept: application/json
@@ -83,9 +81,21 @@ Content-Type: application/json
   }
 }
 
+### Mute Volume
+# Aka set volume to 0
+# 'true' is returned if successful (+200 OK)
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
 
-
-
+{
+  "path": "player:volume",
+  "roles": "value",
+  "value": {
+    "type": "i32_",
+    "i32_": 0
+  }
+}
 
 ### Song Progress
 POST {{baseurl}}/api/getData
@@ -106,3 +116,168 @@ Content-Type: application/json
   "path": "player:player/data",
   "roles": "value"
 }
+
+### Set Device Name
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "settings:\/deviceName",
+  "roles": "value",
+  "value": {
+    "type": "string_",
+    "string_": "KEFs"
+  }
+}
+
+### Get Device Profile
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "kef:eqProfile/v2",
+  "roles": "value"
+}
+
+### Get messages from the queue
+POST {{baseurl}}/api/getRows
+Accept: application/json
+Content-Type: application/json
+
+{
+  "from": 0,
+  "to": 0,
+  "path": "notifications:/display/queue",
+  "roles": "@all"
+}
+
+### Is front standby LED disabled?
+POST {{baseurl}}/api/getData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "settings:/kef/host/disableFrontStandbyLED",
+  "roles": "value"
+}
+
+### GoogleCast Usage Report (Google Cast state)
+GET {{baseurl}}/api/getData?path=googlecast%3AusageReport&roles=value
+Accept: application/json
+Content-Type: application/json
+
+### Bluetooth Usage Report (Bluetooth state)
+GET {{baseurl}}/api/getData?path=bluetooth%3Astate&roles=value
+Accept: application/json
+Content-Type: application/json
+
+### Get playlists (Returns the number 1000?)
+GET {{baseurl}}/api/getData?path=settings%3A%2Fplaylists%2FdbItemsLimit&roles=value
+Accept: application/json
+Content-Type: application/json
+
+### Get current DSP settings
+GET {{baseurl}}/api/getRows?path=kef%3Adsp%2FeditValue&roles=%40all&from=0&to=99
+Accept: application/json
+Content-Type: application/json
+
+### Set app analytics
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "settings:\/kef\/host\/disableAppAnalytics",
+  "role": "value",
+  "value": {
+    "type": "bool_",
+    "bool_": false
+  }
+}
+
+### Get standby time
+GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fkef%2Fhost%2FstandbyMode
+Accept: application/json
+Content-Type: application/json
+
+### Set standby time
+# Possible values are:
+# standby_20mins, standby_30mins, standby_60mins, standby_none
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "settings:\/kef\/host\/standbyMode",
+  "role": "value",
+  "value": {
+    "type": "kefStandbyMode",
+    "kefStandbyMode": "standby_30mins"
+  }
+}
+
+### Get secondary wakeup source
+# Possible values are:
+# wakeup_default, tv, optical, coaxial, analog, bluetooth
+GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fkef%2Fhost%2FwakeUpSource
+Accept: application/json
+Content-Type: application/json
+
+### Set secondary wakeup source
+# Possible values are:
+# wakeup_default (or none), tv, optical, coaxial, analog, bluetooth
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "settings:\/kef\/host\/wakeUpSource",
+  "role": "value",
+  "value": {
+    "type": "kefWakeUpSource",
+    "kefWakeUpSource": "wakeup_default"
+  }
+}
+
+### Get statup tone for sources
+GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fkef%2Fhost%2FstartupTone
+Accept: application/json
+Content-Type: application/json
+
+### Set statup tone for sources
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "settings:\/kef\/host\/startupTone",
+  "role": "value",
+  "value": {
+    "type": "bool_",
+    "bool_": false
+  }
+}
+
+### Get cabled (vs wireless) mode
+GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fkef%2Fhost%2FcableMode
+Accept: application/json
+Content-Type: application/json
+
+### Set cabled mode on or off
+# Possible values are:
+# wired, wireless
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path": "settings:\/kef\/host\/cableMode",
+  "role": "value",
+  "value": {
+    "type": "kefCableMode",
+    "kefCableMode":"wired"
+  }
+}
+

@@ -33,3 +33,35 @@ func main() {
 ## License
 
 MIT License
+
+
+## Command line tool
+
+### TODO
+
+- [ ] Backup/restore settings to file
+- [ ] Set volume
+- [ ] Mute/unmute
+- [ ] Select source
+- [ ] Get status
+- [ ] Get settings
+- [ ] Set settings
+- [ ] Turn on/off
+
+### Usage
+
+```bash
+```
+
+## Web interface & HomeKit HUB
+
+### TODO
+
+- [ ] Turn on/off
+- [ ] Set volume
+- [ ] Mute/unmute
+- [ ] Select source
+- [ ] Status page, refreshing (web)
+- [ ] Settings page, editing (web)
+- [ ] Backup/restore settings to file download (web)
+- [ ] ?? Streaming page, playing (web)
