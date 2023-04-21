@@ -3,6 +3,23 @@ VS Code REST Client
 # KEF LS60 Wireless base URL
 @baseurl = http://10.0.0.93
 
+# roles define if you get the value part of the response or the whole response
+# when you are pulling data from the speaker. setData only accepts value, sensibly enough.
+# Possible values are:
+# value = only the value
+# @all = the whole response
+
+# For the GET calls, use URL encoding
+# %40 is @ in URL encoding
+# @roles = value
+@roles = %40all
+
+# For the POST calls, do not use URL encoding
+# @postroles = value
+@postroles = @all
+
+# Some, but not all, data retrival request work with POST as well as GET
+
 ### Get Poll Queue ???
 GET {{baseurl}}/api/event/pollQueue
 Accept: application/json
@@ -13,14 +30,20 @@ POST {{baseurl}}/api/getData
 Accept: application/json
 Content-Type: application/json
 
-{"path": "settings:/system/primaryMacAddress", "roles": "value"}
+{
+  "path": "settings:/system/primaryMacAddress", 
+  "roles": "{{postroles}}"
+}
 
 ### Get Device Name
 POST {{baseurl}}/api/getData
 Accept: application/json
 Content-Type: application/json
 
-{"path": "settings:/deviceName", "roles": "value"}
+{
+  "path": "settings:/deviceName", 
+  "roles": "{{postroles}}"
+}
 
 ### Get Device Status
 # Possible Statuses are:
@@ -29,7 +52,10 @@ POST {{baseurl}}/api/getData
 Accept: application/json
 Content-Type: application/json
 
-{"path": "settings:/kef/host/speakerStatus", "roles": "value"}
+{
+  "path": "settings:/kef/host/speakerStatus", 
+  "roles": "{{postroles}}"
+}
 
 ### Get Device Source
 # Possible Sources are:
@@ -38,7 +64,10 @@ POST {{baseurl}}/api/getData
 Accept: application/json
 Content-Type: application/json
 
-{"path": "settings:/kef/play/physicalSource", "roles": "value"}
+{
+  "path": "settings:/kef/play/physicalSource", 
+  "roles": "{{postroles}}"
+}
 
 ### Set Device Source
 # Possible Sources are:
@@ -63,7 +92,7 @@ Content-Type: application/json
 
 {
   "path": "player:volume",
-  "roles": "value"
+  "roles": "{{postroles}}"
 }
 
 ### Set Volume
@@ -80,7 +109,7 @@ Content-Type: application/json
   }
 }
 
-### Mute Volume
+### Mute Volume (There is a specific mute command, but this works too)
 # Aka set volume to 0
 # 'true' is returned if successful (+200 OK)
 POST {{baseurl}}/api/setData
@@ -103,7 +132,7 @@ Content-Type: application/json
 
 {
   "path": "player:player/data/playTime",
-  "roles": "value"
+  "roles": "{{postroles}}"
 }
 
 ### Player data (large object if playing)
@@ -113,7 +142,7 @@ Content-Type: application/json
 
 {
   "path": "player:player/data",
-  "roles": "value"
+  "roles": "{{postroles}}"
 }
 
 ### Set Device Name
@@ -137,7 +166,7 @@ Content-Type: application/json
 
 {
   "path": "kef:eqProfile/v2",
-  "roles": "value"
+  "roles": "{{postroles}}"
 }
 
 ### Get messages from the queue
@@ -149,7 +178,7 @@ Content-Type: application/json
   "from": 0,
   "to": 0,
   "path": "notifications:/display/queue",
-  "roles": "@all"
+  "roles": "{{postroles}}"
 }
 
 ### Is front standby LED disabled?
@@ -159,30 +188,30 @@ Content-Type: application/json
 
 {
   "path": "settings:/kef/host/disableFrontStandbyLED",
-  "roles": "value"
+  "roles": "{{postroles}}"
 }
 
 ### GoogleCast Usage Report (Google Cast state)
-GET {{baseurl}}/api/getData?path=googlecast%3AusageReport&roles=value
+GET {{baseurl}}/api/getData?path=googlecast%3AusageReport&roles={{roles}}
 Accept: application/json
 Content-Type: application/json
 
 ### Bluetooth Usage Report (Bluetooth state)
-GET {{baseurl}}/api/getData?path=bluetooth%3Astate&roles=value
+GET {{baseurl}}/api/getData?path=bluetooth%3Astate&roles={{roles}}
 Accept: application/json
 Content-Type: application/json
 
 ### Get playlists (Returns the number 1000?)
-GET {{baseurl}}/api/getData?path=settings%3A%2Fplaylists%2FdbItemsLimit&roles=value
+GET {{baseurl}}/api/getData?path=settings%3A%2Fplaylists%2FdbItemsLimit&roles={{roles}}
 Accept: application/json
 Content-Type: application/json
 
 ### Get current DSP settings
+# roles=@all makes most sense here, otherwise you get a rows array with
+# arrays with one element in each, order dependent.
 GET {{baseurl}}/api/getRows?path=kef%3Adsp%2FeditValue&roles=%40all&from=0&to=99
 Accept: application/json
 Content-Type: application/json
-
-
 
 ### Set app analytics
 POST {{baseurl}}/api/setData
@@ -199,7 +228,7 @@ Content-Type: application/json
 }
 
 ### Get standby time
-GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fkef%2Fhost%2FstandbyMode
+GET {{baseurl}}/api/getData?roles={{roles}}&path=settings%3A%2Fkef%2Fhost%2FstandbyMode
 Accept: application/json
 Content-Type: application/json
 
@@ -222,7 +251,7 @@ Content-Type: application/json
 ### Get secondary wakeup source
 # Possible values are:
 # wakeup_default, tv, optical, coaxial, analog, bluetooth
-GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fkef%2Fhost%2FwakeUpSource
+GET {{baseurl}}/api/getData?roles={{roles}}&path=settings%3A%2Fkef%2Fhost%2FwakeUpSource
 Accept: application/json
 Content-Type: application/json
 
@@ -243,7 +272,7 @@ Content-Type: application/json
 }
 
 ### Get statup tone for sources
-GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fkef%2Fhost%2FstartupTone
+GET {{baseurl}}/api/getData?roles={{roles}}&path=settings%3A%2Fkef%2Fhost%2FstartupTone
 Accept: application/json
 Content-Type: application/json
 
@@ -262,7 +291,7 @@ Content-Type: application/json
 }
 
 ### Get cabled (vs wireless) mode
-GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fkef%2Fhost%2FcableMode
+GET {{baseurl}}/api/getData?roles={{roles}}&path=settings%3A%2Fkef%2Fhost%2FcableMode
 Accept: application/json
 Content-Type: application/json
 
@@ -283,13 +312,18 @@ Content-Type: application/json
 }
 
 ### Firmware upgrade status
-GET {{baseurl}}/api/getData?path=kef%3Afwupgrade%2Finfo&roles=value
+GET {{baseurl}}/api/getData?path=kef%3Afwupgrade%2Finfo&roles={{roles}}
 Accept: application/json
 Content-Type: application/json
 
 ### Get group members
 # Apparently this is a list of all the speakers in the group
 # And the only place to get the speaker ID of which the first segment is the model.
-GET {{baseurl}}/api/getRows?path=grouping%3Amembers&roles=%40all&from=0&to=19 
+GET {{baseurl}}/api/getRows?path=grouping%3Amembers&roles={{roles}}&from=0&to=19
+Accept: application/json
+Content-Type: application/json
+
+### Get Max Volume Value
+GET {{baseurl}}/api/getData?path=settings%3A%2Fkef%2Fhost%2FmaximumVolume&roles={{roles}}
 Accept: application/json
 Content-Type: application/json
