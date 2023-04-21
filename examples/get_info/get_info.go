@@ -22,5 +22,5 @@ func main() {
 	source, _ := speaker.GetSource()
 	fmt.Println("Source:", source)
 	powerstate, _ := speaker.GetPowerState()
-	fmt.Println("Power State:", powerstate)
+	fmt.Println("Powered on:", powerstate)
 }
