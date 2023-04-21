@@ -3,11 +3,10 @@ VS Code REST Client
 # KEF LS60 Wireless base URL
 @baseurl = http://10.0.0.93
 
-### Get Poll Queue
+### Get Poll Queue ???
 GET {{baseurl}}/api/event/pollQueue
 Accept: application/json
 Content-Type: application/json
-
 
 ### Get MAC Address
 POST {{baseurl}}/api/getData
@@ -107,7 +106,7 @@ Content-Type: application/json
   "roles": "value"
 }
 
-### Player data (large object)
+### Player data (large object if playing)
 POST {{baseurl}}/api/getData
 Accept: application/json
 Content-Type: application/json
@@ -182,6 +181,8 @@ Content-Type: application/json
 GET {{baseurl}}/api/getRows?path=kef%3Adsp%2FeditValue&roles=%40all&from=0&to=99
 Accept: application/json
 Content-Type: application/json
+
+
 
 ### Set app analytics
 POST {{baseurl}}/api/setData
@@ -281,3 +282,14 @@ Content-Type: application/json
   }
 }
 
+### Firmware upgrade status
+GET {{baseurl}}/api/getData?path=kef%3Afwupgrade%2Finfo&roles=value
+Accept: application/json
+Content-Type: application/json
+
+### Get group members
+# Apparently this is a list of all the speakers in the group
+# And the only place to get the speaker ID of which the first segment is the model.
+GET {{baseurl}}/api/getRows?path=grouping%3Amembers&roles=%40all&from=0&to=19 
+Accept: application/json
+Content-Type: application/json

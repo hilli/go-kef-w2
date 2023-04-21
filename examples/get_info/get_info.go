@@ -8,16 +8,19 @@ import (
 )
 
 func main() {
-  speaker, err := kefw2.NewSpeaker("10.0.0.93")
-  if err != nil {
-    log.Fatal(err)
-  }
+	speaker, err := kefw2.NewSpeaker("10.0.0.93")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-  fmt.Println(speaker.Name)
-  fmt.Println(speaker.Model)
-  fmt.Println(speaker.MacAddress)
-  fmt.Println(speaker.IPAddress)
-  fmt.Println(speaker.Version)
-  fmt.Println(speaker.SerialNumber)
-  fmt.Println(speaker.MacAddress)
+	fmt.Println("Name:", speaker.Name)
+	fmt.Println("Model:", speaker.Model)
+	fmt.Println("IP Address:", speaker.IPAddress)
+	fmt.Println("MAC Address:", speaker.MacAddress)
+	volume, _ := speaker.GetVolume()
+	fmt.Println("Volume:", volume)
+	source, _ := speaker.GetSource()
+	fmt.Println("Source:", source)
+	powerstate, _ := speaker.GetPowerState()
+	fmt.Println("Power State:", powerstate)
 }

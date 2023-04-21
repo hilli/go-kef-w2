@@ -3,16 +3,24 @@ package kefw2
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type KEFSpeaker struct {
-	IPAddress    string
-	Name         string
-	Model        string
-	MacAddress   string
-	Version      string
-	SerialNumber string
+	IPAddress  string
+	Name       string
+	Model      string
+	MacAddress string
+	Id         string
 }
+
+var (
+	Models = map[string]string{
+		"lsx2":   "KEF LSX II",
+		"ls502w": "KEF LS50 II Wireless",
+		"ls60w":  "KEF LS60 Wireless",
+	}
+)
 
 func NewSpeaker(IPAddress string) (KEFSpeaker, error) {
 	if IPAddress == "" {
@@ -37,6 +45,7 @@ func (s *KEFSpeaker) UpdateInfo() (err error) {
 	if err != nil {
 		return err
 	}
+	s.getModelAndId()
 	return nil
 }
 
@@ -51,18 +60,35 @@ func (s *KEFSpeaker) getMACAddress() (string, error) {
 }
 
 func (s *KEFSpeaker) getName() (string, error) {
-	var nameData []map[string]interface{}
-	data, err := s.getData("settings:/deviceName")
-	if err != nil {
-		return "", err
-	}
-	json.Unmarshal(data, &nameData)
-	return nameData[0]["string_"].(string), nil
+	return JSONStringValue(s.getData("settings:/deviceName"))
 }
 
-func (s KEFSpeaker) GetVolume() (int, error) {
+func (s *KEFSpeaker) getModelAndId() (err error) {
+	params := map[string]string{
+		"roles": "@all",
+		"from":  "0",
+		"to":    "19",
+	}
+	data, err := s.getRows("grouping:members", params)
+	if err != nil {
+		return err
+	}
+	var groupData map[string]interface{}
+	err = json.Unmarshal(data, &groupData)
+	speakersets := groupData["rows"].([]interface{})
+	for _, speakerset := range speakersets {
+		speakerset := speakerset.(map[string]interface{})
+		if speakerset["title"] == s.Name {
+			s.Id = speakerset["id"].(string)
+			modelpart := strings.Split(s.Id, "-")[0]
+			s.Model = Models[modelpart]
+		}
+	}
+	return err
+}
 
-	return 0, nil
+func (s KEFSpeaker) GetVolume() (volume int, err error) {
+	return JSONIntValue(s.getData("player:volume"))
 }
 
 func (s KEFSpeaker) SetVolume(volume int) error {
@@ -87,4 +113,18 @@ func (s KEFSpeaker) PowerOff(power bool) error {
 
 func (s KEFSpeaker) SetSource(source string) error {
 	return nil
+}
+
+func (s *KEFSpeaker) GetSource() (source string, err error) {
+	data, err := s.getData("settings:/kef/play/physicalSource")
+	return JSONStringValueByKey(data, "kefPhysicalSource", err)
+}
+
+func (s *KEFSpeaker) GetPowerState() (bool, error) {
+	data, err := s.getData("settings:/kef/host/speakerStatus")
+	powerState, err := JSONStringValueByKey(data, "kefSpeakerStatus", err)
+	if powerState == "powerOn" {
+		return true, err
+	}
+	return false, err
 }
