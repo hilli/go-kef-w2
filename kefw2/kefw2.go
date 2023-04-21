@@ -14,6 +14,18 @@ type KEFSpeaker struct {
 	Id         string
 }
 
+type Source string
+
+const (
+	SourceStandby   Source = "standby"
+	SourceOptical   Source = "optical"
+	SourceCoaxial   Source = "coaxial"
+	SourceBluetooth Source = "bluetooth"
+	SourceAux       Source = "aux"
+	SourceUsb       Source = "usb"
+	SourceWifi      Source = "wifi"
+)
+
 var (
 	Models = map[string]string{
 		"lsx2":   "KEF LSX II",
@@ -111,13 +123,16 @@ func (s KEFSpeaker) PowerOff(power bool) error {
 	return nil
 }
 
-func (s KEFSpeaker) SetSource(source string) error {
+func (s KEFSpeaker) SetSource(source Source) error {
+	fmt.Println("Source to be set:", source)
 	return nil
 }
 
-func (s *KEFSpeaker) GetSource() (source string, err error) {
+func (s *KEFSpeaker) GetSource() (source Source, err error) {
+	var src string
 	data, err := s.getData("settings:/kef/play/physicalSource")
-	return JSONStringValueByKey(data, "kefPhysicalSource", err)
+	src, err = JSONStringValueByKey(data, "kefPhysicalSource", err)
+	return Source(src), err
 }
 
 func (s *KEFSpeaker) GetPowerState() (bool, error) {
