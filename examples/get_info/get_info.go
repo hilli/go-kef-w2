@@ -19,8 +19,18 @@ func main() {
 	fmt.Println("MAC Address:", speaker.MacAddress)
 	volume, _ := speaker.GetVolume()
 	fmt.Println("Volume:", volume)
-	source, _ := speaker.GetSource()
+	source, _ := speaker.Source()
 	fmt.Println("Source:", source)
-	powerstate, _ := speaker.GetPowerState()
+	powerstate, _ := speaker.IsPoweredOn()
 	fmt.Println("Powered on:", powerstate)
+	// speaker.PowerOff()
+	// err = speaker.Unmute()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	speaker.PlayPause()
+	err = speaker.SetSource(kefw2.SourceTV)
+	if err != nil {
+		fmt.Println(err)
+	}
 }

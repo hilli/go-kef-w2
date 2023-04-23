@@ -25,7 +25,23 @@ GET {{baseurl}}/api/event/pollQueue
 Accept: application/json
 Content-Type: application/json
 
-### Get MAC Address
+### Get poll Queue ID
+GET {{baseurl}}/api/event/pollQueue?queueId=%7B35bb7b73-13aa-4e69-8c28-02e26acca869%7D&timeout=5
+Accept: application/json
+Content-Type: application/json
+
+### Get player data
+GET {{baseurl}}/api/getData?roles={{roles}}&path=player%3Aplayer%2Fdata
+Accept: application/json
+Content-Type: application/json
+
+### Get player data (large object if playing)
+GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=9&path=airable%3AplayContext%3Ahttps%3A%2F%2F8448239770.airable.io%2Fid%2Ftidal%2Ftrack%2F37944910
+Accept: application/json
+Content-Type: application/json
+
+
+### Get Primary MAC Address (Wired)
 POST {{baseurl}}/api/getData
 Accept: application/json
 Content-Type: application/json
@@ -34,6 +50,12 @@ Content-Type: application/json
   "path": "settings:/system/primaryMacAddress", 
   "roles": "{{postroles}}"
 }
+
+### Get Network Info
+GET {{baseurl}}/api/getData?path=network%3Ainfo&roles={{roles}}
+Accept: application/json
+Content-Type: application/json
+
 
 ### Get Device Name
 POST {{baseurl}}/api/getData
@@ -81,7 +103,7 @@ Content-Type: application/json
   "roles": "value",
   "value": {
     "type": "kefPhysicalSource",
-    "kefPhysicalSource": "wifi"
+    "kefPhysicalSource": "tv"
   }
 }
 
@@ -121,9 +143,23 @@ Content-Type: application/json
   "roles": "value",
   "value": {
     "type": "i32_",
-    "i32_": 0
+    "i32_": 24
   }
 }
+
+### Play/Pause media
+POST {{baseurl}}/api/setData
+Accept: application/json
+Content-Type: application/json
+
+{
+  "path":"player:player\/control",
+  "role":"activate",
+  "value": {
+    "control":"pause"
+  }
+}
+
 
 ### Song Progress
 POST {{baseurl}}/api/getData
@@ -201,7 +237,7 @@ GET {{baseurl}}/api/getData?path=bluetooth%3Astate&roles={{roles}}
 Accept: application/json
 Content-Type: application/json
 
-### Get playlists (Returns the number 1000?)
+### Get play queue items limit
 GET {{baseurl}}/api/getData?path=settings%3A%2Fplaylists%2FdbItemsLimit&roles={{roles}}
 Accept: application/json
 Content-Type: application/json

@@ -14,18 +14,6 @@ type KEFSpeaker struct {
 	Id         string
 }
 
-type Source string
-
-const (
-	SourceStandby   Source = "standby"
-	SourceOptical   Source = "optical"
-	SourceCoaxial   Source = "coaxial"
-	SourceBluetooth Source = "bluetooth"
-	SourceAux       Source = "aux"
-	SourceUsb       Source = "usb"
-	SourceWifi      Source = "wifi"
-)
-
 var (
 	Models = map[string]string{
 		"lsx2":   "KEF LSX II",
@@ -99,47 +87,53 @@ func (s *KEFSpeaker) getModelAndId() (err error) {
 	return err
 }
 
+func (s KEFSpeaker) PlayPause() error {
+	return s.setActivate("player:player/control", "control", "pause")
+}
+
 func (s KEFSpeaker) GetVolume() (volume int, err error) {
 	return JSONIntValue(s.getData("player:volume"))
 }
 
 func (s KEFSpeaker) SetVolume(volume int) error {
-	return nil
+	path := "player:volume"
+	return s.setTypedValue(path, volume)
 }
 
 func (s KEFSpeaker) Mute() error {
-	return nil
+	path := "settings:/mediaPlayer/mute"
+	return s.setTypedValue(path, true)
 }
 
 func (s KEFSpeaker) Unmute() error {
-	return nil
+	path := "settings:/mediaPlayer/mute"
+	return s.setTypedValue(path, false)
 }
 
-func (s KEFSpeaker) PowerOn(power bool) error {
-	return nil
-}
-
-func (s KEFSpeaker) PowerOff(power bool) error {
-	return nil
+// PowerOff set the speaker to standby mode
+func (s KEFSpeaker) PowerOff() error {
+	return s.SetSource(SourceStandby)
 }
 
 func (s KEFSpeaker) SetSource(source Source) error {
-	fmt.Println("Source to be set:", source)
-	return nil
+	path := "settings:/kef/play/physicalSource"
+	return s.setTypedValue(path, source)
 }
 
-func (s *KEFSpeaker) GetSource() (source Source, err error) {
-	var src string
-	data, err := s.getData("settings:/kef/play/physicalSource")
-	src, err = JSONStringValueByKey(data, "kefPhysicalSource", err)
-	return Source(src), err
+func (s *KEFSpeaker) Source() (source Source, err error) {
+	src, err2 := JSONUnmarshalValue(s.getData("settings:/kef/play/physicalSource"))
+	return src.(Source), err2
 }
 
-func (s *KEFSpeaker) GetPowerState() (bool, error) {
-	data, err := s.getData("settings:/kef/host/speakerStatus")
-	powerState, err := JSONStringValueByKey(data, "kefSpeakerStatus", err)
-	if powerState == "powerOn" {
+func (s *KEFSpeaker) IsPoweredOn() (bool, error) {
+	powerState, err := JSONUnmarshalValue(s.getData("settings:/kef/host/speakerStatus"))
+	if powerState == SpeakerStatusOn {
 		return true, err
 	}
 	return false, err
+}
+
+func (s *KEFSpeaker) SpeakerState() (SpeakerStatus, error) {
+	speakerStatus, err := JSONUnmarshalValue(s.getData("settings:/kef/host/speakerStatus"))
+	return SpeakerStatus(speakerStatus.(SpeakerStatus)), err
 }
