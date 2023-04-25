@@ -149,6 +149,9 @@ func (s KEFSpeaker) setTypedValue(path string, value any) error {
 	case SpeakerStatus:
 		myType = "kefSpeakerStatus"
 		myValue = fmt.Sprintf("\"%s\"", value.(SpeakerStatus))
+	case CableMode:
+		myType = "kefCableMode"
+		myValue = fmt.Sprintf("\"%s\"", value.(CableMode))
 	default:
 		return fmt.Errorf("type %s is not supported", theType)
 	}

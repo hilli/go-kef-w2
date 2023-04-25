@@ -71,6 +71,8 @@ func JSONUnmarshalValue(data []byte, err error) (value any, err2 error) {
 		value = Source(jsonData[0]["kefPhysicalSource"].(string))
 	case "kefSpeakerStatus":
 		value = SpeakerStatus(jsonData[0]["kefSpeakerStatus"].(string))
+	case "kefCableMode":
+		value = CableMode(jsonData[0]["kefCableMode"].(string))
 	default:
 		return nil, errors.New("Unknown type: " + tvalue)
 	}

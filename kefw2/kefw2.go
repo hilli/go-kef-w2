@@ -7,18 +7,20 @@ import (
 )
 
 type KEFSpeaker struct {
-	IPAddress  string
-	Name       string
-	Model      string
-	MacAddress string
-	Id         string
+	IPAddress       string
+	Name            string
+	Model           string
+	FirmwareVersion string
+	MacAddress      string
+	Id              string
 }
 
 var (
 	Models = map[string]string{
-		"lsx2":   "KEF LSX II",
+		"lsxii":  "KEF LSX II",
 		"ls502w": "KEF LS50 II Wireless",
 		"ls60w":  "KEF LS60 Wireless",
+		"LS60W":  "KEF LS60 Wireless",
 	}
 )
 
@@ -45,18 +47,19 @@ func (s *KEFSpeaker) UpdateInfo() (err error) {
 	if err != nil {
 		return err
 	}
-	s.getModelAndId()
+	// s.getModelAndId()
+	s.getModelAndVersion()
 	return nil
 }
 
 func (s *KEFSpeaker) getMACAddress() (string, error) {
-	var macAddressData []map[string]interface{}
-	data, err := s.getData("settings:/system/primaryMacAddress")
-	if err != nil {
-		return "", err
-	}
-	json.Unmarshal(data, &macAddressData)
-	return macAddressData[0]["string_"].(string), nil
+	return JSONStringValue(s.getData("settings:/system/primaryMacAddress"))
+}
+
+func (s *KEFSpeaker) NetworkOperationMode() (CableMode, error) {
+	cableMode, err := JSONUnmarshalValue(s.getData("settings:/kef/host/cableMode"))
+	fmt.Println("cablemode", cableMode)
+	return cableMode.(CableMode), err
 }
 
 func (s *KEFSpeaker) getName() (string, error) {
@@ -84,6 +87,17 @@ func (s *KEFSpeaker) getModelAndId() (err error) {
 			s.Model = Models[modelpart]
 		}
 	}
+	return err
+}
+
+func (s *KEFSpeaker) getModelAndVersion() error {
+	model, err := JSONStringValue(s.getData("settings:/releasetext"))
+	modelAndVersion := strings.Split(model, "_")
+	s.Model = Models[modelAndVersion[0]]
+	if s.Model == "" {
+		s.Model = modelAndVersion[0]
+	}
+	s.FirmwareVersion = modelAndVersion[1]
 	return err
 }
 

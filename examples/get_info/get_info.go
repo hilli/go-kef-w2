@@ -15,8 +15,10 @@ func main() {
 
 	fmt.Println("Name:", speaker.Name)
 	fmt.Println("Model:", speaker.Model)
+	fmt.Println("Firmware:", speaker.FirmwareVersion)
 	fmt.Println("IP Address:", speaker.IPAddress)
 	fmt.Println("MAC Address:", speaker.MacAddress)
+	fmt.Println("Network operation mode:", speaker.NetworkOperationMode)
 	volume, _ := speaker.GetVolume()
 	fmt.Println("Volume:", volume)
 	source, _ := speaker.Source()
@@ -29,7 +31,7 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 	speaker.PlayPause()
-	err = speaker.SetSource(kefw2.SourceTV)
+	err = speaker.SetSource(kefw2.SourceWifi)
 	if err != nil {
 		fmt.Println(err)
 	}

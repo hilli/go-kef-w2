@@ -363,3 +363,8 @@ Content-Type: application/json
 GET {{baseurl}}/api/getData?path=settings%3A%2Fkef%2Fhost%2FmaximumVolume&roles={{roles}}
 Accept: application/json
 Content-Type: application/json
+
+### Get firmware version
+GET {{baseurl}}/api/getData?roles={{roles}}&path=settings%3A%2Freleasetext
+Accept: application/json
+Content-Type: application/json
