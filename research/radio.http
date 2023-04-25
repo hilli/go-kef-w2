@@ -1,0 +1,33 @@
+KEF W2 radio, podcasts and (I think Tidal) is provided by https://airable.radio
+
+@baseurl = http://10.0.0.93
+
+# %40 is @ in URL encoding
+# @roles = value
+@roles = %40all
+
+# For the POST calls, do not use URL encoding
+# @postroles = value
+@postroles = @all
+
+### Get podcast list
+GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=19&path=ui%3A%2Fairablepodcasts
+
+### Get podcast feeds URL
+GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=19&path=airable%3AlinkService_airable.feeds
+
+### Get podcast feeds (List of podcasts in rows, Favorite, History, Popular, etc.)
+GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=19&path=airable%3Ahttps://8448239770.airable.io/airable/feeds
+
+### Get podcasts in favorites
+GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=19&path=airable%3Ahttps://8448239770.airable.io/airable/feeds/favorites
+
+### Get podcasts in popular
+# "rowsCount": 15960 😮
+GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=100&path=airable%3Ahttps://8448239770.airable.io/airable/feeds/popular
+
+### Get episodes & related for a (random chosen: Club Jazzaflip) podcast
+GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=19&path=airable%3Ahttps://8448239770.airable.io/id/airable/feed/7881224595010281
+
+### Get episodes for a (random chosen: Club Jazzaflip) podcast
+GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=19&path=airable%3Ahttps://8448239770.airable.io/airable/feed/7881224595010281/episodes
