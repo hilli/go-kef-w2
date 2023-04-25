@@ -47,7 +47,7 @@ func (s *KEFSpeaker) UpdateInfo() (err error) {
 	if err != nil {
 		return err
 	}
-	// s.getModelAndId()
+	s.getId()
 	s.getModelAndVersion()
 	return nil
 }
@@ -66,7 +66,7 @@ func (s *KEFSpeaker) getName() (string, error) {
 	return JSONStringValue(s.getData("settings:/deviceName"))
 }
 
-func (s *KEFSpeaker) getModelAndId() (err error) {
+func (s *KEFSpeaker) getId() (err error) {
 	params := map[string]string{
 		"roles": "@all",
 		"from":  "0",
@@ -83,8 +83,6 @@ func (s *KEFSpeaker) getModelAndId() (err error) {
 		speakerset := speakerset.(map[string]interface{})
 		if speakerset["title"] == s.Name {
 			s.Id = speakerset["id"].(string)
-			modelpart := strings.Split(s.Id, "-")[0]
-			s.Model = Models[modelpart]
 		}
 	}
 	return err
