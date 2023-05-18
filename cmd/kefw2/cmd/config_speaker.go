@@ -39,7 +39,13 @@ var speakerRemoveCmd = &cobra.Command{
 	Short: "Remove a speaker",
 	Long:  `Remove a speaker`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("remove speaker")
+		if len(args) != 1 {
+			fmt.Println("Error: missing speaker IP address")
+			return
+		}
+		if err := removeSpeaker(args[0]); err != nil {
+			fmt.Printf("Error removing speaker (%s): %s\n", args[0], err)
+		}
 	},
 }
 
@@ -48,9 +54,8 @@ var speakerListCmd = &cobra.Command{
 	Short: "List speakers",
 	Long:  `List speakers`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Speakers:")
 		for _, speaker := range speakers {
-			fmt.Printf("- %s\n", speaker.Name)
+			fmt.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
 		}
 	},
 }
@@ -65,5 +70,18 @@ func addSpeaker(host string) (err error) {
 	viper.Set("speakers", speakers)
 	fmt.Printf("Added speaker: %s (%s)\n", speaker.Name, speaker.IPAddress)
 	viper.WriteConfig()
+	return
+}
+
+func removeSpeaker(host string) (err error) {
+	for i, speaker := range speakers {
+		if speaker.IPAddress == host {
+			speakers = append(speakers[:i], speakers[i+1:]...)
+			viper.Set("speakers", speakers)
+			fmt.Printf("Removed speaker: %s (%s)\n", speaker.Name, speaker.IPAddress)
+			viper.WriteConfig()
+			return
+		}
+	}
 	return
 }
