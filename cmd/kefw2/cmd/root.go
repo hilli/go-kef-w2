@@ -34,8 +34,9 @@ import (
 )
 
 var (
-	cfgFile  string
-	speakers []kefw2.KEFSpeaker
+	cfgFile        string
+	speakers       []kefw2.KEFSpeaker
+	defaultSpeaker *kefw2.KEFSpeaker
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -77,7 +78,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", viper.ConfigFileUsed(), "config file (default is "+viper.ConfigFileUsed()+")")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", viper.ConfigFileUsed(), "config file")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -101,7 +102,16 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
+	// Unmarshal speakers
 	if err := viper.UnmarshalKey("speakers", &speakers); err != nil {
 		log.Fatal(err)
+	}
+	// Unmarshal default speaker and set it up
+	defaultSpeakerIP := viper.GetString("defaultSpeaker")
+	for _, s := range speakers {
+		if s.IPAddress == defaultSpeakerIP {
+			defaultSpeaker = &s
+			break
+		}
 	}
 }

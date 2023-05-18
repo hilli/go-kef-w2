@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/hilli/go-kef-w2/kefw2"
@@ -10,7 +11,7 @@ import (
 
 var speakerCmd = &cobra.Command{
 	Use:   "speaker",
-	Short: "Manage speakers: add, remove, list",
+	Short: "Manage speakers: add, remove, list, default",
 	Long:  `Manage speakers`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
@@ -21,6 +22,7 @@ func init() {
 	speakerCmd.AddCommand(speakerAddCmd)
 	speakerCmd.AddCommand(speakerRemoveCmd)
 	speakerCmd.AddCommand(speakerListCmd)
+	speakerCmd.AddCommand(speakerSetDefaultCmd)
 }
 
 var speakerAddCmd = &cobra.Command{
@@ -60,6 +62,21 @@ var speakerListCmd = &cobra.Command{
 	},
 }
 
+var speakerSetDefaultCmd = &cobra.Command{
+	Use:   "default",
+	Short: "Set default speaker",
+	Long:  "Set default speaker",
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) != 1 {
+			fmt.Println("Error: missing speaker IP address")
+			return
+		}
+		if err := setDefaultSpeaker(args[0]); err != nil {
+			fmt.Printf("Error setting default speaker (%s): %s\n", args[0], err)
+		}
+	},
+}
+
 func addSpeaker(host string) (err error) {
 	speaker, err := kefw2.NewSpeaker(host)
 	if err != nil {
@@ -82,6 +99,22 @@ func removeSpeaker(host string) (err error) {
 			viper.WriteConfig()
 			return
 		}
+	}
+	return
+}
+
+func setDefaultSpeaker(host string) (err error) {
+	found := false
+	for _, speaker := range speakers {
+		if speaker.IPAddress == host {
+			viper.Set("defaultSpeaker", speaker.IPAddress)
+			viper.WriteConfig()
+			found = true
+			return
+		}
+	}
+	if !found {
+		return errors.New("speaker not found")
 	}
 	return
 }
