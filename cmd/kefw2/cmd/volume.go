@@ -12,6 +12,7 @@ var volumeCmd = &cobra.Command{
 	Use:   "volume",
 	Short: "Get or adjust the volume of the speakers",
 	Long:  `Get or adjust the volume of the speakers`,
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
 			volume, _ := currentSpeaker.GetVolume()
@@ -29,20 +30,11 @@ var volumeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 	},
+	ValidArgsFunction: VolumeCompletion,
 }
 
 func init() {
 	rootCmd.AddCommand(volumeCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// volumeCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// volumeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 func parseVolume(volume string) (int, error) {
@@ -55,4 +47,8 @@ func parseVolume(volume string) (int, error) {
 		return 0, fmt.Errorf("volume must be between 0%% and 100%%")
 	}
 	return v, nil
+}
+
+func VolumeCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return []string{"0", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100"}, cobra.ShellCompDirectiveNoFileComp
 }
