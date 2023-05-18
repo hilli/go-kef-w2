@@ -4,28 +4,30 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/spf13/cobra"
 )
 
 // volumeCmd represents the volume command
 var volumeCmd = &cobra.Command{
 	Use:   "volume",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Get or adjust the volume of the speakers",
+	Long:  `Get or adjust the volume of the speakers`,
 	Run: func(cmd *cobra.Command, args []string) {
-		s, err := kefw2.NewSpeaker(os.Getenv("KEFW2_IP"))
+		if len(args) != 1 {
+			volume, _ := currentSpeaker.GetVolume()
+			fmt.Printf("Volume is: %d%%\n", volume)
+			return
+		}
+		volume, err := parseVolume(args[0])
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		volume, _ := s.GetVolume()
-		fmt.Printf("Volume is: %d%%\n", volume)
+		err = currentSpeaker.SetVolume(volume)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -41,4 +43,16 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// volumeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func parseVolume(volume string) (int, error) {
+	var v int
+	_, err := fmt.Sscanf(volume, "%d", &v)
+	if err != nil {
+		return 0, err
+	}
+	if v < 0 || v > 100 {
+		return 0, fmt.Errorf("volume must be between 0%% and 100%%")
+	}
+	return v, nil
 }

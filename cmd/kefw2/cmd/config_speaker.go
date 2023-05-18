@@ -68,7 +68,7 @@ var speakerSetDefaultCmd = &cobra.Command{
 	Long:  "Set default speaker",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			fmt.Println("Error: missing speaker IP address")
+			fmt.Printf("Default speaker is: %s (%s)\n", defaultSpeaker.Name, defaultSpeaker.IPAddress)
 			return
 		}
 		if err := setDefaultSpeaker(args[0]); err != nil {
