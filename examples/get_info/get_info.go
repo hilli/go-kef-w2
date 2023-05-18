@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	speaker, err := kefw2.NewSpeaker("10.0.0.93")
+	speaker, err := kefw2.NewSpeaker("10.0.0.143")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -18,11 +18,15 @@ func main() {
 	fmt.Println("Firmware:", speaker.FirmwareVersion)
 	fmt.Println("IP Address:", speaker.IPAddress)
 	fmt.Println("MAC Address:", speaker.MacAddress)
-	fmt.Println("Network operation mode:", speaker.NetworkOperationMode)
+	networkOpMode, _ := speaker.NetworkOperationMode()
+	fmt.Println("Network operation mode:", networkOpMode)
 	volume, _ := speaker.GetVolume()
 	fmt.Println("Volume:", volume)
 	source, _ := speaker.Source()
 	fmt.Println("Source:", source)
+	fmt.Println("Max Volume:", speaker.MaxVolume)
+	muted, _ := speaker.IsMuted()
+	fmt.Println("Muted:", muted)
 	powerstate, _ := speaker.IsPoweredOn()
 	fmt.Println("Powered on:", powerstate)
 	// speaker.PowerOff()
@@ -30,9 +34,9 @@ func main() {
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-	speaker.PlayPause()
-	err = speaker.SetSource(kefw2.SourceWifi)
-	if err != nil {
-		fmt.Println(err)
-	}
+	//speaker.PlayPause()
+	//err = speaker.SetSource(kefw2.SourceUsb)
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
 }
