@@ -66,7 +66,11 @@ func JSONUnmarshalValue(data []byte, err error) (value any, err2 error) {
 	case "string_":
 		value = jsonData[0]["string_"].(string)
 	case "bool_":
-		value = jsonData[0]["bool_"].(bool)
+		if jsonData[0]["bool_"] == "false" {
+			value = false
+		} else {
+			value = true
+		}
 	case "kefPhysicalSource":
 		value = Source(jsonData[0]["kefPhysicalSource"].(string))
 	case "kefSpeakerStatus":

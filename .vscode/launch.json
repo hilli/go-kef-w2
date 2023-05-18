@@ -1,0 +1,16 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch kefw2 config speaker add",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "cmd/kefw2/kefw2.go",
+            "args": ["config", "speaker", "add", "10.0.0.93"]
+        }
+    ]
+}

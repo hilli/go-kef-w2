@@ -2,6 +2,8 @@ VS Code REST Client
 
 # KEF LS60 Wireless base URL
 @baseurl = http://10.0.0.93
+# KEF LSX II Wireless base URL
+@baseurl = http://10.0.0.143
 
 # roles define if you get the value part of the response or the whole response
 # when you are pulling data from the speaker. setData only accepts value, sensibly enough.
@@ -347,7 +349,7 @@ Content-Type: application/json
   }
 }
 
-### Firmware upgrade status
+### Firmware upgrade status (Updates every 5 seconds, when polling)
 GET {{baseurl}}/api/getData?path=kef%3Afwupgrade%2Finfo&roles={{roles}}
 Accept: application/json
 Content-Type: application/json
@@ -366,5 +368,10 @@ Content-Type: application/json
 
 ### Get firmware version
 GET {{baseurl}}/api/getData?roles={{roles}}&path=settings%3A%2Freleasetext
+Accept: application/json
+Content-Type: application/json
+
+### Are we muted?
+GET {{baseurl}}/api/getData?roles={{roles}}&path=settings%3A%2FmediaPlayer%2Fmute
 Accept: application/json
 Content-Type: application/json

@@ -7,12 +7,13 @@ import (
 )
 
 type KEFSpeaker struct {
-	IPAddress       string
-	Name            string
-	Model           string
-	FirmwareVersion string
-	MacAddress      string
-	Id              string
+	IPAddress       string `mapstructure:"ip_address" json:"ip_address" yaml:"ip_address"`
+	Name            string `mapstructure:"name" json:"name" yaml:"name"`
+	Model           string `mapstructure:"model" json:"model" yaml:"model"`
+	FirmwareVersion string `mapstructure:"firmware_version" json:"firmware_version" yaml:"firmware_version"`
+	MacAddress      string `mapstructure:"mac_address" json:"mac_address" yaml:"mac_address"`
+	Id              string `mapstructure:"id" json:"id" yaml:"id"`
+	MaxVolume       int    `mapstructure:"max_volume" json:"max_volume" yaml:"max_volume"`
 }
 
 var (
@@ -49,6 +50,7 @@ func (s *KEFSpeaker) UpdateInfo() (err error) {
 	}
 	s.getId()
 	s.getModelAndVersion()
+	s.getMaxVolume()
 	return nil
 }
 
@@ -58,7 +60,6 @@ func (s *KEFSpeaker) getMACAddress() (string, error) {
 
 func (s *KEFSpeaker) NetworkOperationMode() (CableMode, error) {
 	cableMode, err := JSONUnmarshalValue(s.getData("settings:/kef/host/cableMode"))
-	fmt.Println("cablemode", cableMode)
 	return cableMode.(CableMode), err
 }
 
@@ -122,6 +123,12 @@ func (s KEFSpeaker) Unmute() error {
 	return s.setTypedValue(path, false)
 }
 
+func (s KEFSpeaker) IsMuted() (bool, error) {
+	path := "settings:/mediaPlayer/mute"
+	muted, err := JSONUnmarshalValue(s.getData(path))
+	return muted.(bool), err
+}
+
 // PowerOff set the speaker to standby mode
 func (s KEFSpeaker) PowerOff() error {
 	return s.SetSource(SourceStandby)
@@ -148,4 +155,11 @@ func (s *KEFSpeaker) IsPoweredOn() (bool, error) {
 func (s *KEFSpeaker) SpeakerState() (SpeakerStatus, error) {
 	speakerStatus, err := JSONUnmarshalValue(s.getData("settings:/kef/host/speakerStatus"))
 	return SpeakerStatus(speakerStatus.(SpeakerStatus)), err
+}
+
+func (s *KEFSpeaker) getMaxVolume() error {
+	path := "settings:/kef/host/maximumVolume"
+	maxVolume, err := JSONIntValue(s.getData(path))
+	s.MaxVolume = maxVolume
+	return err
 }

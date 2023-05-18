@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -19,6 +20,7 @@ type KEFPostRequest struct {
 func (s KEFSpeaker) getData(path string) ([]byte, error) {
 	// log.SetLevel(log.DebugLevel)
 	client := &http.Client{}
+	client.Timeout = 1.0 * time.Second
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/getData", s.IPAddress), nil)
 	if err != nil {
@@ -53,6 +55,7 @@ func (s KEFSpeaker) getData(path string) ([]byte, error) {
 
 func (s KEFSpeaker) getRows(path string, params map[string]string) ([]byte, error) {
 	client := &http.Client{}
+	client.Timeout = 1.0 * time.Second
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/getRows", s.IPAddress), nil)
 	if err != nil {
@@ -89,6 +92,7 @@ func (s KEFSpeaker) getRows(path string, params map[string]string) ([]byte, erro
 
 func (s KEFSpeaker) setActivate(path, item, value string) error {
 	client := &http.Client{}
+	client.Timeout = 1.0 * time.Second
 
 	jsonStr, _ := json.Marshal(
 		map[string]string{
@@ -130,6 +134,7 @@ func (s KEFSpeaker) setActivate(path, item, value string) error {
 
 func (s KEFSpeaker) setTypedValue(path string, value any) error {
 	client := &http.Client{}
+	client.Timeout = 1.0 * time.Second
 
 	var myType string
 	var myValue string
