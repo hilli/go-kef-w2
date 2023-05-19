@@ -35,7 +35,7 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 	//speaker.PlayPause()
-	//err = speaker.SetSource(kefw2.SourceUsb)
+	//err = speaker.SetSource(kefw2.SourceUSB)
 	//if err != nil {
 	//	fmt.Println(err)
 	//}

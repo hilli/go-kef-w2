@@ -10,7 +10,7 @@ const (
 	SourceOptical   Source = "optical"
 	SourceStandby   Source = "standby"
 	SourceTV        Source = "tv"
-	SourceUsb       Source = "usb"
+	SourceUSB       Source = "usb"
 	SourceWifi      Source = "wifi"
 )
 

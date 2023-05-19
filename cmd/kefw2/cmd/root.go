@@ -81,14 +81,13 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", viper.ConfigFileUsed(), "config file")
-	rootCmd.PersistentFlags().StringVarP(&currentSpeakerParam, "speaker", "s", "", "default speaker")
+	rootCmd.PersistentFlags().StringVarP(&currentSpeakerParam, "speaker", "s", "", "speaker to operate on. Default speaker will be used if not specified")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	rootCmd.AddCommand(ConfigCmd)
-	// rootCmd.AddCommand(config.SpeakerCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
