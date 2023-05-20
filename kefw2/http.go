@@ -53,6 +53,42 @@ func (s KEFSpeaker) getData(path string) ([]byte, error) {
 	return body, nil
 }
 
+func (s KEFSpeaker) getAllData(path string) ([]byte, error) {
+	// log.SetLevel(log.DebugLevel)
+	client := &http.Client{}
+	client.Timeout = 1.0 * time.Second
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/getData", s.IPAddress), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", "application/json")
+
+	q := req.URL.Query()
+	q.Add("path", path)
+	q.Add("roles", "@all")
+	req.URL.RawQuery = q.Encode()
+	fmt.Println("Request URL:", req.URL.String())
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		log.Debug("Response:", resp.StatusCode, resp.Body)
+		return nil, fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
+	}
+
+	return body, nil
+}
+
 func (s KEFSpeaker) getRows(path string, params map[string]string) ([]byte, error) {
 	client := &http.Client{}
 	client.Timeout = 1.0 * time.Second
@@ -150,7 +186,7 @@ func (s KEFSpeaker) setTypedValue(path string, value any) error {
 		myValue = fmt.Sprintf("%t", value.(bool))
 	case Source:
 		myType = "kefPhysicalSource"
-		myValue = fmt.Sprintf("\"%s\"", value.(Source))
+		myValue = string(value.(Source))
 	case SpeakerStatus:
 		myType = "kefSpeakerStatus"
 		myValue = fmt.Sprintf("\"%s\"", value.(SpeakerStatus))

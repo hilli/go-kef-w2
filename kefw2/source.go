@@ -11,7 +11,7 @@ const (
 	SourceStandby   Source = "standby"
 	SourceTV        Source = "tv"
 	SourceUSB       Source = "usb"
-	SourceWifi      Source = "wifi"
+	SourceWiFi      Source = "wifi"
 )
 
 // String returns the string representation of the source

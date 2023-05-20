@@ -10,14 +10,15 @@ import (
 
 // volumeCmd represents the volume command
 var sourceCmd = &cobra.Command{
-	Use:   "source",
-	Short: "Get or change the source of the speakers",
-	Long:  `Get or change the source of the speakers`,
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "source",
+	Aliases: []string{"src"},
+	Short:   "Get or change the source of the speakers",
+	Long:    `Get or change the source of the speakers`,
+	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
-			volume, _ := currentSpeaker.Source()
-			fmt.Printf("Source is: %s\n", volume.String())
+			source, _ := currentSpeaker.Source()
+			fmt.Printf("Source is: %s\n", source.String())
 			return
 		}
 		source, err := parseSource(args[0])
@@ -25,7 +26,7 @@ var sourceCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		err = currentSpeaker.SetSource(kefw2.Source(source))
+		err = currentSpeaker.SetSource(source)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -40,7 +41,7 @@ func init() {
 
 func parseSource(source string) (kefw2.Source, error) {
 	switch source {
-	case "analog":
+	case "analog", "aux":
 		return kefw2.SourceAux, nil
 	case "bluetooth":
 		return kefw2.SourceBluetooth, nil
@@ -55,12 +56,12 @@ func parseSource(source string) (kefw2.Source, error) {
 	case "wifi":
 		return kefw2.SourceWiFi, nil
 	case "standby":
-		return kefw2.Source(source), nil
+		return kefw2.SourceStandby, nil
 	default:
-		return "", fmt.Errorf("source must be one of: analog, bluetooth, coaxial, optical, tv, usb, wifi, standby")
+		return "", fmt.Errorf("source must be one of: analog, aux, bluetooth, coaxial, optical, tv, usb, wifi, standby")
 	}
 }
 
 func SourceCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	return []string{"analog", "bluetooth", "coaxial", "optical", "tv", "usb", "wifi", "standby"}, cobra.ShellCompDirectiveNoFileComp
+	return []string{"analog", "aux", "bluetooth", "coaxial", "optical", "tv", "usb", "wifi", "standby"}, cobra.ShellCompDirectiveNoFileComp
 }

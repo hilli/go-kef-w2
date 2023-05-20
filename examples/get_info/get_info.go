@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/hilli/go-kef-w2/kefw2"
+	"github.com/k0kubun/pp"
 )
 
 func main() {
@@ -29,6 +30,11 @@ func main() {
 	fmt.Println("Muted:", muted)
 	powerstate, _ := speaker.IsPoweredOn()
 	fmt.Println("Powered on:", powerstate)
+	pd, _ := speaker.PlayerData()
+	pp.Printf("Player data: %+v", pd)
+	// Are we currently playing?
+	isPlaying, _ := speaker.IsPlaying()
+	fmt.Print("Playing:", isPlaying)
 	// speaker.PowerOff()
 	// err = speaker.Unmute()
 	// if err != nil {

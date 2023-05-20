@@ -37,9 +37,10 @@ var speakerAddCmd = &cobra.Command{
 }
 
 var speakerRemoveCmd = &cobra.Command{
-	Use:   "remove",
-	Short: "Remove a speaker",
-	Long:  `Remove a speaker`,
+	Use:     "remove",
+	Aliases: []string{"rm", "delete"},
+	Short:   "Remove a speaker",
+	Long:    `Remove a speaker`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
 			fmt.Println("Error: missing speaker IP address")
@@ -52,9 +53,10 @@ var speakerRemoveCmd = &cobra.Command{
 }
 
 var speakerListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List speakers",
-	Long:  `List speakers`,
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List speakers",
+	Long:    `List speakers`,
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, speaker := range speakers {
 			fmt.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)

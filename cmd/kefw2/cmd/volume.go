@@ -9,10 +9,11 @@ import (
 
 // volumeCmd represents the volume command
 var volumeCmd = &cobra.Command{
-	Use:   "volume",
-	Short: "Get or adjust the volume of the speakers",
-	Long:  `Get or adjust the volume of the speakers`,
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "volume",
+	Aliases: []string{"vol"},
+	Short:   "Get or adjust the volume of the speakers",
+	Long:    `Get or adjust the volume of the speakers`,
+	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
 			volume, _ := currentSpeaker.GetVolume()

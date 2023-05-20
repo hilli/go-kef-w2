@@ -163,3 +163,11 @@ func (s *KEFSpeaker) getMaxVolume() error {
 	s.MaxVolume = maxVolume
 	return err
 }
+
+func (s *KEFSpeaker) IsPlaying() (bool, error) {
+	pd, err := s.PlayerData()
+	if err != nil {
+		return false, err
+	}
+	return pd.State == "playing", nil
+}

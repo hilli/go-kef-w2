@@ -13,8 +13,8 @@ VS Code REST Client
 
 # For the GET calls, use URL encoding
 # %40 is @ in URL encoding
-# @roles = value
-@roles = %40all
+@roles = value
+# @roles = %40all
 
 # For the POST calls, do not use URL encoding
 # @postroles = value
