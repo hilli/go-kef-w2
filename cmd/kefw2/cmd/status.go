@@ -16,18 +16,13 @@ var statusCmd = &cobra.Command{
 	Long:    `Status of the speakers`,
 	Args:    cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		status, err := currentSpeaker.SpeakerState()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		fmt.Println("State:", status)
 		source, err := currentSpeaker.Source()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		fmt.Println("Source:", source)
+
 		if source == kefw2.SourceWiFi {
 			pd, err := currentSpeaker.PlayerData()
 			if err != nil {

@@ -102,7 +102,8 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		fmt.Fprintln(os.Stderr, "Couldn't read config file:", viper.ConfigFileUsed(), " Create one by adding a speaker: `kefw2 config speaker add IP_ADDRESS`")
+		return
 	}
 	// Unmarshal speakers
 	if err := viper.UnmarshalKey("speakers", &speakers); err != nil {
