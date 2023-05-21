@@ -22,7 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -61,6 +60,7 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.AddCommand(ConfigCmd)
 	cobra.OnInitialize(initConfig)
 
 	// Find home directory.
@@ -87,7 +87,6 @@ func init() {
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	rootCmd.AddCommand(ConfigCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -102,7 +101,8 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Fprintln(os.Stderr, "Couldn't read config file:", viper.ConfigFileUsed(), " Create one by adding a speaker: `kefw2 config speaker add IP_ADDRESS`")
+		// Output here interferes with the completion cmd if there is no config file.
+		// fmt.Fprintln(os.Stderr, "Couldn't read config file:", viper.ConfigFileUsed(), " Create one by adding a speaker: `kefw2 config speaker add IP_ADDRESS`")
 		return
 	}
 	// Unmarshal speakers
@@ -126,7 +126,7 @@ func initConfig() {
 		}
 	} else {
 		if defaultSpeaker == nil {
-			log.Fatal("Default speaker not found. Set it with `kefw2 config speaker default` or specify it with the --speaker (-s) flag")
+			log.Println("Default speaker not found. Set it with `kefw2 config speaker default` or specify it with the --speaker (-s) flag")
 		}
 		currentSpeaker = defaultSpeaker
 	}

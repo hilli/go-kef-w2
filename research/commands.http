@@ -3,7 +3,7 @@ VS Code REST Client
 # KEF LS60 Wireless base URL
 @baseurl = http://10.0.0.93
 # KEF LSX II Wireless base URL
-@baseurl = http://10.0.0.143
+@baseurl = http://10.0.0.149
 
 # roles define if you get the value part of the response or the whole response
 # when you are pulling data from the speaker. setData only accepts value, sensibly enough.

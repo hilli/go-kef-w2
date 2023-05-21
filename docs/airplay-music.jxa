@@ -1,0 +1,47 @@
+#!/usr/bin/env osascript -l JavaScript
+// Using osascript, JavaScript edition, to control Apple Music
+// Finds the speaker defined in speakerToPlayOn and plays a song on it
+// via AirPlay whilst disabling all other speakers (For your own sanity)
+
+speakerToPlayOn = "Hillis Desk"
+
+Music = Application('Music')
+// Music.activate()
+console.log("Music is running: ", Music.running())
+airplayDevices = Music.airplayDevices;
+console.log("Airplay devices count:", airplayDevices.length)
+
+for (player in airplayDevices) {
+    plr = airplayDevices[player]
+    // console.log(" - ", airplayDevices[player].name())
+    if (plr.name() == speakerToPlayOn) {
+        console.log("Found speaker we want:", speakerToPlayOn)
+        console.log("Enabling", plr.name(), "as AirPlay target...")
+        plr.selected = true
+    } else {
+        console.log("Disabling", plr.name() ,"as AirPlay target...")
+        plr.selected = false
+    }
+}
+
+trackURL = "itmss://music.apple.com/dk/album/vamp/679279852?i=679280169"
+// Music.openLocation("itmss://music.apple.com/dk/album/vamp/679279852?i=679280169")
+// Music.sources.byId(73).urlTracks.byId(679280169)
+// console.log("Current track: ", Music.currentTrack.name())
+// props = Music.properties()
+
+// console.log(props)
+
+// sel = app.selection();
+// sel[0].duplicate({to: pl});
+
+// const pl = Music.UserPlaylist.make()
+// pl.name = "kefw2-test"
+// pl.shuffleEnabled = true
+// pl.repeatEnabled = false
+
+// console.log("Current track: ", Music.currentTrack.name())
+
+// Music.stop()
+// Music.nextTrack()
+// Music.play()

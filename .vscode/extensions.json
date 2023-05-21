@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "humao.rest-client",
-    "golang.go"
+    "golang.go",
+    "idleberg.applescript"
   ]
 }

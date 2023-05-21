@@ -1,0 +1,12 @@
+version: '3'
+# This is a Taskfile. See https://taskfile.dev
+
+tasks:
+  build:
+    cmds:
+      - go build -o bin/kefw2 cmd/kefw2/kefw2.go
+
+  record:
+    cmds:
+      - rm -f ~/.config/kefw2/kefw2.yaml
+      - vhs docs/kefw2.tape

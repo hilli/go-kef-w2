@@ -29,13 +29,21 @@ var statusCmd = &cobra.Command{
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			fmt.Println("Audio Transport:", pd.MediaRoles.Title)
-			fmt.Println("Artist:", pd.TrackRoles.MediaData.MetaData.Artist)
-			fmt.Println("Album:", pd.TrackRoles.MediaData.MetaData.Album)
-			fmt.Println("Track:", pd.TrackRoles.Title)
-			fmt.Println("Duration:", pd.Status.Duration)
-			fmt.Println("PlayID:", pd.PlayID.TimeStamp)
-			fmt.Println("Album Art:", pd.TrackRoles.Icon)
+			if playstate, err := currentSpeaker.IsPlaying(); err != nil {
+				fmt.Println("error getting playstate:", err)
+			} else {
+				if playstate {
+					fmt.Println("Audio Transport:", pd.MediaRoles.Title)
+					fmt.Println("Artist:", pd.TrackRoles.MediaData.MetaData.Artist)
+					fmt.Println("Album:", pd.TrackRoles.MediaData.MetaData.Album)
+					fmt.Println("Track:", pd.TrackRoles.Title)
+					fmt.Println("Duration:", pd.Status.Duration)
+					fmt.Println("PlayID:", pd.PlayID.TimeStamp)
+					fmt.Println("Album Art:", pd.TrackRoles.Icon)
+				} else {
+					fmt.Println("Audio Transport: stopped")
+				}
+			}
 		}
 	},
 }

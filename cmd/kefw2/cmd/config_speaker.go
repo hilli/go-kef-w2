@@ -82,12 +82,15 @@ var speakerSetDefaultCmd = &cobra.Command{
 func addSpeaker(host string) (err error) {
 	speaker, err := kefw2.NewSpeaker(host)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("error adding speaker: %s", err)
 	}
 	speakers = append(speakers, speaker)
 	viper.Set("speakers", speakers)
 	fmt.Printf("Added speaker: %s (%s)\n", speaker.Name, speaker.IPAddress)
+	if len(speakers) == 1 {
+		viper.Set("defaultSpeaker", speaker.IPAddress)
+		fmt.Printf("Set default speaker: %s (%s)\n", speaker.Name, speaker.IPAddress)
+	}
 	viper.WriteConfig()
 	return
 }

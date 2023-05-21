@@ -1,0 +1,37 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "go: build kefw2 cli",
+			"command": "task",
+			"args": [
+				"build"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "cd ${workspaceFolder}; task build"
+		},
+		{
+			"type": "shell",
+			"label": "vhs: Create gif from tape file",
+			"command": "task",
+			"args": [
+				"record"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "cd ${workspaceFolder}; task build"
+		}		
+	]
+}
