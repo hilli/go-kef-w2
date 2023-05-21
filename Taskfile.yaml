@@ -2,6 +2,10 @@ version: '3'
 # This is a Taskfile. See https://taskfile.dev
 
 tasks:
+  setup:
+    cmds:
+      - brew install vhs
+
   build:
     cmds:
       - go build -o bin/kefw2 cmd/kefw2/kefw2.go

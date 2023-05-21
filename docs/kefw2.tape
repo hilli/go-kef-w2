@@ -1,6 +1,8 @@
 Set Shell zsh
-Output kefw2.gif
+Output docs/kefw2.gif
+Output docs/kefw2.mp4
 Require kefw2
+Require osascript
 Set FontSize 14
 
 #Type "kefw2 completion zsh > /tmp/cmpzsh && source /tmp/cmpzsh"
@@ -17,23 +19,23 @@ Enter
 Sleep 500ms
 Type "kefw2 config speaker list"
 Enter
-Sleep 500ms
-Type "kefw2 --help"
-Enter
-Sleep 500ms
+Sleep 3ms
 Type "kefw2 status"
 Enter
-Sleep 500ms
+Sleep 2s
 Type "kefw2 source usb"
 Enter
 Sleep 500ms
 Type "kefw2 source"
 Enter
-Sleep 500ms
+Sleep 2s
 Type" kefw2 source wifi"
 Enter
 Sleep 500ms
-Type "echo Playing some music from somewhere else..."
+Type "echo Playing some music from Apple Music via AirPlay..."
+Enter
+Sleep 10ms
+Type "./docs/airplay-music.jxa"
 Enter
 Sleep 2s
 Type "kefw2 status"
