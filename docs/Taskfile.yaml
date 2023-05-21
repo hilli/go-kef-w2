@@ -1,0 +1,7 @@
+version: '3'
+tasks:
+  record:
+    desc: Record kefw2.tape actions to docs/kefw2.gif (requires vhs)
+    cmds:
+      - rm -f ~/.config/kefw2/kefw2.yaml
+      - vhs kefw2.tape

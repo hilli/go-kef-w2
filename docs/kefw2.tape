@@ -1,6 +1,6 @@
 Set Shell zsh
-Output docs/kefw2.gif
-Output docs/kefw2.mp4
+Output kefw2.gif
+Output kefw2.mp4
 Require kefw2
 Require osascript
 Set FontSize 14
@@ -26,18 +26,21 @@ Sleep 2s
 Type "kefw2 source usb"
 Enter
 Sleep 500ms
-Type "kefw2 source"
+Type "kefw2 status"
 Enter
 Sleep 2s
 Type" kefw2 source wifi"
 Enter
 Sleep 500ms
+Type "kefw2 source"
+Enter
+Sleep 2s
 Type "echo Playing some music from Apple Music via AirPlay..."
 Enter
 Sleep 10ms
-Type "./docs/airplay-music.jxa"
+Type "./airplay-music.jxa"
 Enter
-Sleep 2s
+Sleep 5s
 Type "kefw2 status"
 Enter
 Sleep 5s

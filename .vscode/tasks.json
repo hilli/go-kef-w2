@@ -22,16 +22,13 @@
 			"label": "vhs: Create gif from tape file",
 			"command": "task",
 			"args": [
-				"record"
-			],
-			"problemMatcher": [
-				"$go"
+				"docs:record"
 			],
 			"group": {
 				"kind": "build",
-				"isDefault": true
+				"isDefault": false
 			},
-			"detail": "cd ${workspaceFolder}; task build"
+			"detail": "cd ${workspaceFolder}; task docs:record"
 		}		
 	]
 }
