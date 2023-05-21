@@ -24,24 +24,12 @@ for (player in airplayDevices) {
     }
 }
 
-trackURL = "itmss://music.apple.com/dk/album/vamp/679279852?i=679280169"
-// Music.openLocation("itmss://music.apple.com/dk/album/vamp/679279852?i=679280169")
-// Music.sources.byId(73).urlTracks.byId(679280169)
-// console.log("Current track: ", Music.currentTrack.name())
-// props = Music.properties()
-
-// console.log(props)
-
-// sel = app.selection();
-// sel[0].duplicate({to: pl});
-
-// const pl = Music.UserPlaylist.make()
-// pl.name = "kefw2-test"
-// pl.shuffleEnabled = true
-// pl.repeatEnabled = false
-
-// console.log("Current track: ", Music.currentTrack.name())
-
-// Music.stop()
-// Music.nextTrack()
-// Music.play()
+Music.openLocation("itmss://music.apple.com/dk/album/vamp/679279852?i=679280169")
+console.log("Finding track...")
+Music.stop()
+const vamp = Application('Music').tracks.whose({name: 'Vamp'})[0]
+console.log("Found track:", vamp.name(), "by", vamp.artist(), "on", vamp.album())
+console.log("Revealing track...")
+Music.reveal(vamp)
+console.log("Playing track...")
+Music.play()
