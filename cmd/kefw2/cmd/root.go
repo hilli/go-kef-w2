@@ -38,6 +38,7 @@ var (
 	speakers            []kefw2.KEFSpeaker
 	defaultSpeaker      *kefw2.KEFSpeaker
 	currentSpeaker      *kefw2.KEFSpeaker
+	Version             string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -50,6 +51,14 @@ var rootCmd = &cobra.Command{
 	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
+var VersionCmd = &cobra.Command{
+	Use:  "version",
+	Long: "Print the version number of kefw2",
+	Run: func(cmd *cobra.Command, args []string) {
+		log.Info("kefw2 version: ", Version)
+	},
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -60,7 +69,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.AddCommand(ConfigCmd)
+	rootCmd.AddCommand(ConfigCmd, VersionCmd)
 	cobra.OnInitialize(initConfig)
 
 	// Find home directory.

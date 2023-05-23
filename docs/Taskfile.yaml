@@ -1,7 +1,11 @@
 version: '3'
 tasks:
   record:
-    desc: Record kefw2.tape actions to docs/kefw2.gif (requires vhs)
+    desc: Record kefw2.tape actions to docs/kefw2.gif (requires vhs, Music.app and JXA)
+    platforms: [darwin]
     cmds:
       - rm -f ~/.config/kefw2/kefw2.yaml
       - vhs kefw2.tape
+    preconditions:
+      - test -f ../bin/kefw2
+      - which vhs

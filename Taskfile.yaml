@@ -1,5 +1,5 @@
 # This is a Taskfile. See https://taskfile.dev
-# `brew install go-task` to install task runner
+# `brew install go-task` to install task runner or `go install github.com/go-task/task/v3/cmd/task@latest`
 # `task --list` to list all tasks
 # `task <taskname>` to run a task
 
@@ -8,13 +8,23 @@ version: '3'
 tasks:
   setup:
     desc: Install dependencies
+    run: once
     cmds:
       - brew install vhs
 
   build:
     desc: Build binaries
     cmds:
-      - go build -o bin/kefw2 cmd/kefw2/kefw2.go
+      - go build -ldflags="-X github.com/hilli/go-kef-w2/cmd.Version={{.GIT_COMMIT}}" -o bin/kefw2 cmd/kefw2/kefw2.go
+    alias: [b]
+    sources:
+      - cmd/kefw2/**/*.go
+      - kefw2/*.go
+    generates:
+      - bin/kefw2
+    vars:
+      GIT_COMMIT:
+        sh: git log -n 1 --format=%h
 
 includes:
   docs:
