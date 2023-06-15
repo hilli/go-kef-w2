@@ -1,0 +1,8 @@
+Website = "https://github.com/hilli/go-kef-w2/cmd/kefw2-player"
+
+[Details]
+  Icon = "Icon.png"
+  Name = "KEFW2-Player"
+  ID = "com.github.hilli.kefw2-player"
+  Version = "1.0.0"
+  Build = 3
