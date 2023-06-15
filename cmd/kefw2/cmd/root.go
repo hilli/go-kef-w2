@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -39,6 +40,7 @@ var (
 	defaultSpeaker      *kefw2.KEFSpeaker
 	currentSpeaker      *kefw2.KEFSpeaker
 	Version             string
+	BuildDate           string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -55,7 +57,9 @@ var VersionCmd = &cobra.Command{
 	Use:  "version",
 	Long: "Print the version number of kefw2",
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info("kefw2 version: ", Version)
+		fmt.Println("kefw2: Command line tool for controlling KEF's W2 platform speakers")
+		fmt.Println("Version: ", Version)
+		fmt.Println("Build date: ", BuildDate)
 	},
 }
 
