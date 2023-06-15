@@ -30,3 +30,6 @@ includes:
   docs:
     taskfile: ./docs/Taskfile.yaml
     dir: ./docs
+  player:
+    taskfile: ./cmd/kefw2-player/Taskfile.yaml
+    dir: ./cmd/kefw2-player

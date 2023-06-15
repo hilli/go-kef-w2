@@ -13,4 +13,4 @@ tasks:
    cmds:
     - fyne-cross linux -arch=amd64,arm64
     - fyne-cross windows -app-id com.github.hilli.KeFW2Player
-    - fyne-cross darwin
+    - fyne-cross darwin -arch=amd64,arm64
