@@ -17,7 +17,7 @@ var maxVolumeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
 			volume, _ := currentSpeaker.GetMaxVolume()
-			fmt.Printf("Volume is: %d%%\n", volume)
+			fmt.Printf("Max volume is: %d%%\n", volume)
 			return
 		}
 		volume, err := parseVolume(args[0])
