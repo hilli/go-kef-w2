@@ -1,4 +1,4 @@
-module kefw2-dash
+module kefw2-player
 
 go 1.20
 

@@ -3,6 +3,8 @@ package main
 import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -11,9 +13,11 @@ func main() {
 	w := a.NewWindow("Hello")
 
 	hello := widget.NewLabel("Hello Fyne!")
-	w.SetContent(container.NewVBox(
+	pb := theme.MediaPlayIcon()
+	w.SetContent(container.New(
+		layout.NewMaxLayout(),
 		hello,
-		widget.NewButton("Hi!", func() {
+		widget.NewButtonWithIcon("Hi!", pb, func() {
 			hello.SetText("Welcome :)")
 		}),
 	))
