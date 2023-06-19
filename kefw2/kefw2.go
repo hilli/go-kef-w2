@@ -50,7 +50,7 @@ func (s *KEFSpeaker) UpdateInfo() (err error) {
 	}
 	s.getId()
 	s.getModelAndVersion()
-	s.getMaxVolume()
+	s.GetMaxVolume()
 	return nil
 }
 
@@ -157,11 +157,17 @@ func (s *KEFSpeaker) SpeakerState() (SpeakerStatus, error) {
 	return SpeakerStatus(speakerStatus.(SpeakerStatus)), err
 }
 
-func (s *KEFSpeaker) getMaxVolume() error {
+func (s *KEFSpeaker) GetMaxVolume() (int, error) {
 	path := "settings:/kef/host/maximumVolume"
 	maxVolume, err := JSONIntValue(s.getData(path))
 	s.MaxVolume = maxVolume
-	return err
+	return maxVolume, err
+}
+
+func (s *KEFSpeaker) SetMaxVolume(maxVolume int) error {
+	path := "settings:/kef/host/maximumVolume"
+	s.MaxVolume = maxVolume
+	return s.setTypedValue(path, maxVolume)
 }
 
 func (s *KEFSpeaker) IsPlaying() (bool, error) {
