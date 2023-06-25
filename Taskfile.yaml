@@ -26,6 +26,18 @@ tasks:
       GIT_COMMIT:
         sh: git log -n 1 --format=%h
 
+  complete:
+    desc: Generate bash/zsh completion script
+    cmds:
+      - bin/kefw2 completion bash > /usr/local/share/bash-completion/completions/kefw2
+      - bin/kefw2 completion zsh > /usr/local/share/zsh-completions/_kefw2
+    sources:
+      - cmd/kefw2/**/*.go
+      - kefw2/*.go
+    generates:
+      - /usr/local/share/bash-completion/completions/kefw2
+      - /usr/local/share/zsh-completions/_kefw2
+
 includes:
   docs:
     taskfile: ./docs/Taskfile.yaml
