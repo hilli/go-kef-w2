@@ -5,6 +5,17 @@
 
 version: '3'
 
+vars:
+  SHELL_COMP_PREFIX:
+    sh: |
+      if [ "$(type brew2)" ]; then
+        brew --prefix
+      else
+        mkdir -p share/bash-completion/completions
+        mkdir -p share/zsh-completions
+        echo .
+      fi
+
 tasks:
   setup:
     desc: Install dependencies
@@ -15,7 +26,7 @@ tasks:
   build:
     desc: Build binaries
     cmds:
-      - go build -ldflags="-X github.com/hilli/go-kef-w2/cmd.Version={{.GIT_COMMIT}}" -o bin/kefw2 cmd/kefw2/kefw2.go
+      - go build -ldflags="-X github.com/hilli/go-kef-w2/cmd.Version={{.GIT_COMMIT}}" -o bin/kefw2{{exeExt}} cmd/kefw2/kefw2.go
     alias: [b]
     sources:
       - cmd/kefw2/**/*.go
@@ -29,14 +40,22 @@ tasks:
   complete:
     desc: Generate bash/zsh completion script
     cmds:
-      - bin/kefw2 completion bash > /usr/local/share/bash-completion/completions/kefw2
-      - bin/kefw2 completion zsh > /usr/local/share/zsh-completions/_kefw2
+      - bin/kefw2 completion bash > {{.SHELL_COMP_PREFIX}}/share/bash-completion/completions/kefw2
+      - bin/kefw2 completion zsh > {{.SHELL_COMP_PREFIX}}/share/zsh-completions/_kefw2
     sources:
       - cmd/kefw2/**/*.go
       - kefw2/*.go
     generates:
       - /usr/local/share/bash-completion/completions/kefw2
       - /usr/local/share/zsh-completions/_kefw2
+
+  all:
+    desc: Run all tasks
+    cmds:
+      - task setup
+      - task build
+      - task complete
+      # - task docs:
 
 includes:
   docs:

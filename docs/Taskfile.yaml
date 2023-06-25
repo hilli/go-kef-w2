@@ -1,7 +1,15 @@
 version: '3'
 tasks:
+  setup:
+    desc: Install dependencies
+    run: once
+    cmds:
+      - brew install vhs
+
   record:
     desc: Record kefw2.tape actions to docs/kefw2.gif (requires vhs, Music.app and JXA)
+    requires:
+      - setup
     platforms: [darwin]
     cmds:
       - rm -f ~/.config/kefw2/kefw2.yaml
