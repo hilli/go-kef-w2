@@ -62,6 +62,7 @@ var speakerListCmd = &cobra.Command{
 			fmt.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
 		}
 	},
+	ValidArgsFunction: cobra.NoFileCompletions,
 }
 
 var speakerSetDefaultCmd = &cobra.Command{
@@ -77,6 +78,7 @@ var speakerSetDefaultCmd = &cobra.Command{
 			fmt.Printf("Error setting default speaker (%s): %s\n", args[0], err)
 		}
 	},
+	ValidArgsFunction: ConfiguredSpeakersCompletion,
 }
 
 func addSpeaker(host string) (err error) {
@@ -111,7 +113,7 @@ func removeSpeaker(host string) (err error) {
 func setDefaultSpeaker(host string) (err error) {
 	found := false
 	for _, speaker := range speakers {
-		if speaker.IPAddress == host {
+		if speaker.IPAddress == host || speaker.Name == host {
 			viper.Set("defaultSpeaker", speaker.IPAddress)
 			viper.WriteConfig()
 			found = true
@@ -122,4 +124,13 @@ func setDefaultSpeaker(host string) (err error) {
 		return errors.New("speaker not found")
 	}
 	return
+}
+
+func ConfiguredSpeakersCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	result := []string{}
+	for _, speaker := range speakers {
+		result = append(result, speaker.IPAddress)
+		result = append(result, speaker.Name)
+	}
+	return result, cobra.ShellCompDirectiveNoFileComp
 }
