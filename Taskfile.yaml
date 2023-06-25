@@ -21,7 +21,7 @@ tasks:
     desc: Build binaries
     cmds:
       - go build -ldflags="-X github.com/hilli/go-kef-w2/cmd.Version={{.GIT_COMMIT}}" -o bin/kefw2{{exeExt}} cmd/kefw2/kefw2.go
-    alias: [b]
+    aliases: [b]
     sources:
       - cmd/kefw2/**/*.go
       - kefw2/*.go
@@ -33,6 +33,7 @@ tasks:
 
   complete:
     desc: Generate bash/zsh completion script
+    aliases: [c]
     cmds:
       - bin/kefw2 completion bash > {{.SHELL_COMP_PREFIX}}/share/bash-completion/completions/kefw2
       - bin/kefw2 completion zsh > {{.SHELL_COMP_PREFIX}}/share/zsh-completions/_kefw2
@@ -45,6 +46,8 @@ tasks:
 
   all:
     desc: Run all tasks
+    aliases: [a]
+    silent: true
     cmds:
       - task build
       - task complete
