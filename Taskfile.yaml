@@ -30,6 +30,7 @@ tasks:
     sources:
       - cmd/kefw2/**/*.go
       - kefw2/*.go
+      - Taskfile.yaml
     generates:
       - "{{.SHELL_COMP_PREFIX}}/share/bash-completion/completions/kefw2"
       - "{{.SHELL_COMP_PREFIX}}/share/zsh-completions/_kefw2"
