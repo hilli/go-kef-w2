@@ -8,7 +8,7 @@ version: '3'
 vars:
   SHELL_COMP_PREFIX:
     sh: |
-      if [ "$(type brew2)" ]; then
+      if [ "$(type brew)" ]; then
         brew --prefix
       else
         mkdir -p share/bash-completion/completions
@@ -17,12 +17,6 @@ vars:
       fi
 
 tasks:
-  setup:
-    desc: Install dependencies
-    run: once
-    cmds:
-      - brew install vhs
-
   build:
     desc: Build binaries
     cmds:
@@ -46,16 +40,14 @@ tasks:
       - cmd/kefw2/**/*.go
       - kefw2/*.go
     generates:
-      - /usr/local/share/bash-completion/completions/kefw2
-      - /usr/local/share/zsh-completions/_kefw2
+      - "{{.SHELL_COMP_PREFIX}}/share/bash-completion/completions/kefw2"
+      - "{{.SHELL_COMP_PREFIX}}/share/zsh-completions/_kefw2"
 
   all:
     desc: Run all tasks
     cmds:
-      - task setup
       - task build
       - task complete
-      # - task docs:
 
 includes:
   docs:
