@@ -1,6 +1,6 @@
 # go-kef-w2
 
-Library for controlling KEFs W2 platform based speakers over the network.
+Library, CLI and Apps for controlling KEFs W2 platform based speakers over the network.
 
 ## Usage
 
@@ -34,19 +34,18 @@ func main() {
 
 MIT License
 
-
 ## Command line tool
 
-### TODO
+### Plan
 
+- [x] Set volume
+- [x] Mute/unmute
+- [x] Select source
+- [x] Get status
+- [x] Turn on/off
 - [ ] Backup/restore settings to file
-- [ ] Set volume
-- [ ] Mute/unmute
-- [ ] Select source
-- [ ] Get status
 - [ ] Get settings
 - [ ] Set settings
-- [ ] Turn on/off
 
 ### Usage
 
@@ -55,7 +54,7 @@ MIT License
 
 ## Web interface & HomeKit HUB
 
-### TODO
+### Plan
 
 - [ ] Turn on/off
 - [ ] Set volume
@@ -65,3 +64,14 @@ MIT License
 - [ ] Settings page, editing (web)
 - [ ] Backup/restore settings to file download (web)
 - [ ] ?? Streaming page, playing (web)
+
+## Player
+
+UI for controlling the speakers, show whats playing etc.
+
+### Plan
+
+- [x] Cross compilation of Fyne apps
+- [ ] Input selection buttons
+- [ ] Volume/mute controll
+- [ ] Play/pause button for available targets
