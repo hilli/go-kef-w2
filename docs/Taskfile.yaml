@@ -8,7 +8,7 @@ tasks:
 
   record:
     desc: Record kefw2.tape actions to docs/kefw2.gif (requires vhs, Music.app and JXA)
-    requires:
+    deps:
       - setup
     platforms: [darwin]
     cmds:

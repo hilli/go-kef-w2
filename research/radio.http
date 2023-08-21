@@ -31,3 +31,10 @@ GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=19&path=airable%3Ahttps://
 
 ### Get episodes for a (random chosen: Club Jazzaflip) podcast
 GET {{baseurl}}/api/getRows?roles={{roles}}&from=0&to=19&path=airable%3Ahttps://8448239770.airable.io/airable/feed/7881224595010281/episodes
+
+### asda
+GET {{baseurl}}/api/getRows?from=0&roles=%40all&to=19&path=ui%3A%2Fairablepodcasts
+# Gets a "rowsRedirect" with a airable pointer
+
+### Get airable rows
+GET {{baseurl}}/api/getRows?from=0&path=airable%3AlinkService_airable.feeds&to=19&roles=%40all
