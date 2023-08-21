@@ -53,6 +53,14 @@ tasks:
       - task build
       - task complete
 
+  clean:
+    desc: Clean up
+    aliases: [x]
+    silent: true
+    cmds:
+      - rm -rf bin
+      - rm -rf share
+
 includes:
   docs:
     taskfile: ./docs/Taskfile.yaml
