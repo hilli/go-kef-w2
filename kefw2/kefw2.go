@@ -177,3 +177,13 @@ func (s *KEFSpeaker) IsPlaying() (bool, error) {
 	}
 	return pd.State == "playing", nil
 }
+
+// NextTrack works only if the speaker is playing in wifi mode
+func (s *KEFSpeaker) NextTrack() error {
+	return s.setActivate("player:player/control", "control", "next")
+}
+
+// PreviousTrack works only if the speaker is playing in wifi mode
+func (s *KEFSpeaker) PreviousTrack() error {
+	return s.setActivate("player:player/control", "control", "previous")
+}
