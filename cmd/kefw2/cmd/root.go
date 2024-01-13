@@ -29,6 +29,7 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 	log "github.com/sirupsen/logrus"
 
+	cc "github.com/ivanpirog/coloredcobra"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -66,6 +67,14 @@ var VersionCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	cc.Init(&cc.Config{
+		RootCmd:       rootCmd,
+		Headings:      cc.HiCyan + cc.Bold + cc.Underline,
+		Commands:      cc.HiYellow + cc.Bold,
+		Example:       cc.Italic,
+		ExecName:      cc.Bold,
+		Flags:         cc.Bold,
+	})
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
