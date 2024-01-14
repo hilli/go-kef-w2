@@ -44,12 +44,12 @@ var speakerDiscoverCmd = &cobra.Command{
 			return
 		}
 		for _, speaker := range newSpeakers {
+			fmt.Printf("Found speaker: %s (%s)\n", speaker.Name, speaker.IPAddress)
 			if save {
 				if err := addSpeaker(speaker.IPAddress); err != nil {
 					fmt.Printf("Error adding speaker (%s): %s\n", speaker.IPAddress, err)
 				}
 			}
-			fmt.Printf("Found speaker: %s (%s)\n", speaker.Name, speaker.IPAddress)
 		}
 	},
 }
