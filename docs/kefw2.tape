@@ -21,9 +21,12 @@ Sleep 2s
 Type "kefw2 config speaker list"
 Enter
 Sleep 3ms
-Type "kefw2 config speaker default 10.0.0.149"
+Type "kefw2 config speaker default "
+Tab@500ms 4
 Enter
-Sleep 3ms
+Sleep 200ms
+Enter
+Sleep 500ms
 Type "kefw2 status"
 Enter
 Sleep 2s
