@@ -11,7 +11,7 @@ import (
 
 var speakerCmd = &cobra.Command{
 	Use:   "speaker",
-	Short: "Manage speakers: add, remove, list, default",
+	Short: "Manage speakers: discover, add, remove, list, default",
 	Long:  `Manage speakers`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
@@ -23,6 +23,35 @@ func init() {
 	speakerCmd.AddCommand(speakerRemoveCmd)
 	speakerCmd.AddCommand(speakerListCmd)
 	speakerCmd.AddCommand(speakerSetDefaultCmd)
+	speakerCmd.AddCommand(speakerDiscoverCmd)
+	speakerDiscoverCmd.PersistentFlags().BoolP("save", "", false, "Save the discovered speakers to config file")
+}
+
+var speakerDiscoverCmd = &cobra.Command{
+	Use:   "discover",
+	Short: "Discover speakers",
+	Long:  `Discover speakers with mDNS`,
+	Run: func(cmd *cobra.Command, args []string) {
+		save, _ := cmd.Flags().GetBool("save")
+
+		newSpeakers, err := kefw2.DiscoverSpeakers()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if len(newSpeakers) == 0 {
+			fmt.Println("No speakers found")
+			return
+		}
+		for _, speaker := range newSpeakers {
+			if save {
+				if err := addSpeaker(speaker.IPAddress); err != nil {
+					fmt.Printf("Error adding speaker (%s): %s\n", speaker.IPAddress, err)
+				}
+			}
+			fmt.Printf("Found speaker: %s (%s)\n", speaker.Name, speaker.IPAddress)
+		}
+	},
 }
 
 var speakerAddCmd = &cobra.Command{
@@ -86,6 +115,9 @@ func addSpeaker(host string) (err error) {
 	if err != nil {
 		return fmt.Errorf("error adding speaker: %s", err)
 	}
+	if speakerDefined(speaker.IPAddress) {
+		return nil
+	}
 	speakers = append(speakers, speaker)
 	viper.Set("speakers", speakers)
 	fmt.Printf("Added speaker: %s (%s)\n", speaker.Name, speaker.IPAddress)
@@ -133,4 +165,13 @@ func ConfiguredSpeakersCompletion(cmd *cobra.Command, args []string, toComplete 
 		result = append(result, speaker.Name)
 	}
 	return result, cobra.ShellCompDirectiveNoFileComp
+}
+
+func speakerDefined(host string) bool {
+	for _, speaker := range speakers {
+		if speaker.IPAddress == host {
+			return true
+		}
+	}
+	return false
 }
