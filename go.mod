@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/a-h/templ v0.2.334
+	github.com/brutella/dnssd v1.2.9
 	github.com/brutella/hap v0.0.26
 	github.com/ivanpirog/coloredcobra v1.0.1
 	github.com/joho/godotenv v1.5.1
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/brutella/dnssd v1.2.9 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-chi/chi v1.5.5 // indirect
