@@ -3,7 +3,6 @@ module github.com/hilli/go-kef-w2
 go 1.21
 
 require (
-	github.com/a-h/templ v0.2.334
 	github.com/brutella/dnssd v1.2.9
 	github.com/brutella/hap v0.0.26
 	github.com/ivanpirog/coloredcobra v1.0.1
