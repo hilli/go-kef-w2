@@ -91,6 +91,6 @@ func (p PlayerResource) String() string {
 	inSeconds := p.Duration / 1000
 	minutes := inSeconds / 60
 	seconds := inSeconds % 60
-	str := fmt.Sprintf("%d:%d", minutes, seconds)
+	str := fmt.Sprintf("%d:%02d", minutes, seconds)
 	return str
 }
