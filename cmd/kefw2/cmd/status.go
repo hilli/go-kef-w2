@@ -42,8 +42,8 @@ var statusCmd = &cobra.Command{
 					fmt.Println("Artist:", pd.TrackRoles.MediaData.MetaData.Artist)
 					fmt.Println("Album:", pd.TrackRoles.MediaData.MetaData.Album)
 					fmt.Println("Track:", pd.TrackRoles.Title)
-					fmt.Println("Duration:", pd.Status.Duration)
-					fmt.Println("PlayID:", pd.PlayID.TimeStamp)
+					fmt.Println("Duration:", pd.Status)
+					// fmt.Println("PlayID:", pd.PlayID.TimeStamp)
 					fmt.Println(imageArt2ASCII(pd.TrackRoles.Icon))
 				} else {
 					fmt.Println("Audio Transport: stopped")
@@ -60,8 +60,8 @@ func init() {
 func imageArt2ASCII(imageURL string) string {
 	// Create convert options
 	convertOptions := convert.DefaultOptions
-	convertOptions.FixedWidth = 80
-	convertOptions.FixedHeight = 40
+	// convertOptions.FixedWidth = 80
+	// convertOptions.FixedHeight = 40
 
 	// Create the image converter
 	converter := convert.NewImageConverter()

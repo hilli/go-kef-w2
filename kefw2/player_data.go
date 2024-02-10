@@ -82,6 +82,16 @@ func (s *KEFSpeaker) PlayerData() (PlayerData, error) {
 		// fmt.Printf("jsonData: %+v\n", string(playersJson))
 		return PlayerData{}, fmt.Errorf("error unmarshaling player data: %s", err)
 	}
+	fmt.Printf("playersData: %+v\n", playersData)
 	playerData := playersData[0]
 	return playerData, nil
+}
+
+// String returns the duration in minutes:seconds format instead of milliseconds
+func (p PlayerResource) String() string {
+	inSeconds := p.Duration / 1000
+	minutes := inSeconds / 60
+	seconds := inSeconds % 60
+	str := fmt.Sprintf("%d:%d", minutes, seconds)
+	return str
 }
