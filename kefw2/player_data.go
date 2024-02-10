@@ -82,7 +82,6 @@ func (s *KEFSpeaker) PlayerData() (PlayerData, error) {
 		// fmt.Printf("jsonData: %+v\n", string(playersJson))
 		return PlayerData{}, fmt.Errorf("error unmarshaling player data: %s", err)
 	}
-	fmt.Printf("playersData: %+v\n", playersData)
 	playerData := playersData[0]
 	return playerData, nil
 }
