@@ -26,7 +26,6 @@ var statusCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		fmt.Println("Source:", source)
 
 		if source == kefw2.SourceWiFi {
 			pd, err := currentSpeaker.PlayerData()
@@ -38,23 +37,30 @@ var statusCmd = &cobra.Command{
 				fmt.Println("error getting playstate:", err)
 			} else {
 				if playstate {
+					// Minimalistic output
+					fmt.Println("Source:", source)
 					fmt.Println("Audio Transport:", pd.MediaRoles.Title)
 					fmt.Println("Artist:", pd.TrackRoles.MediaData.MetaData.Artist)
 					fmt.Println("Album:", pd.TrackRoles.MediaData.MetaData.Album)
 					fmt.Println("Track:", pd.TrackRoles.Title)
 					fmt.Println("Duration:", pd.Status)
-					// fmt.Println("PlayID:", pd.PlayID.TimeStamp)
-					fmt.Println(imageArt2ASCII(pd.TrackRoles.Icon))
+					// Not so minimalistic output
+					if minimal, _ := cmd.Flags().GetBool("minimal"); !minimal {
+						fmt.Print(imageArt2ASCII(pd.TrackRoles.Icon))
+					}
 				} else {
 					fmt.Println("Audio Transport: stopped")
 				}
 			}
+		} else {
+			fmt.Println("Source:", source)
 		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
+	statusCmd.PersistentFlags().BoolP("minimal", "m", false, "Minimalistic output")
 }
 
 func imageArt2ASCII(imageURL string) string {
@@ -62,6 +68,8 @@ func imageArt2ASCII(imageURL string) string {
 	convertOptions := convert.DefaultOptions
 	// convertOptions.FixedWidth = 80
 	// convertOptions.FixedHeight = 40
+	// convertOptions.FitScreen = true
+	// convertOptions.Ratio = 0.2
 
 	// Create the image converter
 	converter := convert.NewImageConverter()
