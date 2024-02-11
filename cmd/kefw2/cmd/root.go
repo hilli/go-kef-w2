@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Jens Hilligsøe
+Copyright © 2023-2024 Jens Hilligsøe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 	log "github.com/sirupsen/logrus"
@@ -40,8 +41,6 @@ var (
 	speakers            []kefw2.KEFSpeaker
 	defaultSpeaker      *kefw2.KEFSpeaker
 	currentSpeaker      *kefw2.KEFSpeaker
-	Version             string
-	BuildDate           string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -59,8 +58,17 @@ var VersionCmd = &cobra.Command{
 	Long: "Print the version number of kefw2",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("kefw2: Command line tool for controlling KEF's W2 platform speakers")
-		fmt.Println("Version: ", Version)
-		fmt.Println("Build date: ", BuildDate)
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, v := range info.Settings {
+				fmt.Println(v.Key, v.Value)
+				switch v.Key {
+				case "vcs.revision":
+					fmt.Printf("Version: %s\n", v.Value)
+				case "vcs.time":
+					fmt.Printf("Build date: %s\n", v.Value)
+				}
+			}
+		}
 	},
 }
 
@@ -68,12 +76,12 @@ var VersionCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	cc.Init(&cc.Config{
-		RootCmd:       rootCmd,
-		Headings:      cc.HiCyan + cc.Bold + cc.Underline,
-		Commands:      cc.HiYellow + cc.Bold,
-		Example:       cc.Italic,
-		ExecName:      cc.Bold,
-		Flags:         cc.Bold,
+		RootCmd:  rootCmd,
+		Headings: cc.HiCyan + cc.Bold + cc.Underline,
+		Commands: cc.HiYellow + cc.Bold,
+		Example:  cc.Italic,
+		ExecName: cc.Bold,
+		Flags:    cc.Bold,
 	})
 	err := rootCmd.Execute()
 	if err != nil {
