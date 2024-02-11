@@ -60,7 +60,6 @@ var VersionCmd = &cobra.Command{
 		fmt.Println("kefw2: Command line tool for controlling KEF's W2 platform speakers")
 		if info, ok := debug.ReadBuildInfo(); ok {
 			for _, v := range info.Settings {
-				fmt.Println(v.Key, v.Value)
 				switch v.Key {
 				case "vcs.revision":
 					fmt.Printf("Version: %s\n", v.Value)
