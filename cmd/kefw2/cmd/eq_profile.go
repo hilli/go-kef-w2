@@ -19,5 +19,5 @@ var eqProfileCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(eqProfileCmd)
+	ConfigCmd.AddCommand(eqProfileCmd)
 }

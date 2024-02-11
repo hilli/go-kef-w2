@@ -119,7 +119,15 @@ kefw2 off
 Backup the current EQ Profile
 
 ```shell
-kefw2 eq_profile > my_profile.json
+kefw2 config eq_profile > my_profile.json
+```
+
+Set the max volume limit
+
+```shell
+$ kefw2 config maxvol 65
+$ kefw2 config maxvol
+65
 ```
 
 

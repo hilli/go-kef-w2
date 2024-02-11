@@ -35,5 +35,5 @@ var maxVolumeCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(maxVolumeCmd)
+	ConfigCmd.AddCommand(maxVolumeCmd)
 }
