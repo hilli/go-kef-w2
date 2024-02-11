@@ -43,9 +43,11 @@ func main() {
 - [x] Turn on/off
 - [x] Track next/previous
 - [x] Discover speakers automatically
+- [x] Display cover art in ASCII (wifi media)
+- [x] Backup speaker settings/eq profiles to file
+- [ ] Restore speaker settings/eq profiles to file
 - [ ] Play Podcasts/Radio
-- [ ] Play titles from built-in music streaming services (Tidal, Qobus)
-- [ ] Backup/restore speaker settings/eq profiles to file
+- [ ] Play titles from built-in music streaming services (Amazon Music, Deezer, Qobus, Spotify, Tidal)
 
 ### Usage
 
@@ -114,6 +116,13 @@ Turn the speakers off
 kefw2 off
 ```
 
+Backup the current EQ Profile
+
+```shell
+kefw2 eq_profile > my_profile.json
+```
+
+
 All with tab completion available of the options.
 
 ## Player
@@ -142,7 +151,7 @@ Not there yet.
 - [ ] Status page, refreshing, display artwork and track info in wifi mode (web)
 - [ ] Settings page, editing (web)
 - [ ] Backup/restore settings to file download (web)
-- [ ] ?? Streaming page, playing Tidal, Qobus, podcasts, radio (web)
+- [ ] ?? Streaming page, playing Tidal, Qobus, podcasts, radio, etc (web)
 
 ## License
 

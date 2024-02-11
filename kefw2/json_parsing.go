@@ -77,6 +77,16 @@ func JSONUnmarshalValue(data []byte, err error) (value any, err2 error) {
 		value = SpeakerStatus(jsonData[0]["kefSpeakerStatus"].(string))
 	case "kefCableMode":
 		value = CableMode(jsonData[0]["kefCableMode"].(string))
+	case "kefEqProfileV2":
+		// Unmarshal the EQProfileV2 part of the JSON data.
+		// But turn the relevant part of the jsonData into json again first.
+		var eqProfile EQProfileV2
+		eqPJSON, _ := json.Marshal(jsonData[0]["kefEqProfileV2"])
+		err2 = json.Unmarshal(eqPJSON, &eqProfile)
+		if err2 != nil {
+			return nil, err2
+		}
+		value = eqProfile
 	default:
 		return nil, errors.New("Unknown type: " + tvalue)
 	}
