@@ -3,29 +3,29 @@ package kefw2
 import "encoding/json"
 
 type EQProfileV2 struct {
-	SubwooferCount     int     `json:"subwooferCount"` // 0, 1, 2
-	TrebleAmount       float32 `json:"trebleAmount"`
-	DeskMode           bool    `json:"deskMode"`
-	BassExtension      string  `json:"bassExtension"` // less, standard, more
-	HighPassMode       bool    `json:"highPassMode"`
 	AudioPolarity      string  `json:"audioPolarity"`
-	IsExpertMode       bool    `json:"isExpertMode"`
-	DeskModeSetting    int     `json:"deskModeSetting"`
-	SubwooferPreset    string  `json:"subwooferPreset"`
-	HighPassModeFreq   int     `json:"highPassModeFreq"`
-	WallModeSetting    float32 `json:"wallModeSetting"`
 	Balance            int     `json:"balance"`
-	SubEnableStereo    bool    `json:"subEnableStereo"`
-	SubwooferPolarity  string  `json:"subwooferPolarity"`
-	SubwooferGain      int     `json:"subwooferGain"`
+	BassExtension      string  `json:"bassExtension"` // less, standard, more
+	DeskMode           bool    `json:"deskMode"`
+	DeskModeSetting    int     `json:"deskModeSetting"`
+	HighPassMode       bool    `json:"highPassMode"`
+	HighPassModeFreq   int     `json:"highPassModeFreq"`
+	IsExpertMode       bool    `json:"isExpertMode"`
 	IsKW1              bool    `json:"isKW1"`
 	PhaseCorrection    bool    `json:"phaseCorrection"`
-	WallMode           bool    `json:"wallMode"`
 	ProfileId          string  `json:"profileId"`
 	ProfileName        string  `json:"profileName"`
+	SubEnableStereo    bool    `json:"subEnableStereo"`
 	SubOutLPFreq       float32 `json:"subOutLPFreq"`
-	SubwooferOutHotfix bool    `json:"subwooferOutHotfix"`
+	SubwooferCount     int     `json:"subwooferCount"` // 0, 1, 2
+	SubwooferGain      int     `json:"subwooferGain"`
 	SubwooferOut       bool    `json:"subwooferOut"`
+	SubwooferOutHotfix bool    `json:"subwooferOutHotfix"`
+	SubwooferPolarity  string  `json:"subwooferPolarity"`
+	SubwooferPreset    string  `json:"subwooferPreset"`
+	TrebleAmount       float32 `json:"trebleAmount"`
+	WallMode           bool    `json:"wallMode"`
+	WallModeSetting    float32 `json:"wallModeSetting"`
 }
 
 // GetEQProfileV2 returns the current EQProfileV2 for the speaker
