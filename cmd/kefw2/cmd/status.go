@@ -64,6 +64,9 @@ func init() {
 }
 
 func imageArt2ASCII(imageURL string) string {
+	if imageURL == "" {
+		return ""
+	}
 	// Create convert options
 	convertOptions := convert.DefaultOptions
 	// convertOptions.FixedWidth = 80
