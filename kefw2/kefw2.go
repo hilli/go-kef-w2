@@ -188,14 +188,25 @@ func (s *KEFSpeaker) PreviousTrack() error {
 	return s.setActivate("player:player/control", "control", "previous")
 }
 
+// PlayerData returns the current song progress as a string: "minutes:seconds"
 func (s *KEFSpeaker) SongProgress() (string, error) {
-	path := "player:player/data/playTime"
-	data, err := s.getData(path)
-	playMs, err := JSONIntValue(data, err)
+	playMs, err := s.SongProgressMS()
 	if err != nil {
 		fmt.Println("err", err)
 		return "0:00", err
 	}
 	playTime := fmt.Sprintf("%d:%02d", playMs/60000, (playMs/1000)%60)
 	return playTime, err
+}
+
+// SongProgressMS returns the current song progress in milliseconds
+func (s *KEFSpeaker) SongProgressMS() (int, error) {
+	path := "player:player/data/playTime"
+	data, err := s.getData(path)
+	playMS, err := JSONIntValue(data, err)
+	if err != nil {
+		fmt.Println("err", err)
+		return 0, err
+	}
+	return playMS, err
 }
