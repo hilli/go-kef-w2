@@ -40,7 +40,11 @@ func JSONIntValue(data []byte, err error) (value int, err2 error) {
 	if err2 != nil {
 		return 0, err
 	}
-	fvalue, _ := jsonData[0]["i32_"].(float64)
+	jval := jsonData[0]["i32_"]
+	if jval == nil {
+		jval = jsonData[0]["i64_"]
+	}
+	fvalue, _ := jval.(float64)
 	return int(fvalue), nil
 }
 

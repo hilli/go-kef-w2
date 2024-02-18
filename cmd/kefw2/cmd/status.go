@@ -37,13 +37,14 @@ var statusCmd = &cobra.Command{
 				fmt.Println("error getting playstate:", err)
 			} else {
 				if playstate {
+					playTime, _ := currentSpeaker.SongProgress()
 					// Minimalistic output
 					fmt.Println("Source:", source)
 					fmt.Println("Audio Transport:", pd.MediaRoles.Title)
 					fmt.Println("Artist:", pd.TrackRoles.MediaData.MetaData.Artist)
 					fmt.Println("Album:", pd.TrackRoles.MediaData.MetaData.Album)
 					fmt.Println("Track:", pd.TrackRoles.Title)
-					fmt.Println("Duration:", pd.Status)
+					fmt.Printf("Duration: %s/%s\n", playTime, pd.Status)
 					// Not so minimalistic output
 					if minimal, _ := cmd.Flags().GetBool("minimal"); !minimal {
 						fmt.Print(imageArt2ASCII(pd.TrackRoles.Icon))

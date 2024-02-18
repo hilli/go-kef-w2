@@ -88,9 +88,6 @@ func (s *KEFSpeaker) PlayerData() (PlayerData, error) {
 
 // String returns the duration in minutes:seconds format instead of milliseconds
 func (p PlayerResource) String() string {
-	inSeconds := p.Duration / 1000
-	minutes := inSeconds / 60
-	seconds := inSeconds % 60
-	str := fmt.Sprintf("%d:%02d", minutes, seconds)
+	str := fmt.Sprintf("%d:%02d", p.Duration/60000, (p.Duration/1000)%60)
 	return str
 }
