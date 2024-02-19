@@ -14,6 +14,7 @@ before:
     - go mod tidy
     # you may remove this if you don't need go generate
     # - go generate ./...
+    - /bin/sh -c "set -e; mkdir -p completions; go run cmd/kefw2/kefw2.go completion bash > completions/kefw2.bash; go run cmd/kefw2/kefw2.go completion zsh > completions/kefw2.zsh; go run cmd/kefw2/kefw2.go completion fish > completions/kefw2.fish"
 
 builds:
   - id: kefw2
@@ -66,15 +67,19 @@ brews:
     description: "Command for handling KEF W2 platform speakers (LSX Wireless II (LT)/LS50 Wireless II/LS60 Wireless)"
     license: "MIT"
     url_template: "https://github.com/hilli/go-kef-w2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    skip_upload: true # for now. Should be stored in dist folder
+    skip_upload: false
     repository:
       owner: hilli
       name: homebrew-tap
       branch: main
-
       pull_request:
         enabled: true
         draft: true
+    extra_install: |-
+      bash_completion.install "completions/kefw2.bash" => "kefw2"
+      zsh_completion.install "completions/kefw2.zsh" => "_kefw2"
+      fish_completion.install "completions/kefw2.fish"
+
 changelog:
   sort: asc
   filters:
