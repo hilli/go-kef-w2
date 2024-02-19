@@ -3,12 +3,12 @@ module github.com/hilli/go-kef-w2
 go 1.21
 
 require (
-	github.com/a-h/templ v0.2.334
 	github.com/brutella/dnssd v1.2.9
 	github.com/brutella/hap v0.0.26
 	github.com/ivanpirog/coloredcobra v1.0.1
 	github.com/joho/godotenv v1.5.1
 	github.com/k0kubun/pp v3.0.1+incompatible
+	github.com/qeesung/image2ascii v1.0.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.15.0
@@ -29,7 +29,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
-	github.com/qeesung/image2ascii v1.0.1 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
