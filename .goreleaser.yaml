@@ -54,6 +54,10 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+    files:
+      - README.md
+      - LICENSE
+      - completions/*
 
 brews:
   - name: kefw2
@@ -74,7 +78,7 @@ brews:
       branch: main
       pull_request:
         enabled: true
-        draft: true
+        draft: false
     extra_install: |-
       bash_completion.install "completions/kefw2.bash" => "kefw2"
       zsh_completion.install "completions/kefw2.zsh" => "_kefw2"
