@@ -2,6 +2,8 @@
 
 CLI, library and apps (planed) for controlling KEFs W2 platform based speakers over the network.
 
+![kefw2 demo](https://vhs.charm.sh/vhs-4OfCLUFxGHJCmZutvmaRYJ.gif)
+
 ## Command line tool
 
 ### Installation

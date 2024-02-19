@@ -1,15 +1,16 @@
 Set Shell zsh
 Set FontSize 14
 Set WindowBar Colorful
-Set Height 800
+Set Height 1000
+Set Width 800
 Output kefw2.gif
 Output kefw2.mp4
-Output kefw2.webm
+#Output kefw2.webm
 Require kefw2
 Require osascript
 
 Hide
-Type@0ms "kefw2 completion zsh > /tmp/cmpzsh && source ~/.zshrc && source /tmp/cmpzsh && clear"
+Type@0ms "source ~/.zshrc && clear"
 Enter
 Show
 Type "kefw2 --help"
