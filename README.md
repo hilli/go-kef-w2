@@ -1,53 +1,30 @@
 # go-kef-w2
 
-Library, CLI and Apps for controlling KEFs W2 platform based speakers over the network.
-
-## Library
-
-### Usage
-
-```go
-package main
-
-import (
-  "fmt"
-  "log"
-
-  "github.com/hilli/go-kef-w2/kefw2"
-)
-
-func main() {
-  speaker, err := kef.NewSpeaker("10.0.0.93")
-  if err != nil {
-    log.Fatal(err)
-  }
-
-  fmt.Println(speaker.Name)
-  fmt.Println(speaker.Model)
-  fmt.Println(speaker.MacAddress)
-  fmt.Println(speaker.IPAddress)
-  fmt.Println(speaker.Version)
-  fmt.Println(speaker.SerialNumber)
-  fmt.Println(speaker.MacAddress)
-}
-```
+CLI, library and apps (planed) for controlling KEFs W2 platform based speakers over the network.
 
 ## Command line tool
 
-### Plan
+### Installation
 
-- [x] Set volume
-- [x] Mute/unmute
-- [x] Select source
-- [x] Get status
-- [x] Turn on/off
-- [x] Track next/previous
-- [x] Discover speakers automatically
-- [x] Display cover art in ASCII (wifi media)
-- [x] Backup speaker settings/eq profiles to file
-- [ ] Restore speaker settings/eq profiles to file
-- [ ] Play Podcasts/Radio
-- [ ] Play titles from built-in music streaming services (Amazon Music, Deezer, Qobus, Spotify, Tidal)
+#### General
+
+Grap a version for your OS from the [releases](https://github.com/hilli/go-kef-w2/releases) page.
+
+#### macOS
+
+Install with Homebrew:
+
+```shell
+brew install hilli/tap/kefw2
+```
+
+#### Linux
+
+Install with Homebrew:
+
+```shell
+brew install hilli/tap/kefw2
+```
 
 ### Usage
 
@@ -63,7 +40,7 @@ If you only have one set of speakers, then that will be the default, otherwise c
 kefw2 config speaker default <name or IP>
 ```
 
-If you want to controll a speaker that is not the default use the `-s` global flag
+If you want to controll a speaker that is not the default use the `-s` global flag. Eksample:
 
 ```shell
 kefw2 -s 10.0.0.93 status
@@ -125,17 +102,62 @@ kefw2 config eq_profile > my_profile.json
 Set the max volume limit
 
 ```shell
-$ kefw2 config maxvol 65
-$ kefw2 config maxvol
-65
+kefw2 config maxvol 65
 ```
 
+All with tab completion available of the options, where applicable.
 
-All with tab completion available of the options.
+### Plan
+
+- [x] Set volume
+- [x] Mute/unmute
+- [x] Select source
+- [x] Get status
+- [x] Turn on/off
+- [x] Track next/previous
+- [x] Discover speakers automatically
+- [x] Display cover art in ASCII (wifi media)
+- [x] Backup speaker settings/eq profiles to file
+- [ ] Restore speaker settings/eq profiles to file
+- [ ] Play Podcasts/Radio
+- [ ] Play titles from built-in music streaming services (Amazon Music, Deezer, Qobus, Spotify, Tidal)
+
+## Library
+
+### Usage
+
+```go
+package main
+
+import (
+  "fmt"
+  "log"
+
+  "github.com/hilli/go-kef-w2/kefw2"
+)
+
+func main() {
+  speaker, err := kefw2.NewSpeaker("10.0.0.93")
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  fmt.Println(speaker.Name)
+  fmt.Println(speaker.Model)
+  fmt.Println(speaker.MacAddress)
+  fmt.Println(speaker.IPAddress)
+  fmt.Println(speaker.Version)
+  fmt.Println(speaker.SerialNumber)
+  fmt.Println(speaker.MacAddress)
+}
+```
 
 ## Player
 
 UI for controlling the speakers, show whats playing etc.
+
+The idea is to create a [Fyne](https://fyne.io/) App that will let you select inputs, show whats playing etc.
+My own needs is to have a Raspberry Pi with a touch screen interact with the speakers and not least control the brigtness of the screen.
 
 ### Plan
 
