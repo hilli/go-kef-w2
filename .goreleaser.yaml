@@ -69,7 +69,7 @@ brews:
     skip_upload: true # for now. Should be stored in dist folder
     repository:
       owner: hilli
-      name: homebrew-hilli
+      name: homebrew-tap
       branch: main
 
       pull_request:
