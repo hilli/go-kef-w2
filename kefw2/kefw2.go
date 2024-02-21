@@ -16,6 +16,20 @@ type KEFSpeaker struct {
 	MaxVolume       int    `mapstructure:"max_volume" json:"max_volume" yaml:"max_volume"`
 }
 
+type KEFGrouping struct {
+	GroupingMembers []KEFGroupingmember `json:"groupingMember"`
+}
+
+type KEFGroupingmember struct {
+	Master   KEFGroupingData `json:"master`
+	Follower KEFGroupingData `json:"folloer"`
+}
+
+type KEFGroupingData struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 var (
 	Models = map[string]string{
 		"lsxii":  "KEF LSX II",
@@ -77,13 +91,12 @@ func (s *KEFSpeaker) getId() (err error) {
 	if err != nil {
 		return err
 	}
-	var groupData map[string]interface{}
+	groupData := KEFGrouping{}
 	err = json.Unmarshal(data, &groupData)
-	speakersets := groupData["rows"].([]interface{})
+	speakersets := groupData.GroupingMembers
 	for _, speakerset := range speakersets {
-		speakerset := speakerset.(map[string]interface{})
-		if speakerset["title"] == s.Name {
-			s.Id = speakerset["id"].(string)
+		if speakerset.Master.Name == s.Name {
+			s.Id = speakerset.Master.Id
 		}
 	}
 	return err
