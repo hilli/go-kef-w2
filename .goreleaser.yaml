@@ -84,6 +84,60 @@ brews:
       zsh_completion.install "completions/kefw2.zsh" => "_kefw2"
       fish_completion.install "completions/kefw2.fish"
 
+scoops:
+  - repository:
+      owner: hilli
+      name: scoop-bucket
+    folder: bucket
+    homepage: https://github.com/hilli/go-kef-w2
+    description: Command for handling KEF W2 platform speakers (LSX Wireless II (LT)/LS50 Wireless II/LS60 Wireless)
+    license: MIT
+
+nfpms:
+  - file_name_template: "{{ .ConventionalFileName }}"
+    id: packages
+    homepage: https://github.com/hilli/go-kef-w2
+    description: |-
+      Command for handling KEF W2 platform speakers (LSX Wireless II (LT)/LS50 Wireless II/LS60 Wireless)
+    maintainer: Jens Hilligsøe <kefw2@hilli.dk>
+    license: MIT
+    vendor: Jens Hilligsøe
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: ./completions/kefw2.bash
+        dst: /usr/share/bash-completion/completions/kefw2
+        file_info:
+          mode: 0644
+      - src: ./completions/kefw2.fish
+        dst: /usr/share/fish/vendor_completions.d/kefw2.fish
+        file_info:
+          mode: 0644
+      - src: ./completions/kefw2.zsh
+        dst: /usr/share/zsh/vendor-completions/_kefw2
+        file_info:
+          mode: 0644
+      - src: ./LICENSE
+        dst: /usr/share/doc/kefw2/copyright
+        file_info:
+          mode: 0644
+    formats:
+      - apk
+      - deb
+      - rpm
+      - archlinux
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - changelog-file-missing-in-native-package
+
+announce:
+  mastodon:
+    enabled: true
+    # Default: '{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}'
+    # message_template: 'kefw2 {{.Tag}} is out! Get it at {{.ReleaseURL}}'
+    server: https://mastodon.social
+
 changelog:
   sort: asc
   filters:
