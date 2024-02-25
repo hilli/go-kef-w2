@@ -7,9 +7,9 @@ import (
 	"github.com/brutella/dnssd"
 )
 
-func DiscoverSpeakers() ([]KEFSpeaker, error) {
+func DiscoverSpeakers(timeout int) ([]KEFSpeaker, error) {
 	discoveredSpeakers := []KEFSpeaker{}
-	ips, err := discoverIPs()
+	ips, err := discoverIPs(timeout)
 	if err != nil {
 		return discoveredSpeakers, err
 	}
@@ -20,13 +20,24 @@ func DiscoverSpeakers() ([]KEFSpeaker, error) {
 		}
 		discoveredSpeakers = append(discoveredSpeakers, speaker)
 	}
+
+	// Service Discovery may have the same speakers multiple times. Lets filter it down to single instance
+	found := map[string]KEFSpeaker{}
+	for _, s := range discoveredSpeakers {
+		found[s.IPAddress] = s
+	}
+	discoveredSpeakers = []KEFSpeaker{}
+	for _, s := range found {
+		discoveredSpeakers = append(discoveredSpeakers, s)
+	}
+
 	return discoveredSpeakers, nil
 }
 
-func discoverIPs() ([]string, error) {
+func discoverIPs(timeout int) ([]string, error) {
 	ips := []string{}
-	waitForDiscoveryTimeout := 1 * time.Second
-	discoveryTimeout := 1 * time.Second
+	waitForDiscoveryTimeout := time.Duration(timeout) * time.Second
+	discoveryTimeout := time.Duration(timeout) * time.Second
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
 		time.Duration(discoveryTimeout))
