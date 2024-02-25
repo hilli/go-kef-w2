@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/qeesung/image2ascii/convert"
 	"github.com/spf13/cobra"
 )
@@ -26,8 +25,12 @@ var statusCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
-
-		if source == kefw2.SourceWiFi {
+		canControlPlayback, err := currentSpeaker.CanControlPlayback()
+		if err != nil {
+			fmt.Printf("Can't query source: %s\n", err.Error())
+			os.Exit(1)
+		}
+		if canControlPlayback {
 			pd, err := currentSpeaker.PlayerData()
 			if err != nil {
 				fmt.Println(err)
@@ -44,7 +47,11 @@ var statusCmd = &cobra.Command{
 					fmt.Println("Artist:", pd.TrackRoles.MediaData.MetaData.Artist)
 					fmt.Println("Album:", pd.TrackRoles.MediaData.MetaData.Album)
 					fmt.Println("Track:", pd.TrackRoles.Title)
-					fmt.Printf("Duration: %s/%s\n", playTime, pd.Status)
+					if pd.Status.Duration == 0 {
+						fmt.Printf("Duration: %s\n", playTime)
+					} else {
+						fmt.Printf("Duration: %s/%s\n", playTime, pd.Status)
+					}
 					// Not so minimalistic output
 					if minimal, _ := cmd.Flags().GetBool("minimal"); !minimal {
 						fmt.Print(imageArt2ASCII(pd.TrackRoles.Icon))
