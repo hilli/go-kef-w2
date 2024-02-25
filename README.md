@@ -55,7 +55,7 @@ Setup the speakers
 # Auto discovery
 kefw2 config speaker discover --save
 # Manually add a speaker
-kefw2 config speaker add 10.0.0.93
+kefw2 config speaker add 10.0.0.149
 ```
 
 If you only have one set of speakers, then that will be the default, otherwise configure that with
