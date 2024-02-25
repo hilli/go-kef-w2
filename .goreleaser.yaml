@@ -96,7 +96,8 @@ scoops:
       - Write-Host 'Running postinstall command'
       - if(!(Test-Path $PROFILE.CurrentUserCurrentHost -PathType Leaf)) { New-Item -Path $PROFILE.CurrentUserCurrentHost -ItemType file -Force }
       - $scoopPrefix = $(scoop prefix go-kef-w2)
-      - Add-Content -Path $PROFILE.CurrentUserCurrentHost -Value ". $scoopPrefix\completions\kefw2.ps1"
+      - $profilecontent = Get-Content $PROFILE.CurrentUserCurrentHost
+      - if(-not($profilecontent | select-string -pattern "$scoopPrefix\completions\kefw2.ps1" -CaseSensitive -SimpleMatch)) { Add-Content -Path $PROFILE.CurrentUserCurrentHost -Value ". $scoopPrefix\completions\kefw2.ps1" }
 
 nfpms:
   - file_name_template: "{{ .ConventionalFileName }}"
