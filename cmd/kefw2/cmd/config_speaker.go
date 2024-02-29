@@ -42,7 +42,16 @@ var speakerDiscoverCmd = &cobra.Command{
 			return
 		}
 		if len(newSpeakers) == 0 {
-			fmt.Println("No new speakers found")
+			fmt.Println("No new speakers found.")
+			fmt.Println("Make sure the speakers are connected to the same network as this computer.")
+			fmt.Println("Try extending the discovery timeout with the --timeout flag.")
+			fmt.Println("Ie:")
+			fmt.Println()
+			fmt.Println("    kefw2 speaker discover --timeout 5 [--save]")
+			fmt.Println()
+			fmt.Println("Or try adding the speaker manually with:")
+			fmt.Println()
+			fmt.Println("    kefw2 config speaker add <ip-address>")
 			return
 		}
 		for _, speaker := range newSpeakers {
