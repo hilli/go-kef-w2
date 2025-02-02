@@ -41,7 +41,7 @@ builds:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser -X main.treeState={{ .IsGitDirty }}
       
 archives:
-  - format: tar.gz
+  - formats: [ tar.gz ]
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       {{ .ProjectName }}_
@@ -74,7 +74,7 @@ brews:
     repository:
       owner: hilli
       name: homebrew-tap
-      branch: main
+      branch: release-go-kef-w2-{{.Tag}}
       pull_request:
         enabled: true
         draft: false
