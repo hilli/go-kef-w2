@@ -3,6 +3,7 @@ package kefw2
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
 func JSONStringValue(data []byte, err error) (value string, err2 error) {
@@ -51,6 +52,7 @@ func JSONIntValue(data []byte, err error) (value int, err2 error) {
 func JSONUnmarshalValue(data []byte, err error) (value any, err2 error) {
 	// Easing the call chain
 	if err != nil {
+		fmt.Printf("Trouble talking to the speakers: %v", err)
 		return 0, err
 	}
 
