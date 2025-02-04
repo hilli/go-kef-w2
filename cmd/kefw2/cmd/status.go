@@ -2,14 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"net/http"
 	"os"
 
 	"github.com/hilli/go-kef-w2/kefw2"
-	"github.com/qeesung/image2ascii/convert"
+	"github.com/hilli/icat"
 	"github.com/spf13/cobra"
 )
 
@@ -47,7 +45,7 @@ var statusCmd = &cobra.Command{
 					fmt.Printf("Duration: %s/%s\n", playTime, pd.Status)
 					// Not so minimalistic output
 					if minimal, _ := cmd.Flags().GetBool("minimal"); !minimal {
-						fmt.Print(imageArt2ASCII(pd.TrackRoles.Icon))
+						icat.PrintImageURL(pd.TrackRoles.Icon)
 					}
 				} else {
 					fmt.Println("Audio Transport: stopped")
@@ -64,43 +62,3 @@ func init() {
 	statusCmd.PersistentFlags().BoolP("minimal", "m", false, "Minimalistic output")
 }
 
-func imageArt2ASCII(imageURL string) string {
-	if imageURL == "" {
-		return ""
-	}
-	// Create convert options
-	convertOptions := convert.DefaultOptions
-	// convertOptions.FixedWidth = 80
-	// convertOptions.FixedHeight = 40
-	// convertOptions.FitScreen = true
-	// convertOptions.Ratio = 0.2
-
-	// Create the image converter
-	converter := convert.NewImageConverter()
-
-	// Fetch image from URL into an image instance
-	artImage, err := fetchImageFromURL(imageURL)
-	if err != nil {
-		fmt.Println("Error fetching image:", err)
-		return ""
-	}
-
-	// Convert image to ASCII string
-	asciiString := converter.Image2ASCIIString(artImage, &convertOptions)
-	return asciiString
-}
-
-func fetchImageFromURL(imageURL string) (image.Image, error) {
-	resp, err := http.Get(imageURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	img, _, err := image.Decode(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return img, nil
-}
