@@ -45,6 +45,12 @@ tasks:
             echo .
           fi
 
+  run:
+    desc: Run kefw2
+    aliases: [r]
+    cmds:
+      - go run -ldflags="-X github.com/hilli/go-kef-w2/cmd.Version=go-kef-w2-git" cmd/kefw2/kefw2.go {{.CLI_ARGS}}
+
   all:
     desc: Run all tasks
     aliases: [a]
