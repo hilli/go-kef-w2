@@ -7,14 +7,14 @@
 
 # More examples at https://github.com/goreleaser/goreleaser/blob/main/.goreleaser.yaml
 
-version: 1
+version: 2
 
 before:
   hooks:
     - go mod tidy
     # you may remove this if you don't need go generate
     # - go generate ./...
-    - /bin/sh -c "set -e; mkdir -p completions; go run cmd/kefw2/kefw2.go completion bash > completions/kefw2.bash; go run cmd/kefw2/kefw2.go completion zsh > completions/kefw2.zsh; go run cmd/kefw2/kefw2.go completion fish > completions/kefw2.fish"
+    - /bin/sh -c "set -e; mkdir -p completions; go run cmd/kefw2/kefw2.go completion bash > completions/kefw2.bash; go run cmd/kefw2/kefw2.go completion zsh > completions/kefw2.zsh; go run cmd/kefw2/kefw2.go completion fish > completions/kefw2.fish; go run cmd/kefw2/kefw2.go completion powershell > completions/kefw2.ps1"
 
 builds:
   - id: kefw2
@@ -41,7 +41,7 @@ builds:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser -X main.treeState={{ .IsGitDirty }}
       
 archives:
-  - format: tar.gz
+  - formats: [ tar.gz ]
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       {{ .ProjectName }}_
@@ -66,7 +66,6 @@ brews:
       name: Jens Hilligsøe
       email: github@hilli.dk
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-    folder: Formula
     homepage: "https://github.com/hilli/go-kef-w2"
     description: "Command for handling KEF W2 platform speakers (LSX Wireless II (LT)/LS50 Wireless II/LS60 Wireless)"
     license: "MIT"
@@ -75,7 +74,7 @@ brews:
     repository:
       owner: hilli
       name: homebrew-tap
-      branch: main
+      branch: release-go-kef-w2-{{.Tag}}
       pull_request:
         enabled: true
         draft: false
@@ -88,10 +87,15 @@ scoops:
   - repository:
       owner: hilli
       name: scoop-bucket
-    folder: bucket
     homepage: https://github.com/hilli/go-kef-w2
     description: Command for handling KEF W2 platform speakers (LSX Wireless II (LT)/LS50 Wireless II/LS60 Wireless)
     license: MIT
+    post_install:
+      - Write-Host 'Running postinstall command'
+      - if(!(Test-Path $PROFILE.CurrentUserCurrentHost -PathType Leaf)) { New-Item -Path $PROFILE.CurrentUserCurrentHost -ItemType file -Force }
+      - $scoopPrefix = $(scoop prefix go-kef-w2)
+      - $profilecontent = Get-Content $PROFILE.CurrentUserCurrentHost
+      - if(-not($profilecontent | select-string -pattern "$scoopPrefix\completions\kefw2.ps1" -CaseSensitive -SimpleMatch)) { Add-Content -Path $PROFILE.CurrentUserCurrentHost -Value ". $scoopPrefix\completions\kefw2.ps1" }
 
 nfpms:
   - file_name_template: "{{ .ConventionalFileName }}"

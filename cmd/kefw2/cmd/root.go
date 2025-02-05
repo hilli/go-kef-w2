@@ -147,12 +147,11 @@ func initConfig() {
 		}
 	}
 	if currentSpeakerParam != "" {
-		for _, s := range speakers {
-			if s.IPAddress == currentSpeakerParam {
-				currentSpeaker = &s
-				break
-			}
+		newSpeaker, err := kefw2.NewSpeaker(currentSpeakerParam)
+		if err != nil {
+			fmt.Printf("Hmm, %s does not look like it is a KEF W2 speaker:\n%s\n", currentSpeakerParam, err.Error())
 		}
+		currentSpeaker = &newSpeaker
 	} else {
 		if defaultSpeaker == nil {
 			log.Println("Default speaker not found. Set it with `kefw2 config speaker default` or specify it with the --speaker (-s) flag")

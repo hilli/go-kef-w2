@@ -25,6 +25,7 @@ func init() {
 	speakerCmd.AddCommand(speakerSetDefaultCmd)
 	speakerCmd.AddCommand(speakerDiscoverCmd)
 	speakerDiscoverCmd.PersistentFlags().BoolP("save", "", false, "Save the discovered speakers to config file")
+	speakerDiscoverCmd.PersistentFlags().IntP("timeout", "t", 1, "Set the timeout for speaker discovery (seconds)")
 }
 
 var speakerDiscoverCmd = &cobra.Command{
@@ -33,14 +34,24 @@ var speakerDiscoverCmd = &cobra.Command{
 	Long:  `Discover speakers with mDNS`,
 	Run: func(cmd *cobra.Command, args []string) {
 		save, _ := cmd.Flags().GetBool("save")
+		timeout, _ := cmd.Flags().GetInt("timeout")
 
-		newSpeakers, err := kefw2.DiscoverSpeakers()
+		newSpeakers, err := kefw2.DiscoverSpeakers(timeout)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		if len(newSpeakers) == 0 {
-			fmt.Println("No speakers found")
+			fmt.Println("No new speakers found.")
+			fmt.Println("Make sure the speakers are connected to the same network as this computer.")
+			fmt.Println("Try extending the discovery timeout with the --timeout flag.")
+			fmt.Println("Ie:")
+			fmt.Println()
+			fmt.Println("    kefw2 speaker discover --timeout 5 [--save]")
+			fmt.Println()
+			fmt.Println("Or try adding the speaker manually with:")
+			fmt.Println()
+			fmt.Println("    kefw2 config speaker add <ip-address>")
 			return
 		}
 		for _, speaker := range newSpeakers {

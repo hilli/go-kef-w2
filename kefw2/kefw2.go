@@ -16,6 +16,20 @@ type KEFSpeaker struct {
 	MaxVolume       int    `mapstructure:"max_volume" json:"max_volume" yaml:"max_volume"`
 }
 
+type KEFGrouping struct {
+	GroupingMembers []KEFGroupingmember `json:"groupingMember"`
+}
+
+type KEFGroupingmember struct {
+	Master   KEFGroupingData `json:"master`
+	Follower KEFGroupingData `json:"folloer"`
+}
+
+type KEFGroupingData struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 var (
 	Models = map[string]string{
 		"lsxii":  "KEF LSX II",
@@ -48,9 +62,18 @@ func (s *KEFSpeaker) UpdateInfo() (err error) {
 	if err != nil {
 		return err
 	}
-	s.getId()
-	s.getModelAndVersion()
-	s.GetMaxVolume()
+	err = s.getId()
+	if err != nil {
+		return fmt.Errorf("failed to get speaker IDs: %w", err)
+	}
+	err = s.getModelAndVersion()
+	if err != nil {
+		return fmt.Errorf("failed to get model and version information: %w", err)
+	}
+	_, err = s.GetMaxVolume() // Don't actually need the maxvol, but saving it to config.
+	if err != nil {
+		return fmt.Errorf("failed to get maxvol: %w", err)
+	}
 	return nil
 }
 
@@ -77,13 +100,12 @@ func (s *KEFSpeaker) getId() (err error) {
 	if err != nil {
 		return err
 	}
-	var groupData map[string]interface{}
+	groupData := KEFGrouping{}
 	err = json.Unmarshal(data, &groupData)
-	speakersets := groupData["rows"].([]interface{})
+	speakersets := groupData.GroupingMembers
 	for _, speakerset := range speakersets {
-		speakerset := speakerset.(map[string]interface{})
-		if speakerset["title"] == s.Name {
-			s.Id = speakerset["id"].(string)
+		if speakerset.Master.Name == s.Name {
+			s.Id = speakerset.Master.Id
 		}
 	}
 	return err
@@ -139,9 +161,18 @@ func (s KEFSpeaker) SetSource(source Source) error {
 	return s.setTypedValue(path, source)
 }
 
-func (s *KEFSpeaker) Source() (source Source, err error) {
-	src, err2 := JSONUnmarshalValue(s.getData("settings:/kef/play/physicalSource"))
+func (s *KEFSpeaker) Source() (Source, error) {
+	data, err := s.getData("settings:/kef/play/physicalSource")
+	src, err2 := JSONUnmarshalValue(data, err)
 	return src.(Source), err2
+}
+
+func (s *KEFSpeaker) CanControlPlayback() (bool, error) {
+	source, err := s.Source()
+	if err != nil {
+		return false, fmt.Errorf("failed getting speaker source: %w", err)
+	}
+	return (source != SourceWiFi || source != SourceBluetooth), nil
 }
 
 func (s *KEFSpeaker) IsPoweredOn() (bool, error) {

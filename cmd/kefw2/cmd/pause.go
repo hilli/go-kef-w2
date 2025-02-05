@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/spf13/cobra"
 )
 
@@ -15,13 +14,13 @@ var pauseCmd = &cobra.Command{
 	Long:  `Pause playback when on WiFi source`,
 	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		currentSource, err := currentSpeaker.Source()
+		canControlPlayback, err := currentSpeaker.CanControlPlayback()
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("Can't query source: %s\n", err.Error())
 			os.Exit(1)
 		}
-		if currentSource != kefw2.SourceWiFi {
-			fmt.Println("Not on WiFi source, not resuming playback")
+		if !canControlPlayback {
+			fmt.Println("Not on WiFi/BT source.")
 			os.Exit(0)
 		}
 		if isPlaying, err := currentSpeaker.IsPlaying(); err != nil {

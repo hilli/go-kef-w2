@@ -28,12 +28,34 @@ Install with Homebrew:
 brew install hilli/tap/kefw2
 ```
 
+#### Windows
+
+Install with [Scoop](https://scoop.sh/)
+
+In a Windows Powershell window:
+
+```shell
+# Install Scoop if it's not already on your system
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+scoop install git
+# Add repo for kefw2
+scoop bucket add hilli https://github.com/hilli/scoop-bucket.git
+# Install kefw2
+scoop install hilli/kefw2
+```
+
+Note that speaker discovery might not work in Windows. 
+
 ### Usage
 
 Setup the speakers
 
 ```shell
+# Auto discovery
 kefw2 config speaker discover --save
+# Manually add a speaker
+kefw2 config speaker add 10.0.0.149
 ```
 
 If you only have one set of speakers, then that will be the default, otherwise configure that with
@@ -42,7 +64,7 @@ If you only have one set of speakers, then that will be the default, otherwise c
 kefw2 config speaker default <name or IP>
 ```
 
-If you want to controll a speaker that is not the default use the `-s` global flag. Eksample:
+If you want to control a speaker that is not the default use the `-s` global flag. Eksample:
 
 ```shell
 kefw2 -s 10.0.0.93 status
