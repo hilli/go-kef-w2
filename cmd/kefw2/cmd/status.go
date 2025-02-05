@@ -6,6 +6,7 @@ import (
 	_ "image/png"
 	"os"
 
+	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/hilli/icat"
 	"github.com/spf13/cobra"
 )
@@ -41,14 +42,22 @@ var statusCmd = &cobra.Command{
 					playTime, _ := currentSpeaker.SongProgress()
 					// Minimalistic output
 					fmt.Println("Source:", source)
-					fmt.Println("Audio Transport:", pd.MediaRoles.Title)
-					fmt.Println("Artist:", pd.TrackRoles.MediaData.MetaData.Artist)
-					fmt.Println("Album:", pd.TrackRoles.MediaData.MetaData.Album)
-					fmt.Println("Track:", pd.TrackRoles.Title)
-					if pd.Status.Duration == 0 {
-						fmt.Printf("Duration: %s\n", playTime)
-					} else {
-						fmt.Printf("Duration: %s/%s\n", playTime, pd.Status)
+					if source == kefw2.SourceWiFi {
+						fmt.Println("Audio Transport:", pd.MediaRoles.Title)
+						if pd.TrackRoles.MediaData.MetaData.Artist != "" {
+							fmt.Println("Artist:", pd.TrackRoles.MediaData.MetaData.Artist)
+						}
+						if pd.TrackRoles.MediaData.MetaData.Album != "" {
+							fmt.Println("Album:", pd.TrackRoles.MediaData.MetaData.Album)
+						}
+						if pd.TrackRoles.Title != "" {
+							fmt.Println("Track:", pd.TrackRoles.Title)
+						}
+						if pd.Status.Duration == 0 {
+							fmt.Printf("Duration: %s\n", playTime)
+						} else {
+							fmt.Printf("Duration: %s/%s\n", playTime, pd.Status)
+						}
 					}
 					// Not so minimalistic output
 					if minimal, _ := cmd.Flags().GetBool("minimal"); !minimal {
