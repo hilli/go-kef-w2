@@ -7,7 +7,7 @@ toolchain go1.23.6
 require (
 	github.com/brutella/dnssd v1.2.14
 	github.com/brutella/hap v0.0.35
-	github.com/hilli/icat v0.0.5
+	github.com/hilli/icat v0.0.6
 	github.com/ivanpirog/coloredcobra v1.0.1
 	github.com/joho/godotenv v1.5.1
 	github.com/k0kubun/pp v3.0.1+incompatible
@@ -47,8 +47,8 @@ require (
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect
 	github.com/xiam/to v0.0.0-20200126224905-d60d31e03561 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/exp v0.0.0-20250128182459-e0ece0dbea4c // indirect
+	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/exp v0.0.0-20250207012021-f9890c6ad9f3 // indirect
 	golang.org/x/image v0.24.0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
