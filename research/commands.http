@@ -3,7 +3,7 @@ VS Code REST Client
 # KEF LS60 Wireless base URL
 @baseurl = http://10.0.0.93
 # KEF LSX II Wireless base URL
-@baseurl = http://10.0.0.149
+# @baseurl = http://10.0.0.149
 
 # roles define if you get the value part of the response or the whole response
 # when you are pulling data from the speaker. setData only accepts value, sensibly enough.
@@ -17,7 +17,7 @@ VS Code REST Client
 # @roles = %40all
 
 # For the POST calls, do not use URL encoding
-# @postroles = value
+#@postroles = value
 @postroles = @all
 
 # Some, but not all, data retrival request work with POST as well as GET
@@ -162,6 +162,9 @@ Content-Type: application/json
   }
 }
 
+###
+GET {{baseurl}}/api/getData?path=player%3Aplayer%2Fdata%2FplayTime&roles=@all
+
 
 ### Song Progress
 POST {{baseurl}}/api/getData
@@ -214,7 +217,7 @@ Content-Type: application/json
 
 {
   "from": 0,
-  "to": 0,
+  "to": 10,
   "path": "notifications:/display/queue",
   "roles": "{{postroles}}"
 }
@@ -375,3 +378,21 @@ Content-Type: application/json
 GET {{baseurl}}/api/getData?roles={{roles}}&path=settings%3A%2FmediaPlayer%2Fmute
 Accept: application/json
 Content-Type: application/json
+
+### Set Airable language
+POST {{baseurl}}/api/setData HTTP/1.1
+Content-Type: application/json
+Connection: keep-alive
+
+{
+    "role":"value",
+    "value": {
+        "type":"string_",
+        "string_":"en_DK"
+    },
+    "path":"settings:\/airable\/language"
+}
+
+### Get Airable language
+GET {{baseurl}}/api/getData?roles=value&path=settings%3A%2Fui%2Flanguage
+
