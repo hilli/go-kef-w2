@@ -42,7 +42,7 @@ scoop install git
 # Add repo for kefw2
 scoop bucket add hilli https://github.com/hilli/scoop-bucket.git
 # Install kefw2
-scoop install hilli/kefw2
+scoop install hilli/go-kef-w2
 ```
 
 Note that speaker discovery might not work in Windows. 

@@ -53,7 +53,7 @@ archives:
     # use zip for windows archives
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [ 'zip' ]
     files:
       - README.md
       - LICENSE
@@ -89,6 +89,7 @@ scoops:
       name: scoop-bucket
     homepage: https://github.com/hilli/go-kef-w2
     description: Command for handling KEF W2 platform speakers (LSX Wireless II (LT)/LS50 Wireless II/LS60 Wireless)
+    directory: bucket
     license: MIT
     post_install:
       - Write-Host 'Running postinstall command'
