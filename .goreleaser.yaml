@@ -71,6 +71,7 @@ brews:
     license: "MIT"
     url_template: "https://github.com/hilli/go-kef-w2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     skip_upload: false
+    directory: Formula
     repository:
       owner: hilli
       name: homebrew-tap
