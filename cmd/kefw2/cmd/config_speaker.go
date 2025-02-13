@@ -98,8 +98,13 @@ var speakerListCmd = &cobra.Command{
 	Short:   "List speakers",
 	Long:    `List speakers`,
 	Run: func(cmd *cobra.Command, args []string) {
+		defaultSpeakerIP := viper.GetString("defaultSpeaker")
 		for _, speaker := range speakers {
-			fmt.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
+			if speaker.IPAddress == defaultSpeakerIP {
+				fmt.Printf("%s (%s) [default]\n", speaker.Name, speaker.IPAddress)
+			} else {
+				fmt.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
+			}
 		}
 	},
 	ValidArgsFunction: cobra.NoFileCompletions,
