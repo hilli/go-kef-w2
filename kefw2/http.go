@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -40,7 +40,7 @@ func (s KEFSpeaker) getData(path string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (s KEFSpeaker) getAllData(path string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (s KEFSpeaker) getRows(path string, params map[string]string) ([]byte, erro
 		return nil, fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +159,6 @@ func (s KEFSpeaker) setActivate(path, item, value string) error {
 		log.Debug("Response:", resp.StatusCode, resp.Body)
 		return fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
 	}
-
-	// body, err := ioutil.ReadAll(resp.Body)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	return nil
 }
@@ -228,11 +223,6 @@ func (s KEFSpeaker) setTypedValue(path string, value any) error {
 		log.Debug("Response:", resp.StatusCode, resp.Body)
 		return fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
 	}
-
-	// body, err := ioutil.ReadAll(resp.Body)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	return nil
 }
