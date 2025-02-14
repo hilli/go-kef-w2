@@ -82,6 +82,24 @@ func Execute() {
 		ExecName: cc.Bold,
 		Flags:    cc.Bold,
 	})
+
+	// Pre-run check to ensure we have a speaker configured except for config and version commands
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		// Skip check for these commands
+		if commandRequiresAsSpeaker(cmd) {
+			return
+		}
+
+		if currentSpeaker == nil && len(speakers) == 0 {
+			fmt.Fprintf(os.Stderr, "No speakers configured. Please configure a speaker first:\n")
+			fmt.Fprintf(os.Stderr, "- Discover speakers automatically:\n")
+			fmt.Fprintf(os.Stderr, "    kefw2 config speaker discover --save\n")
+			fmt.Fprintf(os.Stderr, "- Manually add a speaker:\n")
+			fmt.Fprintf(os.Stderr, "    kefw2 config speaker add IP_ADDRESS\n")
+			os.Exit(1)
+		}
+	}
+
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -146,6 +164,16 @@ func initConfig() {
 			break
 		}
 	}
+
+	// If no default speaker is set but we have a speaker, use the first one
+	if defaultSpeaker == nil && len(speakers) == 1 {
+		defaultSpeaker = &speakers[0]
+		viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
+		viper.WriteConfig()
+		fmt.Printf("No default speaker was set. Using first available speaker as default: %s (%s)\n",
+			defaultSpeaker.Name, defaultSpeaker.IPAddress)
+	}
+
 	if currentSpeakerParam != "" {
 		newSpeaker, err := kefw2.NewSpeaker(currentSpeakerParam)
 		if err != nil {
@@ -153,9 +181,27 @@ func initConfig() {
 		}
 		currentSpeaker = &newSpeaker
 	} else {
-		if defaultSpeaker == nil {
-			log.Println("Default speaker not found. Set it with `kefw2 config speaker default` or specify it with the --speaker (-s) flag")
-		}
 		currentSpeaker = defaultSpeaker
 	}
+}
+
+func commandRequiresAsSpeaker(cmd *cobra.Command) bool {
+	if cmd.Name() == "config" {
+		configSubCmd := cmd.Parent()
+		if configSubCmd != nil {
+			if configSubCmd.Name() == "config" {
+				return false
+			}
+			configSubSubCmd := configSubCmd.Parent()
+			if configSubSubCmd != nil {
+				if configSubSubCmd.Name() == "config" {
+					return false
+				}
+			}
+		}
+	}
+	if cmd.Name() == "version" {
+		return false
+	}
+	return true
 }
