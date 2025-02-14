@@ -66,7 +66,7 @@ var speakerDiscoverCmd = &cobra.Command{
 }
 
 var speakerAddCmd = &cobra.Command{
-	Use:   "add",
+	Use:   "add <ip-address>",
 	Short: "Add a speaker",
 	Long:  `Add a speaker`,
 	Run: func(cmd *cobra.Command, args []string) {
