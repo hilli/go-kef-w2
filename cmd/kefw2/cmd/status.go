@@ -26,7 +26,7 @@ var statusCmd = &cobra.Command{
 		}
 		canControlPlayback, err := currentSpeaker.CanControlPlayback()
 		if err != nil {
-			fmt.Printf("Can't query source: %s\n", err.Error())
+			fmt.Printf("Can't show status: %s\n", err.Error())
 			os.Exit(1)
 		}
 		if canControlPlayback {
@@ -62,6 +62,7 @@ var statusCmd = &cobra.Command{
 					// Not so minimalistic output
 					if minimal, _ := cmd.Flags().GetBool("minimal"); !minimal {
 						icat.PrintImageURL(pd.TrackRoles.Icon)
+						fmt.Println() // newline so shell prompt does not appear to the right of the image
 					}
 				} else {
 					fmt.Println("Audio Transport: stopped")

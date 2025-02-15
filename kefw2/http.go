@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -17,8 +19,32 @@ type KEFPostRequest struct {
 	Value *json.RawMessage `json:"value"`
 }
 
+func (s KEFSpeaker) handleConnectionError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	errStr := err.Error()
+	if nerr, ok := err.(net.Error); ok {
+		if nerr.Timeout() {
+			return fmt.Errorf("Connection timed out when trying to reach speaker at %s. Please check if the speaker is available and responsive.", s.IPAddress)
+		}
+		fmt.Println("nerr:", nerr)
+	}
+	// fmt.Println(
+	if strings.Contains(errStr, "connection refused") {
+		return fmt.Errorf("Unable to connect to speaker at %s. Please ensure the speaker is powered on and connected to the network.", s.IPAddress)
+	}
+	if strings.Contains(errStr, "timeout") {
+		return fmt.Errorf("Connection timed out when trying to reach speaker at %s. Please check if the speaker is available and responsive.", s.IPAddress)
+	}
+	if strings.Contains(errStr, "no such host") {
+		return fmt.Errorf("Could not find speaker at %s. Please check if the IP address is correct", s.IPAddress)
+	}
+	return fmt.Errorf("Connection error: %v", err)
+}
+
 func (s KEFSpeaker) getData(path string) ([]byte, error) {
-	// log.SetLevel(log.DebugLevel)
 	client := &http.Client{}
 	client.Timeout = 1.0 * time.Second
 
@@ -36,7 +62,7 @@ func (s KEFSpeaker) getData(path string) ([]byte, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, s.handleConnectionError(err)
 	}
 	defer resp.Body.Close()
 
@@ -54,7 +80,6 @@ func (s KEFSpeaker) getData(path string) ([]byte, error) {
 }
 
 func (s KEFSpeaker) getAllData(path string) ([]byte, error) {
-	// log.SetLevel(log.DebugLevel)
 	client := &http.Client{}
 	client.Timeout = 1.0 * time.Second
 
@@ -69,10 +94,10 @@ func (s KEFSpeaker) getAllData(path string) ([]byte, error) {
 	q.Add("path", path)
 	q.Add("roles", "@all")
 	req.URL.RawQuery = q.Encode()
-	fmt.Println("Request URL:", req.URL.String())
+
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, s.handleConnectionError(err)
 	}
 	defer resp.Body.Close()
 
@@ -109,7 +134,7 @@ func (s KEFSpeaker) getRows(path string, params map[string]string) ([]byte, erro
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, s.handleConnectionError(err)
 	}
 	defer resp.Body.Close()
 
@@ -151,7 +176,7 @@ func (s KEFSpeaker) setActivate(path, item, value string) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return s.handleConnectionError(err)
 	}
 	defer resp.Body.Close()
 
@@ -215,7 +240,7 @@ func (s KEFSpeaker) setTypedValue(path string, value any) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return s.handleConnectionError(err)
 	}
 	defer resp.Body.Close()
 

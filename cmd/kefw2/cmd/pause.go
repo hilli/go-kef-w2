@@ -16,7 +16,7 @@ var pauseCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		canControlPlayback, err := currentSpeaker.CanControlPlayback()
 		if err != nil {
-			fmt.Printf("Can't query source: %s\n", err.Error())
+			fmt.Printf("Can't pause speaker: %s\n", err.Error())
 			os.Exit(1)
 		}
 		if !canControlPlayback {

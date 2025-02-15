@@ -163,6 +163,9 @@ func (s KEFSpeaker) SetSource(source Source) error {
 
 func (s *KEFSpeaker) Source() (Source, error) {
 	data, err := s.getData("settings:/kef/play/physicalSource")
+	if err != nil {
+		return SourceStandby, fmt.Errorf("Failed getting speaker source: %w", err)
+	}
 	src, err2 := JSONUnmarshalValue(data, err)
 	return src.(Source), err2
 }
@@ -170,9 +173,9 @@ func (s *KEFSpeaker) Source() (Source, error) {
 func (s *KEFSpeaker) CanControlPlayback() (bool, error) {
 	source, err := s.Source()
 	if err != nil {
-		return false, fmt.Errorf("failed getting speaker source: %w", err)
+		return false, err
 	}
-	return (source != SourceWiFi || source != SourceBluetooth), nil
+	return ((source == SourceWiFi) || (source == SourceBluetooth)), nil
 }
 
 func (s *KEFSpeaker) IsPoweredOn() (bool, error) {
