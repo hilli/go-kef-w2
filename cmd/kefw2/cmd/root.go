@@ -1,5 +1,5 @@
 /*
-Copyright © 2023-2024 Jens Hilligsøe
+Copyright © 2023-2025 Jens Hilligsøe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -58,16 +58,29 @@ var VersionCmd = &cobra.Command{
 	Long: "Print the version number of kefw2",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("kefw2: Command line tool for controlling KEF's W2 platform speakers")
+		var GitCommit string
+		var BuildDate string
 		if info, ok := debug.ReadBuildInfo(); ok {
+			modified := false
 			for _, v := range info.Settings {
+				errorPrinter.Print(v.Key)
 				switch v.Key {
 				case "vcs.revision":
-					fmt.Printf("Version: %s\n", v.Value)
+					GitCommit = v.Value
 				case "vcs.time":
-					fmt.Printf("Build date: %s\n", v.Value)
+					BuildDate = v.Value
+				case "vcs.modified":
+					modified = true
+				}
+				if modified {
+					GitCommit += "-dirty"
 				}
 			}
 		}
+		headerPrinter.Print("Version: ")
+		contentPrinter.Printf("%s\n", GitCommit)
+		headerPrinter.Print("Build date: ")
+		contentPrinter.Printf("%s\n", BuildDate)
 	},
 }
 
@@ -91,11 +104,12 @@ func Execute() {
 		}
 
 		if currentSpeaker == nil && len(speakers) == 0 {
-			fmt.Fprintf(os.Stderr, "No speakers configured. Please configure a speaker first:\n")
-			fmt.Fprintf(os.Stderr, "- Discover speakers automatically:\n")
-			fmt.Fprintf(os.Stderr, "    kefw2 config speaker discover --save\n")
-			fmt.Fprintf(os.Stderr, "- Manually add a speaker:\n")
-			fmt.Fprintf(os.Stderr, "    kefw2 config speaker add IP_ADDRESS\n")
+			errorPrinter.Fprintf(os.Stderr, "No speakers configured. Please configure a speaker first:\n")
+			errorPrinter.Fprintf(os.Stderr, "Please configure a speaker first:\n")
+			errorPrinter.Fprintf(os.Stderr, "- Discover speakers automatically:\n")
+			errorPrinter.Fprintf(os.Stderr, "    kefw2 config speaker discover --save\n")
+			errorPrinter.Fprintf(os.Stderr, "- Manually add a speaker:\n")
+			errorPrinter.Fprintf(os.Stderr, "    kefw2 config speaker add IP_ADDRESS\n")
 			os.Exit(1)
 		}
 	}
@@ -154,7 +168,8 @@ func initConfig() {
 	}
 	// Unmarshal speakers
 	if err := viper.UnmarshalKey("speakers", &speakers); err != nil {
-		log.Fatal(err)
+		errorPrinter.Println("Error unmarshalling speakers:", err)
+		os.Exit(1)
 	}
 	// Unmarshal default speaker and set it up
 	defaultSpeakerIP := viper.GetString("defaultSpeaker")
@@ -170,14 +185,14 @@ func initConfig() {
 		defaultSpeaker = &speakers[0]
 		viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
 		viper.WriteConfig()
-		fmt.Printf("No default speaker was set. Using first available speaker as default: %s (%s)\n",
+		taskConpletedPrinter.Printf("No default speaker was set. Using first available speaker as default: %s (%s)\n",
 			defaultSpeaker.Name, defaultSpeaker.IPAddress)
 	}
 
 	if currentSpeakerParam != "" {
 		newSpeaker, err := kefw2.NewSpeaker(currentSpeakerParam)
 		if err != nil {
-			fmt.Printf("Hmm, %s does not look like it is a KEF W2 speaker:\n%s\n", currentSpeakerParam, err.Error())
+			errorPrinter.Printf("Hmm, %s does not look like it is a KEF W2 speaker:\n%s\n", currentSpeakerParam, err.Error())
 		}
 		currentSpeaker = &newSpeaker
 	} else {
