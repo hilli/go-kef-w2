@@ -63,7 +63,6 @@ var VersionCmd = &cobra.Command{
 		if info, ok := debug.ReadBuildInfo(); ok {
 			modified := false
 			for _, v := range info.Settings {
-				errorPrinter.Print(v.Key)
 				switch v.Key {
 				case "vcs.revision":
 					GitCommit = v.Value
