@@ -88,7 +88,8 @@ var statusCmd = &cobra.Command{
 					}
 					// Not so minimalistic output
 					if minimal, _ := cmd.Flags().GetBool("minimal"); !minimal {
-						icat.PrintImageURL(pd.TrackRoles.Icon)
+						forceASCII, _ := cmd.Flags().GetBool("ascii")
+						_ = icat.PrintImageURL(pd.TrackRoles.Icon, forceASCII)
 						fmt.Println() // newline so shell prompt does not appear to the right of the image
 					}
 				} else {
@@ -106,4 +107,5 @@ var statusCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(statusCmd)
 	statusCmd.PersistentFlags().BoolP("minimal", "m", false, "Minimalistic output")
+	statusCmd.PersistentFlags().BoolP("ascii", "a", false, "Force ASCII cover art output")
 }

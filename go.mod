@@ -1,19 +1,17 @@
 module github.com/hilli/go-kef-w2
 
-go 1.23.4
-
-toolchain go1.23.6
+go 1.24.0
 
 require (
 	github.com/brutella/dnssd v1.2.14
 	github.com/brutella/hap v0.0.35
 	github.com/fatih/color v1.18.0
-	github.com/hilli/icat v0.0.6
+	github.com/hilli/icat v0.0.7
 	github.com/ivanpirog/coloredcobra v1.0.1
 	github.com/joho/godotenv v1.5.1
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/cobra v1.9.0
+	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
 )
 
