@@ -5,12 +5,24 @@
 
 version: '3'
 
+vars:
+  GIT_COMMIT:
+    sh: git rev-parse HEAD
+  GIT_SHA:
+    sh: git rev-parse --short HEAD
+  GIT_BRANCH:
+    sh: git branch --show-current
+  LDFLAGS: >-
+    -X github.com/hilli/go-kef-w2/cmd/kefw2/cmd.Version=dev-{{.GIT_SHA}}
+    -X github.com/hilli/go-kef-w2/cmd/kefw2/cmd.GitCommit={{.GIT_COMMIT}}
+    -X github.com/hilli/go-kef-w2/cmd/kefw2/cmd.GitBranch={{.GIT_BRANCH}}
+    -X github.com/hilli/go-kef-w2/cmd/kefw2/cmd.BuildDate={{now | date "2006-01-02T15:04:05Z07:00"}}
 
 tasks:
   build:
     desc: Build binaries
     cmds:
-      - go build -ldflags="-X github.com/hilli/go-kef-w2/cmd.Version={{.GIT_COMMIT}}" -o bin/kefw2{{exeExt}} cmd/kefw2/kefw2.go
+      - go build -ldflags='-s -w {{.LDFLAGS}}' -o bin/kefw2{{exeExt}} cmd/kefw2/kefw2.go
     aliases: [b]
     sources:
       - cmd/kefw2/**/*.go
@@ -49,7 +61,7 @@ tasks:
     desc: Run kefw2
     aliases: [r]
     cmds:
-      - go run -ldflags="-X github.com/hilli/go-kef-w2/cmd.Version=go-kef-w2-git" cmd/kefw2/kefw2.go {{.CLI_ARGS}}
+      - go run -ldflags='{{.LDFLAGS}}' cmd/kefw2/kefw2.go {{.CLI_ARGS}}
 
   all:
     desc: Run all tasks

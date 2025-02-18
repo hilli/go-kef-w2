@@ -38,7 +38,12 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser -X main.treeState={{ .IsGitDirty }}
+      - -s 
+      - -w 
+      - -X github.com/hilli/go-kef-w2/cmd/kefw2/cmd.Version={{.Version}}
+      - -X github.com/hilli/go-kef-w2/cmd/kefw2/cmd.GitCommit={{.Commit}}
+      - -X github.com/hilli/go-kef-w2/cmd/kefw2/cmd.GitBranch=main
+      - -X github.com/hilli/go-kef-w2/cmd/kefw2/cmd.BuildDate={{ .Date }}
       
 archives:
   - formats: [ tar.gz ]

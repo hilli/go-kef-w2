@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 	log "github.com/sirupsen/logrus"
@@ -41,6 +40,10 @@ var (
 	speakers            []kefw2.KEFSpeaker
 	defaultSpeaker      *kefw2.KEFSpeaker
 	currentSpeaker      *kefw2.KEFSpeaker
+	Version             string // Git Tag
+	GitCommit           string // Git commit SHA
+	GitBranch           string // Git branch
+	BuildDate           string // Build date
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -58,26 +61,12 @@ var VersionCmd = &cobra.Command{
 	Long: "Print the version number of kefw2",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("kefw2: Command line tool for controlling KEF's W2 platform speakers")
-		var GitCommit string
-		var BuildDate string
-		if info, ok := debug.ReadBuildInfo(); ok {
-			modified := false
-			for _, v := range info.Settings {
-				switch v.Key {
-				case "vcs.revision":
-					GitCommit = v.Value
-				case "vcs.time":
-					BuildDate = v.Value
-				case "vcs.modified":
-					modified = true
-				}
-				if modified {
-					GitCommit += "-dirty"
-				}
-			}
-		}
 		headerPrinter.Print("Version: ")
+		contentPrinter.Printf("%s\n", Version)
+		headerPrinter.Print("Git commit: ")
 		contentPrinter.Printf("%s\n", GitCommit)
+		headerPrinter.Print("Git branch: ")
+		contentPrinter.Printf("%s\n", GitBranch)
 		headerPrinter.Print("Build date: ")
 		contentPrinter.Printf("%s\n", BuildDate)
 	},
