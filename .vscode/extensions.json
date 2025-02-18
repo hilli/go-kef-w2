@@ -2,6 +2,7 @@
   "recommendations": [
     "humao.rest-client",
     "golang.go",
-    "idleberg.applescript"
+    "idleberg.applescript",
+    "griimick.vhs"
   ]
 }
