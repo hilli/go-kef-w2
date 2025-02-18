@@ -10,9 +10,13 @@ Require kefw2
 Require osascript
 
 Hide
-Type@0ms "source ~/.zshrc && clear"
+Type@0ms "source ~/.zshrc"
 Enter
+Type@0ms "clear"
+Enter
+Env PS1 "$> "
 Show
+
 Type "kefw2 --help"
 Enter
 Sleep 2.5s
@@ -51,7 +55,7 @@ Sleep 1s
 Type "./airplay-music.jxa"
 Enter
 Sleep 5s
-Type "kefw2 status"
+Type "kefw2 status -a"
 Enter
 Sleep 5s
 Type "kefw2 next"
