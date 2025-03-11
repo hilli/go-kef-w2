@@ -86,12 +86,7 @@ func Execute() {
 
 	// Pre-run check to ensure we have a speaker configured except for config and version commands
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		// Skip check for these commands
-		if commandRequiresAsSpeaker(cmd) {
-			return
-		}
-
-		if currentSpeaker == nil && len(speakers) == 0 {
+		if commandRequiresAsSpeaker(cmd) && currentSpeaker == nil && len(speakers) == 0 {
 			errorPrinter.Fprintf(os.Stderr, "No speakers configured. Please configure a speaker first:\n")
 			errorPrinter.Fprintf(os.Stderr, "Please configure a speaker first:\n")
 			errorPrinter.Fprintf(os.Stderr, "- Discover speakers automatically:\n")
