@@ -76,6 +76,12 @@ Get status of the default speaker
 kefw2 status
 ```
 
+Get detailed info
+
+```shell
+kefw2 info
+```
+
 Get volume
 
 ```shell
