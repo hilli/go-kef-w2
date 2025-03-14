@@ -35,7 +35,7 @@ import (
 // volumeCmd represents the volume command
 var statusCmd = &cobra.Command{
 	Use:     "status",
-	Aliases: []string{"info", "state", "st"},
+	Aliases: []string{"state", "st"},
 	Short:   "Status of the speakers",
 	Long:    `Status of the speakers`,
 	Args:    cobra.ExactArgs(0),
