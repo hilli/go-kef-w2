@@ -198,7 +198,7 @@ func commandRequiresAsSpeaker(cmd *cobra.Command) bool {
 			}
 		}
 	}
-	if cmd.Name() == "version" {
+	if cmd.Name() == "version" || cmd.Name() == "completion" || cmd.Name() == "help" {
 		return false
 	}
 	return true
