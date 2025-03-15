@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 	log "github.com/sirupsen/logrus"
@@ -184,21 +186,14 @@ func initConfig() {
 }
 
 func commandRequiresAsSpeaker(cmd *cobra.Command) bool {
-	if cmd.Name() == "config" {
-		configSubCmd := cmd.Parent()
-		if configSubCmd != nil {
-			if configSubCmd.Name() == "config" {
-				return false
-			}
-			configSubSubCmd := configSubCmd.Parent()
-			if configSubSubCmd != nil {
-				if configSubSubCmd.Name() == "config" {
-					return false
-				}
-			}
-		}
+	cmdPath := strings.Split(cmd.CommandPath(), " ")
+	if slices.Contains(cmdPath, "config") {
+		return false
 	}
-	if cmd.Name() == "version" || cmd.Name() == "completion" || cmd.Name() == "help" {
+	if slices.Contains(cmdPath, "completion") {
+		return false
+	}
+	if cmd.Name() == "version" || cmd.Name() == "help" {
 		return false
 	}
 	return true

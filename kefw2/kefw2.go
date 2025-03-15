@@ -21,8 +21,8 @@ type KEFGrouping struct {
 }
 
 type KEFGroupingmember struct {
-	Master   KEFGroupingData `json:"master`
-	Follower KEFGroupingData `json:"folloer"`
+	Master   KEFGroupingData `json:"master"`
+	Follower KEFGroupingData `json:"follower"`
 }
 
 type KEFGroupingData struct {

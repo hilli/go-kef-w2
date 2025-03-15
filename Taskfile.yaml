@@ -79,6 +79,15 @@ tasks:
       - rm -rf bin
       - rm -rf share
 
+  release-test:
+    desc: Run gorelease snapshot
+    cmds:
+      - goreleaser build --snapshot --clean
+    sources:
+      - cmd/kefw2/**/*.go
+      - kefw2/*.go
+      - Taskfile.yaml
+
 includes:
   docs:
     taskfile: ./docs/Taskfile.yaml
