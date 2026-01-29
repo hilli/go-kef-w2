@@ -110,7 +110,7 @@ func main() {
 
 	// hash the speaker id to a uint64 so the speaker remains the same across cold restarts
 	h := fnv.New64a()
-	h.Write([]byte(mySpeaker.Id))
+	h.Write([]byte(mySpeaker.ID))
 	a.Id = h.Sum64()
 
 	log.Debug(fmt.Sprintf("%+v", a))
@@ -123,9 +123,8 @@ func main() {
 
 	// Setup a listener for interrupts and SIGTERM signals
 	// to stop the server.
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {

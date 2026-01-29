@@ -179,7 +179,7 @@ func initConfig() {
 		if err != nil {
 			errorPrinter.Printf("Hmm, %s does not look like it is a KEF W2 speaker:\n%s\n", currentSpeakerParam, err.Error())
 		}
-		currentSpeaker = &newSpeaker
+		currentSpeaker = newSpeaker
 	} else {
 		currentSpeaker = defaultSpeaker
 	}

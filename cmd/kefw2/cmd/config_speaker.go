@@ -22,8 +22,10 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/spf13/cobra"
@@ -57,7 +59,7 @@ var speakerDiscoverCmd = &cobra.Command{
 		save, _ := cmd.Flags().GetBool("save")
 		timeout, _ := cmd.Flags().GetInt("timeout")
 
-		newSpeakers, err := kefw2.DiscoverSpeakers(timeout)
+		newSpeakers, err := kefw2.DiscoverSpeakers(context.Background(), time.Duration(timeout)*time.Second)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -157,7 +159,7 @@ func addSpeaker(host string) (err error) {
 	if speakerDefined(speaker.IPAddress) {
 		return nil
 	}
-	speakers = append(speakers, speaker)
+	speakers = append(speakers, *speaker)
 	viper.Set("speakers", speakers)
 	taskConpletedPrinter.Print("Added speaker: ")
 	contentPrinter.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
