@@ -108,7 +108,7 @@ Press Ctrl+C to stop.`,
 func init() {
 	rootCmd.AddCommand(eventsCmd)
 	eventsCmd.Flags().BoolP("json", "j", false, "Output events as JSON")
-	eventsCmd.Flags().IntP("timeout", "t", 5, "Poll timeout in seconds")
+	eventsCmd.Flags().IntP("timeout", "t", 0, "Poll timeout in seconds (0 for infinite)")
 }
 
 func printEventJSON(event kefw2.Event) {
