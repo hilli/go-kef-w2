@@ -11,41 +11,41 @@ import (
 	"time"
 )
 
-// EventSubscription represents a path to subscribe to for events
+// EventSubscription represents a path to subscribe to for events.
 type EventSubscription struct {
 	Path string `json:"path"`
 	Type string `json:"type"` // "itemWithValue", "item", or "rows"
 }
 
-// DefaultEventSubscriptions are the paths we subscribe to for common events
+// DefaultEventSubscriptions are the paths we subscribe to for common events.
 var DefaultEventSubscriptions = []EventSubscription{
 	// Player events
-	{Path: "player:volume", Type: "itemWithValue"},
-	{Path: "player:player/data", Type: "itemWithValue"}, // Use itemWithValue to get state transitions
-	{Path: "player:player/data/playTime", Type: "itemWithValue"},
+	{Path: pathPlayerVolume, Type: "itemWithValue"},
+	{Path: pathPlayerData, Type: "itemWithValue"}, // Use itemWithValue to get state transitions
+	{Path: pathPlayTime, Type: "itemWithValue"},
 
 	// Source and power
-	{Path: "settings:/kef/play/physicalSource", Type: "itemWithValue"},
-	{Path: "settings:/kef/host/speakerStatus", Type: "itemWithValue"},
+	{Path: pathPhysicalSource, Type: "itemWithValue"},
+	{Path: pathSpeakerStatus, Type: "itemWithValue"},
 
 	// Audio settings
-	{Path: "settings:/mediaPlayer/mute", Type: "itemWithValue"},
-	{Path: "settings:/mediaPlayer/playMode", Type: "itemWithValue"},
-	{Path: "kef:eqProfile/v2", Type: "itemWithValue"},
+	{Path: pathMute, Type: "itemWithValue"},
+	{Path: pathPlayMode, Type: "itemWithValue"},
+	{Path: pathEQProfile, Type: "itemWithValue"},
 
 	// Playlist
-	{Path: "playlists:pq/getitems", Type: "rows"},
+	{Path: pathPlaylist, Type: "rows"},
 
 	// Network and system
-	{Path: "network:info", Type: "itemWithValue"},
-	{Path: "firmwareupdate:updateStatus", Type: "itemWithValue"},
-	{Path: "notifications:/display/queue", Type: "rows"},
+	{Path: pathNetwork, Type: "itemWithValue"},
+	{Path: pathFirmware, Type: "itemWithValue"},
+	{Path: pathNotification, Type: "rows"},
 
 	// Bluetooth
-	{Path: "bluetooth:state", Type: "itemWithValue"},
+	{Path: pathBluetooth, Type: "itemWithValue"},
 }
 
-// EventClient manages event subscriptions and delivers events via channels
+// EventClient manages event subscriptions and delivers events via channels.
 type EventClient struct {
 	speaker       *KEFSpeaker
 	queueID       string
@@ -64,31 +64,31 @@ type EventClient struct {
 	lastTrackArtist string
 }
 
-// EventClientOption is a functional option for configuring EventClient
+// EventClientOption is a functional option for configuring EventClient.
 type EventClientOption func(*EventClient)
 
-// WithSubscriptions sets custom subscriptions (default: DefaultEventSubscriptions)
+// WithSubscriptions sets custom subscriptions (default: DefaultEventSubscriptions).
 func WithSubscriptions(subs []EventSubscription) EventClientOption {
 	return func(ec *EventClient) {
 		ec.subscriptions = subs
 	}
 }
 
-// WithPollTimeout sets the poll timeout in seconds (default: 5)
+// WithPollTimeout sets the poll timeout in seconds (default: 5).
 func WithPollTimeout(seconds int) EventClientOption {
 	return func(ec *EventClient) {
 		ec.pollTimeout = seconds
 	}
 }
 
-// WithEventBufferSize sets the event channel buffer size (default: 100)
+// WithEventBufferSize sets the event channel buffer size (default: 100).
 func WithEventBufferSize(size int) EventClientOption {
 	return func(ec *EventClient) {
 		ec.events = make(chan Event, size)
 	}
 }
 
-// NewEventClient creates a new EventClient for receiving real-time events
+// NewEventClient creates a new EventClient for receiving real-time events.
 func (s *KEFSpeaker) NewEventClient(opts ...EventClientOption) (*EventClient, error) {
 	ec := &EventClient{
 		speaker:       s,
@@ -114,17 +114,17 @@ func (s *KEFSpeaker) NewEventClient(opts ...EventClientOption) (*EventClient, er
 	return ec, nil
 }
 
-// Events returns a read-only channel for receiving events
+// Events returns a read-only channel for receiving events.
 func (ec *EventClient) Events() <-chan Event {
 	return ec.events
 }
 
-// QueueID returns the queue ID assigned by the speaker
+// QueueID returns the queue ID assigned by the speaker.
 func (ec *EventClient) QueueID() string {
 	return ec.queueID
 }
 
-// Start begins polling for events. It blocks until the context is cancelled
+// Start begins polling for events. It blocks until the context is canceled
 // or an unrecoverable error occurs. Events are sent to the Events() channel.
 func (ec *EventClient) Start(ctx context.Context) error {
 	ec.mu.Lock()
@@ -144,7 +144,7 @@ func (ec *EventClient) Start(ctx context.Context) error {
 	return ec.pollLoop(ctx)
 }
 
-// Close stops the event client and closes the events channel
+// Close stops the event client and closes the events channel.
 func (ec *EventClient) Close() error {
 	ec.stopOnce.Do(func() {
 		close(ec.events)
@@ -152,7 +152,7 @@ func (ec *EventClient) Close() error {
 	return nil
 }
 
-// registerQueue calls /api/event/modifyQueue to register a new event queue
+// registerQueue calls /api/event/modifyQueue to register a new event queue.
 func (ec *EventClient) registerQueue() (string, error) {
 	subscribeJSON, err := json.Marshal(ec.subscriptions)
 	if err != nil {
@@ -166,7 +166,12 @@ func (ec *EventClient) registerQueue() (string, error) {
 
 	requestURL := fmt.Sprintf("http://%s/api/event/modifyQueue?%s", ec.speaker.IPAddress, params.Encode())
 
-	resp, err := ec.httpClient.Get(requestURL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, requestURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := ec.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
@@ -194,7 +199,7 @@ func (ec *EventClient) registerQueue() (string, error) {
 	return queueID, nil
 }
 
-// pollLoop continuously polls for events until context is cancelled
+// pollLoop continuously polls for events until context is canceled.
 func (ec *EventClient) pollLoop(ctx context.Context) error {
 	baseURL := fmt.Sprintf("http://%s/api/event/pollQueue", ec.speaker.IPAddress)
 	consecutiveErrors := 0
@@ -240,7 +245,7 @@ func (ec *EventClient) pollLoop(ctx context.Context) error {
 	}
 }
 
-// poll makes a single poll request and returns parsed events
+// poll makes a single poll request and returns parsed events.
 func (ec *EventClient) poll(ctx context.Context, requestURL string) ([]Event, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 	if err != nil {
@@ -271,7 +276,7 @@ func (ec *EventClient) poll(ctx context.Context, requestURL string) ([]Event, er
 	// Convert to typed events
 	events := make([]Event, 0, len(rawEvents))
 	for _, raw := range rawEvents {
-		if event := ec.parseRawEvent(raw); event != nil {
+		if event := ec.parseRawEvent(ctx, raw); event != nil {
 			events = append(events, event)
 		}
 	}
@@ -279,7 +284,7 @@ func (ec *EventClient) poll(ctx context.Context, requestURL string) ([]Event, er
 	return events, nil
 }
 
-// rawEvent represents the JSON structure from the speaker
+// rawEvent represents the JSON structure from the speaker.
 type rawEvent struct {
 	Path      string          `json:"path,omitempty"`
 	ItemType  string          `json:"itemType,omitempty"`
@@ -296,7 +301,7 @@ type rowEvent struct {
 	Index int    `json:"index"`
 }
 
-// typedValue represents a typed value from the KEF API
+// typedValue represents a typed value from the KEF API.
 type typedValue struct {
 	Type   string `json:"type"`
 	I32    int    `json:"i32_,omitempty"`
@@ -316,7 +321,7 @@ type btState struct {
 	Pairing   bool   `json:"pairing,omitempty"`
 }
 
-// parseTypedValue parses a json.RawMessage into a typedValue
+// parseTypedValue parses a json.RawMessage into a typedValue.
 func parseTypedValue(raw json.RawMessage) *typedValue {
 	if len(raw) == 0 {
 		return nil

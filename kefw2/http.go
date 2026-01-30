@@ -2,64 +2,113 @@ package kefw2
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
+const (
+	typeNameI32    = "i32_"
+	typeNameString = "string_"
+	typeNameBool   = "bool_"
+)
+
+// Default HTTP configuration values.
+const (
+	DefaultTimeout = 2 * time.Second
+	DefaultBaseURL = "http://%s/api"
+)
+
+// Common errors.
+var (
+	ErrConnectionRefused = errors.New("connection refused")
+	ErrConnectionTimeout = errors.New("connection timed out")
+	ErrHostNotFound      = errors.New("host not found")
+)
+
+// KEFPostRequest represents the JSON structure for POST requests to the KEF API.
 type KEFPostRequest struct {
 	Path  string           `json:"path"`
 	Roles string           `json:"roles"`
 	Value *json.RawMessage `json:"value"`
 }
 
-func (s KEFSpeaker) handleConnectionError(err error) error {
+// httpClient returns the speaker's HTTP client, creating one if necessary.
+func (s *KEFSpeaker) httpClient() *http.Client {
+	if s.client == nil {
+		timeout := s.timeout
+		if timeout == 0 {
+			timeout = DefaultTimeout
+		}
+		s.client = &http.Client{Timeout: timeout}
+	}
+	return s.client
+}
+
+// handleConnectionError transforms network errors into user-friendly error messages.
+func (s *KEFSpeaker) handleConnectionError(err error) error {
 	if err == nil {
 		return nil
 	}
 
+	// Check for timeout errors using errors.As (modern Go pattern)
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return fmt.Errorf("%w: speaker at %s is not responding", ErrConnectionTimeout, s.IPAddress)
+	}
+
 	errStr := err.Error()
-	if nerr, ok := err.(net.Error); ok {
-		if nerr.Timeout() {
-			return fmt.Errorf("Connection timed out when trying to reach speaker at %s. Please check if the speaker is available and responsive.", s.IPAddress)
-		}
-		fmt.Println("nerr:", nerr)
+	switch {
+	case strings.Contains(errStr, "connection refused"):
+		return fmt.Errorf("%w: speaker at %s - ensure it is powered on", ErrConnectionRefused, s.IPAddress)
+	case strings.Contains(errStr, "timeout"):
+		return fmt.Errorf("%w: speaker at %s is not responding", ErrConnectionTimeout, s.IPAddress)
+	case strings.Contains(errStr, "no such host"):
+		return fmt.Errorf("%w: %s - check the IP address", ErrHostNotFound, s.IPAddress)
 	}
-	// fmt.Println(
-	if strings.Contains(errStr, "connection refused") {
-		return fmt.Errorf("Unable to connect to speaker at %s. Please ensure the speaker is powered on and connected to the network.", s.IPAddress)
-	}
-	if strings.Contains(errStr, "timeout") {
-		return fmt.Errorf("Connection timed out when trying to reach speaker at %s. Please check if the speaker is available and responsive.", s.IPAddress)
-	}
-	if strings.Contains(errStr, "no such host") {
-		return fmt.Errorf("Could not find speaker at %s. Please check if the IP address is correct", s.IPAddress)
-	}
-	return fmt.Errorf("Connection error: %v", err)
+
+	return fmt.Errorf("connection error to %s: %w", s.IPAddress, err)
 }
 
-func (s KEFSpeaker) getData(path string) ([]byte, error) {
-	client := &http.Client{}
-	client.Timeout = 1.0 * time.Second
+// requestConfig holds configuration for an HTTP request.
+type requestConfig struct {
+	method string
+	path   string
+	params url.Values
+	body   []byte
+}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/getData", s.IPAddress), nil)
-	if err != nil {
-		return nil, err
+// doRequest performs an HTTP request with the given configuration.
+func (s *KEFSpeaker) doRequest(ctx context.Context, cfg requestConfig) ([]byte, error) {
+	baseURL := fmt.Sprintf(DefaultBaseURL, s.IPAddress)
+	requestURL := fmt.Sprintf("%s/%s", baseURL, cfg.path)
+
+	var bodyReader io.Reader
+	if cfg.body != nil {
+		bodyReader = bytes.NewReader(cfg.body)
 	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
 
-	q := req.URL.Query()
-	q.Add("path", path)
-	q.Add("roles", "value")
-	req.URL.RawQuery = q.Encode()
+	req, err := http.NewRequestWithContext(ctx, cfg.method, requestURL, bodyReader)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
 
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	if cfg.params != nil {
+		req.URL.RawQuery = cfg.params.Encode()
+	}
+
+	client := s.httpClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, s.handleConnectionError(err)
@@ -68,186 +117,139 @@ func (s KEFSpeaker) getData(path string) ([]byte, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading response: %w", err)
 	}
 
-	if resp.StatusCode != 200 {
-		log.Debug("Response:", resp.StatusCode, resp.Body)
-		return nil, fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
-	}
-
-	return body, nil
-}
-
-func (s KEFSpeaker) getAllData(path string) ([]byte, error) {
-	client := &http.Client{}
-	client.Timeout = 1.0 * time.Second
-
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/getData", s.IPAddress), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-
-	q := req.URL.Query()
-	q.Add("path", path)
-	q.Add("roles", "@all")
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, s.handleConnectionError(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != 200 {
-		log.Debug("Response:", resp.StatusCode, resp.Body)
-		return nil, fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		slog.Debug("HTTP request failed",
+			"status", resp.StatusCode,
+			"url", requestURL,
+			"response", string(body),
+		)
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
 	return body, nil
 }
 
-func (s KEFSpeaker) getRows(path string, params map[string]string) ([]byte, error) {
-	client := &http.Client{}
-	client.Timeout = 1.0 * time.Second
+// getData fetches data from the speaker API for a given path.
+func (s *KEFSpeaker) getData(ctx context.Context, path string) ([]byte, error) {
+	params := url.Values{}
+	params.Set("path", path)
+	params.Set("roles", "value")
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/getRows", s.IPAddress), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-
-	q := req.URL.Query()
-	q.Add("path", path) // Always add the path
-	for key, value := range params {
-		q.Add(key, value)
-	}
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, s.handleConnectionError(err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		log.Debug("Response:", resp.StatusCode, resp.Body)
-		return nil, fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return body, nil
+	return s.doRequest(ctx, requestConfig{
+		method: http.MethodGet,
+		path:   "getData",
+		params: params,
+	})
 }
 
-func (s KEFSpeaker) setActivate(path, item, value string) error {
-	client := &http.Client{}
-	client.Timeout = 1.0 * time.Second
+// getRows fetches row data from the speaker API.
+func (s *KEFSpeaker) getRows(ctx context.Context, path string, extraParams map[string]string) ([]byte, error) {
+	params := url.Values{}
+	params.Set("path", path)
+	for key, value := range extraParams {
+		params.Set(key, value)
+	}
 
-	jsonStr, _ := json.Marshal(
-		map[string]string{
-			item: value,
-		})
+	return s.doRequest(ctx, requestConfig{
+		method: http.MethodGet,
+		path:   "getRows",
+		params: params,
+	})
+}
+
+// setActivate sends an activate command to the speaker.
+func (s *KEFSpeaker) setActivate(ctx context.Context, path, item, value string) error {
+	jsonStr, err := json.Marshal(map[string]string{item: value})
+	if err != nil {
+		return fmt.Errorf("marshaling value: %w", err)
+	}
 	rawValue := json.RawMessage(jsonStr)
 
-	reqbody, _ := json.Marshal(KEFPostRequest{
+	reqBody, err := json.Marshal(KEFPostRequest{
 		Path:  path,
 		Roles: "activate",
 		Value: &rawValue,
 	})
-
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/api/setData", s.IPAddress), bytes.NewBuffer(reqbody))
 	if err != nil {
-		return err
-	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return s.handleConnectionError(err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		log.Debug("Response:", resp.StatusCode, resp.Body)
-		return fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
+		return fmt.Errorf("marshaling request: %w", err)
 	}
 
-	return nil
+	_, err = s.doRequest(ctx, requestConfig{
+		method: http.MethodPost,
+		path:   "setData",
+		body:   reqBody,
+	})
+	return err
 }
 
-func (s KEFSpeaker) setTypedValue(path string, value any) error {
-	client := &http.Client{}
-	client.Timeout = 1.0 * time.Second
+// TypeEncoder interface for types that can encode themselves for the KEF API.
+type TypeEncoder interface {
+	KEFTypeInfo() (typeName string, value string)
+}
 
-	var myType string
-	var myValue string
-	switch theType := value.(type) {
+// KEFTypeInfo implements TypeEncoder for Source.
+func (s Source) KEFTypeInfo() (string, string) {
+	return "kefPhysicalSource", string(s)
+}
+
+// KEFTypeInfo implements TypeEncoder for SpeakerStatus.
+func (s SpeakerStatus) KEFTypeInfo() (string, string) {
+	return "kefSpeakerStatus", fmt.Sprintf("%q", string(s))
+}
+
+// KEFTypeInfo implements TypeEncoder for CableMode.
+func (c CableMode) KEFTypeInfo() (string, string) {
+	return "kefCableMode", fmt.Sprintf("%q", string(c))
+}
+
+// setTypedValue sets a typed value on the speaker.
+func (s *KEFSpeaker) setTypedValue(ctx context.Context, path string, value any) error {
+	var typeName, typeValue string
+
+	switch v := value.(type) {
 	case int:
-		myType = "i32_"
-		myValue = fmt.Sprintf("%d", value.(int))
+		typeName = typeNameI32
+		typeValue = fmt.Sprintf("%d", v)
 	case string:
-		myType = "string_"
-		myValue = fmt.Sprintf("\"%s\"", value.(string))
+		typeName = typeNameString
+		typeValue = fmt.Sprintf("%q", v)
 	case bool:
-		myType = "bool_"
-		myValue = fmt.Sprintf("%t", value.(bool))
-	case Source:
-		myType = "kefPhysicalSource"
-		myValue = string(value.(Source))
-	case SpeakerStatus:
-		myType = "kefSpeakerStatus"
-		myValue = fmt.Sprintf("\"%s\"", value.(SpeakerStatus))
-	case CableMode:
-		myType = "kefCableMode"
-		myValue = fmt.Sprintf("\"%s\"", value.(CableMode))
+		typeName = typeNameBool
+		typeValue = fmt.Sprintf("%t", v)
+	case TypeEncoder:
+		typeName, typeValue = v.KEFTypeInfo()
 	default:
-		return fmt.Errorf("type %s is not supported", theType)
+		return fmt.Errorf("unsupported type: %T", value)
 	}
 
-	// Build the JSON
-	jsonStr, _ := json.Marshal(
-		map[string]string{
-			"type": myType,
-			myType: myValue,
-		})
+	// Build the JSON value
+	jsonStr, err := json.Marshal(map[string]string{
+		"type":   typeName,
+		typeName: typeValue,
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling value: %w", err)
+	}
 	rawValue := json.RawMessage(jsonStr)
-	pr := KEFPostRequest{
+
+	reqBody, err := json.Marshal(KEFPostRequest{
 		Path:  path,
 		Roles: "value",
 		Value: &rawValue,
-	}
-
-	reqbody, _ := json.MarshalIndent(pr, "", "  ")
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/api/setData", s.IPAddress), bytes.NewBuffer(reqbody))
+	})
 	if err != nil {
-		return err
-	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return s.handleConnectionError(err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		log.Debug("Response:", resp.StatusCode, resp.Body)
-		return fmt.Errorf("HTTP Status Code: %d\n%s", resp.StatusCode, resp.Body)
+		return fmt.Errorf("marshaling request: %w", err)
 	}
 
-	return nil
+	slog.Debug("setTypedValue", "path", path, "body", string(reqBody))
+
+	_, err = s.doRequest(ctx, requestConfig{
+		method: http.MethodPost,
+		path:   "setData",
+		body:   reqBody,
+	})
+	return err
 }

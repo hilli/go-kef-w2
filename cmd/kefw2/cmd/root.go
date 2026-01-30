@@ -28,8 +28,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 
 	cc "github.com/ivanpirog/coloredcobra"
 	"github.com/spf13/cobra"
@@ -48,7 +49,7 @@ var (
 	BuildDate           string // Build date
 )
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "kefw2",
 	Short: "kefw2 is a CLI tool for controlling KEF's W2 platform speakers",
@@ -61,7 +62,7 @@ var rootCmd = &cobra.Command{
 var VersionCmd = &cobra.Command{
 	Use:  "version",
 	Long: "Print the version number of kefw2",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Println("kefw2: Command line tool for controlling KEF's W2 platform speakers")
 		headerPrinter.Print("Version: ")
 		contentPrinter.Printf("%s\n", Version)
@@ -87,7 +88,7 @@ func Execute() {
 	})
 
 	// Pre-run check to ensure we have a speaker configured except for config and version commands
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, _ []string) {
 		if commandRequiresAsSpeaker(cmd) && currentSpeaker == nil && len(speakers) == 0 {
 			errorPrinter.Fprintf(os.Stderr, "No speakers configured. Please configure a speaker first:\n")
 			errorPrinter.Fprintf(os.Stderr, "Please configure a speaker first:\n")
@@ -113,7 +114,7 @@ func init() {
 	home, err := os.UserHomeDir()
 	cobra.CheckErr(err)
 	cfgPath := filepath.Join(home, ".config", "kefw2")
-	err = os.MkdirAll(cfgPath, 0755)
+	err = os.MkdirAll(cfgPath, 0750)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
@@ -132,7 +133,6 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -169,7 +169,7 @@ func initConfig() {
 	if defaultSpeaker == nil && len(speakers) == 1 {
 		defaultSpeaker = &speakers[0]
 		viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
-		viper.WriteConfig()
+		_ = viper.WriteConfig()
 		taskConpletedPrinter.Printf("No default speaker was set. Using first available speaker as default: %s (%s)\n",
 			defaultSpeaker.Name, defaultSpeaker.IPAddress)
 	}
@@ -179,7 +179,7 @@ func initConfig() {
 		if err != nil {
 			errorPrinter.Printf("Hmm, %s does not look like it is a KEF W2 speaker:\n%s\n", currentSpeakerParam, err.Error())
 		}
-		currentSpeaker = &newSpeaker
+		currentSpeaker = newSpeaker
 	} else {
 		currentSpeaker = defaultSpeaker
 	}

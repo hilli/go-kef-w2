@@ -7,58 +7,98 @@ import (
 	"github.com/brutella/dnssd"
 )
 
-func DiscoverSpeakers(timeout int) ([]KEFSpeaker, error) {
-	discoveredSpeakers := []KEFSpeaker{}
-	ips, err := discoverIPs(timeout)
+// DiscoverSpeakers searches for KEF speakers on the local network using mDNS.
+// The timeout parameter specifies how long to wait for discovery in seconds.
+func DiscoverSpeakers(ctx context.Context, timeout time.Duration) ([]*KEFSpeaker, error) {
+	ips, err := discoverIPs(ctx, timeout)
 	if err != nil {
-		return discoveredSpeakers, err
+		return nil, err
 	}
+
+	// Use a map for deduplication by IP
+	speakersByIP := make(map[string]*KEFSpeaker)
 	for _, ip := range ips {
+		if _, exists := speakersByIP[ip]; exists {
+			continue // Already discovered
+		}
+
 		speaker, err := NewSpeaker(ip)
 		if err != nil {
-			continue
+			continue // Skip speakers we can't connect to
 		}
-		discoveredSpeakers = append(discoveredSpeakers, speaker)
+		speakersByIP[ip] = speaker
 	}
 
-	// Service Discovery may have the same speakers multiple times. Lets filter it down to single instance
-	found := map[string]KEFSpeaker{}
-	for _, s := range discoveredSpeakers {
-		found[s.IPAddress] = s
-	}
-	discoveredSpeakers = []KEFSpeaker{}
-	for _, s := range found {
-		discoveredSpeakers = append(discoveredSpeakers, s)
+	// Convert map to slice
+	speakers := make([]*KEFSpeaker, 0, len(speakersByIP))
+	for _, s := range speakersByIP {
+		speakers = append(speakers, s)
 	}
 
-	return discoveredSpeakers, nil
+	return speakers, nil
 }
 
-func discoverIPs(timeout int) ([]string, error) {
-	ips := []string{}
-	waitForDiscoveryTimeout := time.Duration(timeout) * time.Second
-	discoveryTimeout := time.Duration(timeout) * time.Second
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		time.Duration(discoveryTimeout))
+// DiscoverSpeakersLegacy is the old API that takes timeout in seconds as an int.
+//
+// Deprecated: Use DiscoverSpeakers with context and time.Duration instead.
+func DiscoverSpeakersLegacy(timeout int) ([]*KEFSpeaker, error) {
+	return DiscoverSpeakers(context.Background(), time.Duration(timeout)*time.Second)
+}
 
+func discoverIPs(ctx context.Context, timeout time.Duration) ([]string, error) {
+	// Create a context with timeout if not already set
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+
+	var ips []string
+	discovered := make(chan string, 100)
+	done := make(chan struct{})
+
 	service := "_http._tcp.local."
 
 	addFn := func(e dnssd.BrowseEntry) {
-		ips = append(ips, e.IPs[0].String())
+		if len(e.IPs) > 0 {
+			select {
+			case discovered <- e.IPs[0].String():
+			default:
+				// Channel full, skip
+			}
+		}
 	}
 
-	rmvFn := func(e dnssd.BrowseEntry) {} // Empty, don't need it
+	rmvFn := func(_ dnssd.BrowseEntry) {} // Not needed for discovery
 
-	go func(ctx context.Context) {
-		defer cancel()
-		if err := dnssd.LookupType(ctx, service, addFn, rmvFn); err != nil {
-			return
+	// Start discovery in background
+	go func() {
+		defer close(done)
+		_ = dnssd.LookupType(ctx, service, addFn, rmvFn)
+	}()
+
+	// Collect discovered IPs until context is done
+	for {
+		select {
+		case ip := <-discovered:
+			ips = append(ips, ip)
+		case <-ctx.Done():
+			// Drain any remaining IPs
+			for {
+				select {
+				case ip := <-discovered:
+					ips = append(ips, ip)
+				default:
+					return ips, nil
+				}
+			}
+		case <-done:
+			// Discovery finished early
+			for {
+				select {
+				case ip := <-discovered:
+					ips = append(ips, ip)
+				default:
+					return ips, nil
+				}
+			}
 		}
-	}(ctx)
-
-	time.Sleep(waitForDiscoveryTimeout)
-
-	return ips, nil
+	}
 }

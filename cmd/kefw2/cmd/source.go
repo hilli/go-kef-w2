@@ -25,11 +25,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/spf13/cobra"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// volumeCmd represents the volume command
+// volumeCmd represents the volume command.
 var sourceCmd = &cobra.Command{
 	Use:     "source",
 	Aliases: []string{"src"},
@@ -37,8 +38,9 @@ var sourceCmd = &cobra.Command{
 	Long:    `Get or change the source of the speakers`,
 	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
 		if len(args) != 1 {
-			source, _ := currentSpeaker.Source()
+			source, _ := currentSpeaker.Source(ctx)
 			headerPrinter.Print("Source: ")
 			contentPrinter.Printf("%s\n", source.String())
 			return
@@ -48,7 +50,7 @@ var sourceCmd = &cobra.Command{
 			errorPrinter.Println(err)
 			os.Exit(1)
 		}
-		err = currentSpeaker.SetSource(source)
+		err = currentSpeaker.SetSource(ctx, source)
 		if err != nil {
 			errorPrinter.Println(err)
 			os.Exit(1)
@@ -84,6 +86,6 @@ func parseSource(source string) (kefw2.Source, error) {
 	}
 }
 
-func SourceCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func SourceCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	return []string{"analog", "aux", "bluetooth", "coaxial", "optical", "tv", "usb", "wifi", "standby"}, cobra.ShellCompDirectiveNoFileComp
 }

@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// volumeCmd represents the volume command
+// volumeCmd represents the volume command.
 var volumeCmd = &cobra.Command{
 	Use:     "volume",
 	Aliases: []string{"vol"},
@@ -36,8 +36,9 @@ var volumeCmd = &cobra.Command{
 	Long:    `Get or adjust the volume of the speakers`,
 	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
 		if len(args) != 1 {
-			volume, _ := currentSpeaker.GetVolume()
+			volume, _ := currentSpeaker.GetVolume(ctx)
 			headerPrinter.Printf("Volume is: ")
 			contentPrinter.Printf("%d%%\n", volume)
 			return
@@ -47,7 +48,7 @@ var volumeCmd = &cobra.Command{
 			errorPrinter.Println(err)
 			os.Exit(1)
 		}
-		err = currentSpeaker.SetVolume(volume)
+		err = currentSpeaker.SetVolume(ctx, volume)
 		if err != nil {
 			errorPrinter.Println(err)
 			os.Exit(1)
@@ -72,6 +73,6 @@ func parseVolume(volume string) (int, error) {
 	return v, nil
 }
 
-func VolumeCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func VolumeCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	return []string{"0", "10", "20", "30", "40", "50", "60", "70", "80", "90", "100"}, cobra.ShellCompDirectiveNoFileComp
 }

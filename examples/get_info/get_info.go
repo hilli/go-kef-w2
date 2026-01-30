@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/k0kubun/pp"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 )
 
 func main() {
@@ -14,35 +16,37 @@ func main() {
 		log.Fatal(err)
 	}
 
+	ctx := context.Background()
+
 	fmt.Println("Name:", speaker.Name)
 	fmt.Println("Model:", speaker.Model)
 	fmt.Println("Firmware:", speaker.FirmwareVersion)
 	fmt.Println("IP Address:", speaker.IPAddress)
 	fmt.Println("MAC Address:", speaker.MacAddress)
-	networkOpMode, _ := speaker.NetworkOperationMode()
+	networkOpMode, _ := speaker.NetworkOperationMode(ctx)
 	fmt.Println("Network operation mode:", networkOpMode)
-	volume, _ := speaker.GetVolume()
+	volume, _ := speaker.GetVolume(ctx)
 	fmt.Println("Volume:", volume)
-	source, _ := speaker.Source()
+	source, _ := speaker.Source(ctx)
 	fmt.Println("Source:", source)
 	fmt.Println("Max Volume:", speaker.MaxVolume)
-	muted, _ := speaker.IsMuted()
+	muted, _ := speaker.IsMuted(ctx)
 	fmt.Println("Muted:", muted)
-	powerstate, _ := speaker.IsPoweredOn()
+	powerstate, _ := speaker.IsPoweredOn(ctx)
 	fmt.Println("Powered on:", powerstate)
-	pd, _ := speaker.PlayerData()
+	pd, _ := speaker.PlayerData(ctx)
 	pp.Printf("Player data: %+v", pd)
 	// Are we currently playing?
-	isPlaying, _ := speaker.IsPlaying()
+	isPlaying, _ := speaker.IsPlaying(ctx)
 	fmt.Print("Playing:", isPlaying)
-	// speaker.PowerOff()
-	// err = speaker.Unmute()
+	// speaker.PowerOff(ctx)
+	// err = speaker.Unmute(ctx)
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-	//speaker.PlayPause()
-	//err = speaker.SetSource(kefw2.SourceUSB)
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
+	// speaker.PlayPause(ctx)
+	// err = speaker.SetSource(ctx, kefw2.SourceUSB)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 }

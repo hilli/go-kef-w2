@@ -27,15 +27,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// infoCmd represents the info command
+// infoCmd represents the info command.
 var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Display detailed information about the speaker",
 	Long:  `Display detailed information about the speaker including software version, IP address, and other available information.`,
 	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
+		ctx := cmd.Context()
+
 		// Update speaker info to ensure we have the latest data
-		err := currentSpeaker.UpdateInfo()
+		err := currentSpeaker.UpdateInfo(ctx)
 		if err != nil {
 			errorPrinter.Printf("Error updating speaker information: %s\n", err.Error())
 			os.Exit(1)
@@ -61,35 +63,35 @@ var infoCmd = &cobra.Command{
 		contentPrinter.Printf("%d\n", currentSpeaker.MaxVolume)
 
 		// Get network operation mode
-		networkMode, err := currentSpeaker.NetworkOperationMode()
+		networkMode, err := currentSpeaker.NetworkOperationMode(ctx)
 		if err == nil {
 			headerPrinter.Print("Network Mode: ")
 			contentPrinter.Println(networkMode)
 		}
 
 		// Get speaker power state
-		speakerState, err := currentSpeaker.SpeakerState()
+		speakerState, err := currentSpeaker.SpeakerState(ctx)
 		if err == nil {
 			headerPrinter.Print("Speaker State: ")
 			contentPrinter.Println(speakerState)
 		}
 
 		// Get current source
-		source, err := currentSpeaker.Source()
+		source, err := currentSpeaker.Source(ctx)
 		if err == nil {
 			headerPrinter.Print("Current Source: ")
 			contentPrinter.Println(source)
 		}
 
 		// Get mute status
-		muted, err := currentSpeaker.IsMuted()
+		muted, err := currentSpeaker.IsMuted(ctx)
 		if err == nil {
 			headerPrinter.Print("Muted: ")
 			contentPrinter.Println(muted)
 		}
 
 		// Get current volume
-		volume, err := currentSpeaker.GetVolume()
+		volume, err := currentSpeaker.GetVolume(ctx)
 		if err == nil {
 			headerPrinter.Print("Current Volume: ")
 			contentPrinter.Printf("%d\n", volume)

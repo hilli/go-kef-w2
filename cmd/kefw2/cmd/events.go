@@ -24,13 +24,15 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/spf13/cobra"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 )
 
 var eventsCmd = &cobra.Command{
@@ -44,7 +46,7 @@ changes as they happen: volume, source, playback position, etc.
 
 Press Ctrl+C to stop.`,
 	Args: cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 		timeout, _ := cmd.Flags().GetInt("timeout")
 
@@ -53,18 +55,18 @@ Press Ctrl+C to stop.`,
 			kefw2.WithPollTimeout(timeout),
 		)
 		if err != nil {
-			errorPrinter.Printf("Failed to create event client: %v\n", err)
+			_, _ = errorPrinter.Printf("Failed to create event client: %v\n", err)
 			os.Exit(1)
 		}
 		defer eventClient.Close()
 
 		if !jsonOutput {
-			headerPrinter.Printf("Speaker: ")
-			contentPrinter.Printf("%s (%s)\n", currentSpeaker.Name, currentSpeaker.IPAddress)
-			headerPrinter.Printf("Queue ID: ")
-			contentPrinter.Printf("%s\n", eventClient.QueueID())
+			_, _ = headerPrinter.Printf("Speaker: ")
+			_, _ = contentPrinter.Printf("%s (%s)\n", currentSpeaker.Name, currentSpeaker.IPAddress)
+			_, _ = headerPrinter.Printf("Queue ID: ")
+			_, _ = contentPrinter.Printf("%s\n", eventClient.QueueID())
 			fmt.Println()
-			taskConpletedPrinter.Println("Listening for events... (Ctrl+C to stop)")
+			_, _ = taskConpletedPrinter.Println("Listening for events... (Ctrl+C to stop)")
 			fmt.Println()
 		}
 
@@ -95,10 +97,10 @@ Press Ctrl+C to stop.`,
 			cancel()
 		}()
 
-		// Start polling (blocks until context cancelled or error)
+		// Start polling (blocks until context canceled or error)
 		if err := eventClient.Start(ctx); err != nil {
-			if err != context.Canceled {
-				errorPrinter.Printf("Event stream error: %v\n", err)
+			if !errors.Is(err, context.Canceled) {
+				_, _ = errorPrinter.Printf("Event stream error: %v\n", err)
 				os.Exit(1)
 			}
 		}
@@ -152,6 +154,7 @@ func printEventJSON(event kefw2.Event) {
 	fmt.Println(string(jsonBytes))
 }
 
+//nolint:gocyclo,gosec // High complexity is inherent to handling many event types; printer errors are non-critical
 func printEventHuman(event kefw2.Event) {
 	timestamp := event.Timestamp().Format("15:04:05")
 
@@ -181,7 +184,7 @@ func printEventHuman(event kefw2.Event) {
 		if e.PositionMS >= 0 {
 			secs := e.PositionMS / 1000
 			mins := secs / 60
-			secs = secs % 60
+			secs %= 60
 			contentPrinter.Printf("PLAY_TIME: %d:%02d\n", mins, secs)
 		} else {
 			contentPrinter.Println("PLAY_TIME: stopped")
@@ -220,9 +223,10 @@ func printEventHuman(event kefw2.Event) {
 		adds := 0
 		removes := 0
 		for _, c := range e.Changes {
-			if c.Type == "add" {
+			switch c.Type {
+			case "add":
 				adds++
-			} else if c.Type == "remove" {
+			case "remove":
 				removes++
 			}
 		}

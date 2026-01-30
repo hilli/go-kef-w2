@@ -64,11 +64,13 @@ tasks:
       - go run -ldflags='{{.LDFLAGS}}' cmd/kefw2/kefw2.go {{.CLI_ARGS}}
 
   all:
-    desc: Run all tasks
+    desc: Run all tasks (lint, build, test, complete)
     aliases: [a]
     silent: true
     cmds:
+      - task lint
       - task build
+      - task test
       - task complete
 
   clean:
@@ -78,6 +80,7 @@ tasks:
     cmds:
       - rm -rf bin
       - rm -rf share
+      - rm -f coverage.out coverage.html
 
   release-test:
     desc: Run gorelease snapshot
@@ -87,6 +90,47 @@ tasks:
       - cmd/kefw2/**/*.go
       - kefw2/*.go
       - Taskfile.yaml
+
+  lint:
+    desc: Run golangci-lint
+    aliases: [l]
+    cmds:
+      - golangci-lint run ./...
+
+  lint:fix:
+    desc: Run golangci-lint with auto-fix
+    aliases: [lf]
+    cmds:
+      - golangci-lint run --fix ./...
+
+  lint:verbose:
+    desc: Run golangci-lint with verbose output
+    aliases: [lv]
+    cmds:
+      - golangci-lint run -v ./...
+
+  test:
+    desc: Run tests
+    aliases: [t]
+    cmds:
+      - go test ./...
+
+  test:coverage:
+    desc: Run tests with coverage
+    aliases: [tc]
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+    generates:
+      - coverage.out
+      - coverage.html
+
+  check:
+    desc: Run all checks (lint + test)
+    aliases: [ck]
+    cmds:
+      - task: lint
+      - task: test
 
 includes:
   docs:

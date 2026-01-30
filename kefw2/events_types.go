@@ -1,12 +1,13 @@
 package kefw2
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"time"
 )
 
-// EventType identifies the type of event
+// EventType identifies the type of event.
 type EventType string
 
 const (
@@ -26,7 +27,24 @@ const (
 	EventTypeUnknown      EventType = "unknown"
 )
 
-// Event is the interface implemented by all event types
+// Event paths for subscriptions and parsing.
+const (
+	pathPlayerVolume   = "player:volume"
+	pathPhysicalSource = "settings:/kef/play/physicalSource"
+	pathSpeakerStatus  = "settings:/kef/host/speakerStatus"
+	pathMute           = "settings:/mediaPlayer/mute"
+	pathPlayTime       = "player:player/data/playTime"
+	pathPlayerData     = "player:player/data"
+	pathPlayMode       = "settings:/mediaPlayer/playMode"
+	pathEQProfile      = "kef:eqProfile/v2"
+	pathPlaylist       = "playlists:pq/getitems"
+	pathBluetooth      = "bluetooth:state"
+	pathNetwork        = "network:info"
+	pathFirmware       = "firmwareupdate:updateStatus"
+	pathNotification   = "notifications:/display/queue"
+)
+
+// Event is the interface implemented by all event types.
 type Event interface {
 	// Type returns the event type
 	Type() EventType
@@ -36,7 +54,7 @@ type Event interface {
 	Timestamp() time.Time
 }
 
-// baseEvent contains common fields for all events
+// baseEvent contains common fields for all events.
 type baseEvent struct {
 	eventType EventType
 	path      string
@@ -47,31 +65,31 @@ func (e baseEvent) Type() EventType      { return e.eventType }
 func (e baseEvent) Path() string         { return e.path }
 func (e baseEvent) Timestamp() time.Time { return e.timestamp }
 
-// VolumeEvent is emitted when volume changes
+// VolumeEvent is emitted when volume changes.
 type VolumeEvent struct {
 	baseEvent
 	Volume int
 }
 
-// SourceEvent is emitted when the audio source changes
+// SourceEvent is emitted when the audio source changes.
 type SourceEvent struct {
 	baseEvent
 	Source Source
 }
 
-// PowerEvent is emitted when power state changes
+// PowerEvent is emitted when power state changes.
 type PowerEvent struct {
 	baseEvent
 	Status SpeakerStatus
 }
 
-// MuteEvent is emitted when mute state changes
+// MuteEvent is emitted when mute state changes.
 type MuteEvent struct {
 	baseEvent
 	Muted bool
 }
 
-// PlayTimeEvent is emitted when playback position updates
+// PlayTimeEvent is emitted when playback position updates.
 type PlayTimeEvent struct {
 	baseEvent
 	PositionMS int64 // Position in milliseconds, -1 if stopped
@@ -81,7 +99,7 @@ type PlayTimeEvent struct {
 // Track info is automatically fetched from the speaker.
 type PlayerDataEvent struct {
 	baseEvent
-	State    string // "playing", "paused", "stopped", etc.
+	State    string // PlayerStatePlaying, PlayerStatePaused, PlayerStateStopped, etc.
 	Title    string // Track title
 	Artist   string // Artist name
 	Album    string // Album name
@@ -95,54 +113,54 @@ type PlayModeEvent struct {
 	Mode string
 }
 
-// EQProfileEvent is emitted when EQ profile changes
+// EQProfileEvent is emitted when EQ profile changes.
 type EQProfileEvent struct {
 	baseEvent
 	Profile EQProfileV2
 }
 
-// PlaylistChange represents a single change in the playlist
+// PlaylistChange represents a single change in the playlist.
 type PlaylistChange struct {
 	Type  string // "add", "remove", "update"
 	Index int
 }
 
-// PlaylistEvent is emitted when the playlist changes
+// PlaylistEvent is emitted when the playlist changes.
 type PlaylistEvent struct {
 	baseEvent
 	Changes []PlaylistChange
 	Version int
 }
 
-// BluetoothState represents the bluetooth connection state
+// BluetoothState represents the bluetooth connection state.
 type BluetoothState struct {
 	State     string
 	Connected bool
 	Pairing   bool
 }
 
-// BluetoothEvent is emitted when bluetooth state changes
+// BluetoothEvent is emitted when bluetooth state changes.
 type BluetoothEvent struct {
 	baseEvent
 	Bluetooth BluetoothState
 }
 
-// NetworkEvent is emitted when network info changes
+// NetworkEvent is emitted when network info changes.
 type NetworkEvent struct {
 	baseEvent
 }
 
-// FirmwareEvent is emitted when firmware update status changes
+// FirmwareEvent is emitted when firmware update status changes.
 type FirmwareEvent struct {
 	baseEvent
 }
 
-// NotificationEvent is emitted when display notifications change
+// NotificationEvent is emitted when display notifications change.
 type NotificationEvent struct {
 	baseEvent
 }
 
-// UnknownEvent is emitted for unrecognized event types
+// UnknownEvent is emitted for unrecognized event types.
 type UnknownEvent struct {
 	baseEvent
 	RawPath string
@@ -150,7 +168,9 @@ type UnknownEvent struct {
 
 // parseRawEvent converts a raw event from the speaker into a typed Event.
 // This is a method on EventClient so it can fetch additional data when needed.
-func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
+//
+//nolint:gocyclo // High complexity is inherent to parsing many event types
+func (ec *EventClient) parseRawEvent(ctx context.Context, raw rawEvent) Event {
 	now := time.Now()
 	path := raw.Path
 
@@ -160,7 +180,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 	}
 
 	switch {
-	case path == "player:volume":
+	case path == pathPlayerVolume:
 		base.eventType = EventTypeVolume
 		value := parseTypedValue(raw.ItemValue)
 		volume := 0
@@ -169,7 +189,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		}
 		return &VolumeEvent{baseEvent: base, Volume: volume}
 
-	case path == "settings:/kef/play/physicalSource":
+	case path == pathPhysicalSource:
 		base.eventType = EventTypeSource
 		value := parseTypedValue(raw.ItemValue)
 		source := SourceStandby
@@ -178,7 +198,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		}
 		return &SourceEvent{baseEvent: base, Source: source}
 
-	case path == "settings:/kef/host/speakerStatus":
+	case path == pathSpeakerStatus:
 		base.eventType = EventTypePower
 		value := parseTypedValue(raw.ItemValue)
 		status := SpeakerStatusStandby
@@ -187,7 +207,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		}
 		return &PowerEvent{baseEvent: base, Status: status}
 
-	case path == "settings:/mediaPlayer/mute":
+	case path == pathMute:
 		base.eventType = EventTypeMute
 		value := parseTypedValue(raw.ItemValue)
 		muted := false
@@ -196,7 +216,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		}
 		return &MuteEvent{baseEvent: base, Muted: muted}
 
-	case path == "player:player/data/playTime":
+	case path == pathPlayTime:
 		base.eventType = EventTypePlayTime
 		value := parseTypedValue(raw.ItemValue)
 		positionMS := int64(-1)
@@ -205,7 +225,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		}
 		return &PlayTimeEvent{baseEvent: base, PositionMS: positionMS}
 
-	case path == "player:player/data":
+	case path == pathPlayerData:
 		base.eventType = EventTypePlayerData
 		event := &PlayerDataEvent{baseEvent: base}
 
@@ -229,7 +249,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 
 		// Fall back to fetching from speaker if no inline data
 		if !gotData {
-			if pd, err := ec.speaker.PlayerData(); err == nil {
+			if pd, err := ec.speaker.PlayerData(ctx); err == nil {
 				event.State = pd.State
 				event.Title = pd.TrackRoles.Title
 				event.Artist = pd.TrackRoles.MediaData.MetaData.Artist
@@ -257,7 +277,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		}
 		return event
 
-	case path == "settings:/mediaPlayer/playMode":
+	case path == pathPlayMode:
 		base.eventType = EventTypePlayMode
 		value := parseTypedValue(raw.ItemValue)
 		mode := ""
@@ -266,7 +286,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		}
 		return &PlayModeEvent{baseEvent: base, Mode: mode}
 
-	case path == "kef:eqProfile/v2":
+	case path == pathEQProfile:
 		base.eventType = EventTypeEQProfile
 		value := parseTypedValue(raw.ItemValue)
 		var profile EQProfileV2
@@ -279,10 +299,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		base.eventType = EventTypePlaylist
 		changes := make([]PlaylistChange, 0, len(raw.RowsEvents))
 		for _, re := range raw.RowsEvents {
-			changes = append(changes, PlaylistChange{
-				Type:  re.Type,
-				Index: re.Index,
-			})
+			changes = append(changes, PlaylistChange(re))
 		}
 		return &PlaylistEvent{
 			baseEvent: base,
@@ -290,7 +307,7 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 			Version:   raw.RowsVersion,
 		}
 
-	case path == "bluetooth:state":
+	case path == pathBluetooth:
 		base.eventType = EventTypeBluetooth
 		value := parseTypedValue(raw.ItemValue)
 		bt := BluetoothState{}
@@ -303,11 +320,11 @@ func (ec *EventClient) parseRawEvent(raw rawEvent) Event {
 		}
 		return &BluetoothEvent{baseEvent: base, Bluetooth: bt}
 
-	case path == "network:info":
+	case path == pathNetwork:
 		base.eventType = EventTypeNetwork
 		return &NetworkEvent{baseEvent: base}
 
-	case path == "firmwareupdate:updateStatus":
+	case path == pathFirmware:
 		base.eventType = EventTypeFirmware
 		return &FirmwareEvent{baseEvent: base}
 

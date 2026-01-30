@@ -25,14 +25,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// muteCmd toggles the mute state of the speakers
+// muteCmd toggles the mute state of the speakers.
 var offCmd = &cobra.Command{
 	Use:   "off",
 	Short: "Turns the speakers off",
 	Long:  `Turns the speakers off`,
 	Args:  cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		err := currentSpeaker.PowerOff()
+	Run: func(cmd *cobra.Command, _ []string) {
+		ctx := cmd.Context()
+		err := currentSpeaker.PowerOff(ctx)
 		if err != nil {
 			errorPrinter.Println(err)
 		}

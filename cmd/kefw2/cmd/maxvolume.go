@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// volumeCmd represents the volume command
+// volumeCmd represents the volume command.
 var maxVolumeCmd = &cobra.Command{
 	Use:     "maxvolume",
 	Aliases: []string{"maxvol"},
@@ -35,8 +35,9 @@ var maxVolumeCmd = &cobra.Command{
 	Long:    `Get or adjust the max volume of the speakers`,
 	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
 		if len(args) != 1 {
-			volume, _ := currentSpeaker.GetMaxVolume()
+			volume, _ := currentSpeaker.GetMaxVolume(ctx)
 			headerPrinter.Print("Max volume: ")
 			contentPrinter.Printf("%d%%\n", volume)
 			return
@@ -46,7 +47,7 @@ var maxVolumeCmd = &cobra.Command{
 			errorPrinter.Println(err)
 			os.Exit(1)
 		}
-		err = currentSpeaker.SetMaxVolume(volume)
+		err = currentSpeaker.SetMaxVolume(ctx, volume)
 		if err != nil {
 			errorPrinter.Println(err)
 			os.Exit(1)
