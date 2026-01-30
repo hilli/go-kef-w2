@@ -35,7 +35,11 @@ var eqProfileCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, _ []string) {
 		ctx := cmd.Context()
-		eqProfile, _ := currentSpeaker.GetEQProfileV2(ctx)
+		eqProfile, err := currentSpeaker.GetEQProfileV2(ctx)
+		if err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Error getting EQ profile: %v\n", err)
+			return
+		}
 		fmt.Println(eqProfile)
 	},
 }
