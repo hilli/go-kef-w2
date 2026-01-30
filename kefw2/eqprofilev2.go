@@ -3,7 +3,6 @@ package kefw2
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 )
 
 // EQProfileV2 represents the equalizer and DSP settings for the speaker.
@@ -14,7 +13,7 @@ type EQProfileV2 struct {
 	Balance            int     `json:"balance"`            // Left/right balance (-10 to +10)
 	BassExtension      string  `json:"bassExtension"`      // Bass extension mode: "less", "standard", or "more"
 	DeskMode           bool    `json:"deskMode"`           // Whether desk mode is enabled
-	DeskModeSetting    int     `json:"deskModeSetting"`    // Desk mode compensation level
+	DeskModeSetting    float32 `json:"deskModeSetting"`    // Desk mode compensation level
 	HighPassMode       bool    `json:"highPassMode"`       // Whether high-pass filter is enabled (for use with subwoofer)
 	HighPassModeFreq   int     `json:"highPassModeFreq"`   // High-pass filter frequency in Hz
 	IsExpertMode       bool    `json:"isExpertMode"`       // Whether expert mode is enabled
@@ -39,7 +38,14 @@ type EQProfileV2 struct {
 // Each source can have its own EQ profile settings.
 func (s *KEFSpeaker) GetEQProfileV2(ctx context.Context) (EQProfileV2, error) {
 	eqProfile, err := JSONUnmarshalValue(s.getData(ctx, "kef:eqProfile/v2"))
-	return eqProfile.(EQProfileV2), err
+	if err != nil {
+		return EQProfileV2{}, err
+	}
+	profile, ok := eqProfile.(EQProfileV2)
+	if !ok {
+		return EQProfileV2{}, ErrUnknownType
+	}
+	return profile, nil
 }
 
 // String returns the EQ profile as a formatted JSON string.
