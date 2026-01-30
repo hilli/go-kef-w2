@@ -3,6 +3,7 @@ package kefw2
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 )
 
 // EQProfileV2 represents the equalizer and DSP settings for the speaker.

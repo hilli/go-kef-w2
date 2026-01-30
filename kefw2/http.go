@@ -29,9 +29,10 @@ const (
 
 // Common errors.
 var (
-	ErrConnectionRefused = errors.New("connection refused")
-	ErrConnectionTimeout = errors.New("connection timed out")
-	ErrHostNotFound      = errors.New("host not found")
+	ErrConnectionRefused   = errors.New("connection refused")
+	ErrConnectionTimeout   = errors.New("connection timed out")
+	ErrHostNotFound        = errors.New("host not found")
+	ErrInvalidJSONResponse = errors.New("invalid JSON response")
 )
 
 // KEFPostRequest represents the JSON structure for POST requests to the KEF API.
