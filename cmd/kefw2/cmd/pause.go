@@ -27,14 +27,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// muteCmd toggles the mute state of the speakers
+// muteCmd toggles the mute state of the speakers.
 var pauseCmd = &cobra.Command{
 	Use:   "pause",
 	Short: "Pause playback when on WiFi/BT source",
 	Long:  `Pause playback when on WiFi/BT source`,
 	Args:  cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		canControlPlayback, err := currentSpeaker.CanControlPlayback()
+	Run: func(cmd *cobra.Command, _ []string) {
+		ctx := cmd.Context()
+		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
 		if err != nil {
 			errorPrinter.Println(err)
 			os.Exit(1)
@@ -43,11 +44,11 @@ var pauseCmd = &cobra.Command{
 			errorPrinter.Println("Can't pause speaker: Not on WiFi/BT source.")
 			os.Exit(0)
 		}
-		if isPlaying, err := currentSpeaker.IsPlaying(); err != nil {
+		if isPlaying, err := currentSpeaker.IsPlaying(ctx); err != nil {
 			errorPrinter.Println(err)
 			os.Exit(1)
 		} else if isPlaying {
-			err = currentSpeaker.PlayPause()
+			err = currentSpeaker.PlayPause(ctx)
 			if err != nil {
 				errorPrinter.Println(err)
 				os.Exit(1)

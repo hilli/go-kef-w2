@@ -1,6 +1,7 @@
 package kefw2
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,7 +10,7 @@ import (
 	"time"
 )
 
-// mockSpeakerServer creates a test server that simulates KEF speaker responses
+// mockSpeakerServer creates a test server that simulates KEF speaker responses.
 func mockSpeakerServer(t *testing.T, handlers map[string]http.HandlerFunc) *httptest.Server {
 	t.Helper()
 
@@ -22,7 +23,7 @@ func mockSpeakerServer(t *testing.T, handlers map[string]http.HandlerFunc) *http
 	return httptest.NewServer(mux)
 }
 
-// extractIPFromURL gets the host:port from a test server URL
+// extractIPFromURL gets the host:port from a test server URL.
 func extractIPFromURL(url string) string {
 	// Remove "http://" prefix
 	return strings.TrimPrefix(url, "http://")
@@ -48,13 +49,13 @@ func TestGetData(t *testing.T) {
 			switch path {
 			case "player:volume":
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`[{"type":"i32_","i32_":42}]`))
+				_, _ = w.Write([]byte(`[{"type":"i32_","i32_":42}]`))
 			case "settings:/deviceName":
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`[{"type":"string_","string_":"Living Room"}]`))
+				_, _ = w.Write([]byte(`[{"type":"string_","string_":"Living Room"}]`))
 			case "settings:/kef/play/physicalSource":
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`[{"type":"kefPhysicalSource","kefPhysicalSource":"wifi"}]`))
+				_, _ = w.Write([]byte(`[{"type":"kefPhysicalSource","kefPhysicalSource":"wifi"}]`))
 			default:
 				http.Error(w, "unknown path", http.StatusNotFound)
 			}
@@ -97,7 +98,8 @@ func TestGetData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := speaker.getData(tt.path)
+			ctx := context.Background()
+			data, err := speaker.getData(ctx, tt.path)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getData() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -180,7 +182,8 @@ func TestSetTypedValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := speaker.setTypedValue(tt.path, tt.value)
+			ctx := context.Background()
+			err := speaker.setTypedValue(ctx, tt.path, tt.value)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("setTypedValue() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -256,7 +259,8 @@ func TestSetActivate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := speaker.setActivate(tt.path, tt.item, tt.value)
+			ctx := context.Background()
+			err := speaker.setActivate(ctx, tt.path, tt.item, tt.value)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("setActivate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -315,7 +319,7 @@ func TestHandleConnectionError(t *testing.T) {
 	}
 }
 
-// mockError implements error interface for testing
+// mockError implements error interface for testing.
 type mockError struct {
 	msg     string
 	timeout bool
@@ -347,11 +351,11 @@ func TestDoRequestWithContext(t *testing.T) {
 	requestReceived := make(chan struct{})
 
 	server := mockSpeakerServer(t, map[string]http.HandlerFunc{
-		"/api/getData": func(w http.ResponseWriter, r *http.Request) {
+		"/api/getData": func(w http.ResponseWriter, _ *http.Request) {
 			close(requestReceived)
 			// Simulate slow response
 			time.Sleep(100 * time.Millisecond)
-			w.Write([]byte(`[{"type":"i32_","i32_":1}]`))
+			_, _ = w.Write([]byte(`[{"type":"i32_","i32_":1}]`))
 		},
 	})
 	defer server.Close()
@@ -362,7 +366,8 @@ func TestDoRequestWithContext(t *testing.T) {
 	}
 
 	// Make request with short timeout
-	_, err := speaker.getData("player:volume")
+	ctx := context.Background()
+	_, err := speaker.getData(ctx, "player:volume")
 
 	// Should timeout
 	if err == nil {

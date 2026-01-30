@@ -151,7 +151,7 @@ func TestPlayerDataEvent(t *testing.T) {
 			path:      "player:player/data",
 			timestamp: time.Now(),
 		},
-		State:    "playing",
+		State:    PlayerStatePlaying,
 		Title:    "Test Song",
 		Artist:   "Test Artist",
 		Album:    "Test Album",
@@ -162,8 +162,8 @@ func TestPlayerDataEvent(t *testing.T) {
 	if event.Type() != EventTypePlayerData {
 		t.Errorf("Type() = %v, want %v", event.Type(), EventTypePlayerData)
 	}
-	if event.State != "playing" {
-		t.Errorf("State = %q, want %q", event.State, "playing")
+	if event.State != PlayerStatePlaying {
+		t.Errorf("State = %q, want %q", event.State, PlayerStatePlaying)
 	}
 	if event.Title != "Test Song" {
 		t.Errorf("Title = %q, want %q", event.Title, "Test Song")

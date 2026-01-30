@@ -154,31 +154,118 @@ All with tab completion available of the options, where applicable.
 
 ## Library
 
-### Usage
+### Installation
+
+```shell
+go get github.com/hilli/go-kef-w2/kefw2
+```
+
+### Basic Usage
 
 ```go
 package main
 
 import (
+  "context"
   "fmt"
   "log"
+  "time"
 
   "github.com/hilli/go-kef-w2/kefw2"
 )
 
 func main() {
+  // Create a speaker connection
   speaker, err := kefw2.NewSpeaker("10.0.0.93")
   if err != nil {
     log.Fatal(err)
   }
 
-  fmt.Println(speaker.Name)
-  fmt.Println(speaker.Model)
-  fmt.Println(speaker.MacAddress)
-  fmt.Println(speaker.IPAddress)
-  fmt.Println(speaker.Version)
-  fmt.Println(speaker.SerialNumber)
-  fmt.Println(speaker.MacAddress)
+  // Print speaker info
+  fmt.Printf("Name: %s\n", speaker.Name)
+  fmt.Printf("Model: %s\n", speaker.Model)
+  fmt.Printf("Firmware: %s\n", speaker.FirmwareVersion)
+  fmt.Printf("MAC: %s\n", speaker.MacAddress)
+
+  // Control volume
+  volume, _ := speaker.GetVolume()
+  fmt.Printf("Volume: %d\n", volume)
+  speaker.SetVolume(30)
+
+  // Change source
+  speaker.SetSource(kefw2.SourceWiFi)
+}
+```
+
+### Configuration Options
+
+```go
+// With custom timeout
+speaker, err := kefw2.NewSpeaker("10.0.0.93",
+  kefw2.WithTimeout(5*time.Second),
+)
+
+// With custom HTTP client
+customClient := &http.Client{Timeout: 10 * time.Second}
+speaker, err := kefw2.NewSpeaker("10.0.0.93",
+  kefw2.WithHTTPClient(customClient),
+)
+```
+
+### Context Support
+
+All operations have context-aware variants for cancellation and timeout control:
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+defer cancel()
+
+volume, err := speaker.GetVolumeContext(ctx)
+if err != nil {
+  log.Fatal(err)
+}
+```
+
+### Speaker Discovery
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+speakers, err := kefw2.DiscoverSpeakers(ctx, 5*time.Second)
+if err != nil {
+  log.Fatal(err)
+}
+
+for _, s := range speakers {
+  fmt.Printf("Found: %s at %s\n", s.Name, s.IPAddress)
+}
+```
+
+### Event Streaming
+
+Subscribe to real-time speaker events:
+
+```go
+client, err := speaker.NewEventClient()
+if err != nil {
+  log.Fatal(err)
+}
+
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel()
+
+go client.Start(ctx)
+
+for event := range client.Events() {
+  switch e := event.(type) {
+  case *kefw2.VolumeEvent:
+    fmt.Printf("Volume changed: %d\n", e.Volume)
+  case *kefw2.SourceEvent:
+    fmt.Printf("Source changed: %s\n", e.Source)
+  case *kefw2.PlayerDataEvent:
+    fmt.Printf("Now playing: %s - %s\n", e.Artist, e.Title)
+  }
 }
 ```
 

@@ -39,6 +39,7 @@ func DiscoverSpeakers(ctx context.Context, timeout time.Duration) ([]*KEFSpeaker
 }
 
 // DiscoverSpeakersLegacy is the old API that takes timeout in seconds as an int.
+//
 // Deprecated: Use DiscoverSpeakers with context and time.Duration instead.
 func DiscoverSpeakersLegacy(timeout int) ([]*KEFSpeaker, error) {
 	return DiscoverSpeakers(context.Background(), time.Duration(timeout)*time.Second)
@@ -65,7 +66,7 @@ func discoverIPs(ctx context.Context, timeout time.Duration) ([]string, error) {
 		}
 	}
 
-	rmvFn := func(e dnssd.BrowseEntry) {} // Not needed for discovery
+	rmvFn := func(_ dnssd.BrowseEntry) {} // Not needed for discovery
 
 	// Start discovery in background
 	go func() {

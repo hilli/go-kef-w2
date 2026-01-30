@@ -35,7 +35,7 @@ func parseResponse(data []byte) (*jsonResponse, error) {
 
 	var responses []jsonResponse
 	if err := json.Unmarshal(data, &responses); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidFormat, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidFormat, err)
 	}
 
 	if len(responses) == 0 {
@@ -75,11 +75,12 @@ func parseJSONInt(data []byte) (int, error) {
 		numStr = string(resp.I64)
 	default:
 		// Fallback: try to get value from either field
-		if resp.I32 != "" {
+		switch {
+		case resp.I32 != "":
 			numStr = string(resp.I32)
-		} else if resp.I64 != "" {
+		case resp.I64 != "":
 			numStr = string(resp.I64)
-		} else {
+		default:
 			return 0, fmt.Errorf("%w: expected integer, got %s", ErrUnknownType, resp.Type)
 		}
 	}

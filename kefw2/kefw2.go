@@ -1,6 +1,61 @@
+// Package kefw2 provides a Go client library for controlling KEF W2 platform speakers.
+//
+// The W2 platform is used in KEF's wireless speaker lineup including the LSX II,
+// LS50 Wireless II, and LS60 Wireless. This library communicates with the speakers
+// over HTTP using KEF's undocumented REST API.
+//
+// # Basic Usage
+//
+// Create a speaker instance by providing its IP address:
+//
+//	speaker, err := kefw2.NewSpeaker("192.168.1.100")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	// Get current volume
+//	ctx := context.Background()
+//	volume, err := speaker.GetVolume(ctx)
+//
+//	// Set volume to 30
+//	err = speaker.SetVolume(ctx, 30)
+//
+//	// Change source to WiFi
+//	err = speaker.SetSource(ctx, kefw2.SourceWiFi)
+//
+// # Functional Options
+//
+// NewSpeaker accepts optional configuration:
+//
+//	speaker, err := kefw2.NewSpeaker("192.168.1.100",
+//	    kefw2.WithTimeout(5*time.Second),
+//	    kefw2.WithHTTPClient(customClient),
+//	)
+//
+// # Speaker Discovery
+//
+// Speakers can be automatically discovered on the local network:
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+//	defer cancel()
+//	speakers, err := kefw2.DiscoverSpeakers(ctx, 5*time.Second)
+//
+// # Event Streaming
+//
+// For real-time updates, use the EventClient:
+//
+//	client, err := speaker.NewEventClient()
+//	go client.Start(ctx)
+//	for event := range client.Events() {
+//	    switch e := event.(type) {
+//	    case *kefw2.VolumeEvent:
+//	        fmt.Printf("Volume: %d\n", e.Volume)
+//	    }
+//	}
 package kefw2
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,7 +144,7 @@ func NewSpeaker(ipAddress string, opts ...SpeakerOption) (*KEFSpeaker, error) {
 		opt(speaker)
 	}
 
-	if err := speaker.UpdateInfo(); err != nil {
+	if err := speaker.UpdateInfo(context.Background()); err != nil {
 		return nil, fmt.Errorf("connecting to speaker: %w", err)
 	}
 
@@ -97,37 +152,37 @@ func NewSpeaker(ipAddress string, opts ...SpeakerOption) (*KEFSpeaker, error) {
 }
 
 // UpdateInfo refreshes all speaker information from the device.
-func (s *KEFSpeaker) UpdateInfo() error {
+func (s *KEFSpeaker) UpdateInfo(ctx context.Context) error {
 	var err error
 
-	s.MacAddress, err = s.getMACAddress()
+	s.MacAddress, err = s.getMACAddress(ctx)
 	if err != nil {
 		return fmt.Errorf("getting MAC address: %w", err)
 	}
 
-	s.Name, err = s.getName()
+	s.Name, err = s.getName(ctx)
 	if err != nil {
 		return fmt.Errorf("getting name: %w", err)
 	}
 
-	if err = s.getID(); err != nil {
+	if err = s.getID(ctx); err != nil {
 		return fmt.Errorf("getting speaker ID: %w", err)
 	}
 
-	if err = s.getModelAndVersion(); err != nil {
+	if err = s.getModelAndVersion(ctx); err != nil {
 		return fmt.Errorf("getting model info: %w", err)
 	}
 
 	// Fetch max volume (stores in struct as side effect)
-	if _, err = s.GetMaxVolume(); err != nil {
+	if _, err = s.GetMaxVolume(ctx); err != nil {
 		return fmt.Errorf("getting max volume: %w", err)
 	}
 
 	return nil
 }
 
-func (s *KEFSpeaker) getMACAddress() (string, error) {
-	data, err := s.getData("settings:/system/primaryMacAddress")
+func (s *KEFSpeaker) getMACAddress(ctx context.Context) (string, error) {
+	data, err := s.getData(ctx, "settings:/system/primaryMacAddress")
 	if err != nil {
 		return "", err
 	}
@@ -135,8 +190,8 @@ func (s *KEFSpeaker) getMACAddress() (string, error) {
 }
 
 // NetworkOperationMode returns whether the speaker is in wired or wireless mode.
-func (s *KEFSpeaker) NetworkOperationMode() (CableMode, error) {
-	data, err := s.getData("settings:/kef/host/cableMode")
+func (s *KEFSpeaker) NetworkOperationMode(ctx context.Context) (CableMode, error) {
+	data, err := s.getData(ctx, "settings:/kef/host/cableMode")
 	if err != nil {
 		return "", err
 	}
@@ -151,21 +206,21 @@ func (s *KEFSpeaker) NetworkOperationMode() (CableMode, error) {
 	return mode, nil
 }
 
-func (s *KEFSpeaker) getName() (string, error) {
-	data, err := s.getData("settings:/deviceName")
+func (s *KEFSpeaker) getName(ctx context.Context) (string, error) {
+	data, err := s.getData(ctx, "settings:/deviceName")
 	if err != nil {
 		return "", err
 	}
 	return parseJSONString(data)
 }
 
-func (s *KEFSpeaker) getID() error {
+func (s *KEFSpeaker) getID(ctx context.Context) error {
 	params := map[string]string{
 		"roles": "@all",
 		"from":  "0",
 		"to":    "19",
 	}
-	data, err := s.getRows("grouping:members", params)
+	data, err := s.getRows(ctx, "grouping:members", params)
 	if err != nil {
 		return err
 	}
@@ -185,8 +240,8 @@ func (s *KEFSpeaker) getID() error {
 	return nil
 }
 
-func (s *KEFSpeaker) getModelAndVersion() error {
-	data, err := s.getData("settings:/releasetext")
+func (s *KEFSpeaker) getModelAndVersion(ctx context.Context) error {
+	data, err := s.getData(ctx, "settings:/releasetext")
 	if err != nil {
 		return err
 	}
@@ -213,13 +268,13 @@ func (s *KEFSpeaker) getModelAndVersion() error {
 }
 
 // PlayPause toggles playback state.
-func (s *KEFSpeaker) PlayPause() error {
-	return s.setActivate("player:player/control", "control", "pause")
+func (s *KEFSpeaker) PlayPause(ctx context.Context) error {
+	return s.setActivate(ctx, "player:player/control", "control", "pause")
 }
 
 // GetVolume returns the current volume level.
-func (s *KEFSpeaker) GetVolume() (int, error) {
-	data, err := s.getData("player:volume")
+func (s *KEFSpeaker) GetVolume(ctx context.Context) (int, error) {
+	data, err := s.getData(ctx, "player:volume")
 	if err != nil {
 		return 0, err
 	}
@@ -227,23 +282,23 @@ func (s *KEFSpeaker) GetVolume() (int, error) {
 }
 
 // SetVolume sets the volume to the specified level.
-func (s *KEFSpeaker) SetVolume(volume int) error {
-	return s.setTypedValue("player:volume", volume)
+func (s *KEFSpeaker) SetVolume(ctx context.Context, volume int) error {
+	return s.setTypedValue(ctx, "player:volume", volume)
 }
 
 // Mute mutes the speaker.
-func (s *KEFSpeaker) Mute() error {
-	return s.setTypedValue("settings:/mediaPlayer/mute", true)
+func (s *KEFSpeaker) Mute(ctx context.Context) error {
+	return s.setTypedValue(ctx, "settings:/mediaPlayer/mute", true)
 }
 
 // Unmute unmutes the speaker.
-func (s *KEFSpeaker) Unmute() error {
-	return s.setTypedValue("settings:/mediaPlayer/mute", false)
+func (s *KEFSpeaker) Unmute(ctx context.Context) error {
+	return s.setTypedValue(ctx, "settings:/mediaPlayer/mute", false)
 }
 
 // IsMuted returns whether the speaker is currently muted.
-func (s *KEFSpeaker) IsMuted() (bool, error) {
-	data, err := s.getData("settings:/mediaPlayer/mute")
+func (s *KEFSpeaker) IsMuted(ctx context.Context) (bool, error) {
+	data, err := s.getData(ctx, "settings:/mediaPlayer/mute")
 	if err != nil {
 		return false, err
 	}
@@ -259,18 +314,18 @@ func (s *KEFSpeaker) IsMuted() (bool, error) {
 }
 
 // PowerOff puts the speaker into standby mode.
-func (s *KEFSpeaker) PowerOff() error {
-	return s.SetSource(SourceStandby)
+func (s *KEFSpeaker) PowerOff(ctx context.Context) error {
+	return s.SetSource(ctx, SourceStandby)
 }
 
 // SetSource changes the audio source.
-func (s *KEFSpeaker) SetSource(source Source) error {
-	return s.setTypedValue("settings:/kef/play/physicalSource", source)
+func (s *KEFSpeaker) SetSource(ctx context.Context, source Source) error {
+	return s.setTypedValue(ctx, "settings:/kef/play/physicalSource", source)
 }
 
 // Source returns the current audio source.
-func (s *KEFSpeaker) Source() (Source, error) {
-	data, err := s.getData("settings:/kef/play/physicalSource")
+func (s *KEFSpeaker) Source(ctx context.Context) (Source, error) {
+	data, err := s.getData(ctx, "settings:/kef/play/physicalSource")
 	if err != nil {
 		return SourceStandby, fmt.Errorf("getting speaker source: %w", err)
 	}
@@ -286,8 +341,8 @@ func (s *KEFSpeaker) Source() (Source, error) {
 }
 
 // CanControlPlayback returns true if the current source supports playback control.
-func (s *KEFSpeaker) CanControlPlayback() (bool, error) {
-	source, err := s.Source()
+func (s *KEFSpeaker) CanControlPlayback(ctx context.Context) (bool, error) {
+	source, err := s.Source(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -295,8 +350,8 @@ func (s *KEFSpeaker) CanControlPlayback() (bool, error) {
 }
 
 // IsPoweredOn returns true if the speaker is powered on (not in standby).
-func (s *KEFSpeaker) IsPoweredOn() (bool, error) {
-	status, err := s.SpeakerState()
+func (s *KEFSpeaker) IsPoweredOn(ctx context.Context) (bool, error) {
+	status, err := s.SpeakerState(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -304,8 +359,8 @@ func (s *KEFSpeaker) IsPoweredOn() (bool, error) {
 }
 
 // SpeakerState returns the current speaker status.
-func (s *KEFSpeaker) SpeakerState() (SpeakerStatus, error) {
-	data, err := s.getData("settings:/kef/host/speakerStatus")
+func (s *KEFSpeaker) SpeakerState(ctx context.Context) (SpeakerStatus, error) {
+	data, err := s.getData(ctx, "settings:/kef/host/speakerStatus")
 	if err != nil {
 		return SpeakerStatusStandby, err
 	}
@@ -321,8 +376,8 @@ func (s *KEFSpeaker) SpeakerState() (SpeakerStatus, error) {
 }
 
 // GetMaxVolume returns the maximum volume setting.
-func (s *KEFSpeaker) GetMaxVolume() (int, error) {
-	data, err := s.getData("settings:/kef/host/maximumVolume")
+func (s *KEFSpeaker) GetMaxVolume(ctx context.Context) (int, error) {
+	data, err := s.getData(ctx, "settings:/kef/host/maximumVolume")
 	if err != nil {
 		return 0, err
 	}
@@ -335,33 +390,33 @@ func (s *KEFSpeaker) GetMaxVolume() (int, error) {
 }
 
 // SetMaxVolume sets the maximum volume limit.
-func (s *KEFSpeaker) SetMaxVolume(maxVolume int) error {
+func (s *KEFSpeaker) SetMaxVolume(ctx context.Context, maxVolume int) error {
 	s.MaxVolume = maxVolume
-	return s.setTypedValue("settings:/kef/host/maximumVolume", maxVolume)
+	return s.setTypedValue(ctx, "settings:/kef/host/maximumVolume", maxVolume)
 }
 
 // IsPlaying returns true if the speaker is currently playing audio.
-func (s *KEFSpeaker) IsPlaying() (bool, error) {
-	pd, err := s.PlayerData()
+func (s *KEFSpeaker) IsPlaying(ctx context.Context) (bool, error) {
+	pd, err := s.PlayerData(ctx)
 	if err != nil {
 		return false, err
 	}
-	return pd.State == "playing", nil
+	return pd.State == PlayerStatePlaying, nil
 }
 
 // NextTrack skips to the next track (only works in WiFi mode).
-func (s *KEFSpeaker) NextTrack() error {
-	return s.setActivate("player:player/control", "control", "next")
+func (s *KEFSpeaker) NextTrack(ctx context.Context) error {
+	return s.setActivate(ctx, "player:player/control", "control", "next")
 }
 
 // PreviousTrack goes to the previous track (only works in WiFi mode).
-func (s *KEFSpeaker) PreviousTrack() error {
-	return s.setActivate("player:player/control", "control", "previous")
+func (s *KEFSpeaker) PreviousTrack(ctx context.Context) error {
+	return s.setActivate(ctx, "player:player/control", "control", "previous")
 }
 
 // SongProgress returns the current playback position as "minutes:seconds".
-func (s *KEFSpeaker) SongProgress() (string, error) {
-	playMS, err := s.SongProgressMS()
+func (s *KEFSpeaker) SongProgress(ctx context.Context) (string, error) {
+	playMS, err := s.SongProgressMS(ctx)
 	if err != nil {
 		return "0:00", err
 	}
@@ -369,8 +424,8 @@ func (s *KEFSpeaker) SongProgress() (string, error) {
 }
 
 // SongProgressMS returns the current playback position in milliseconds.
-func (s *KEFSpeaker) SongProgressMS() (int, error) {
-	data, err := s.getData("player:player/data/playTime")
+func (s *KEFSpeaker) SongProgressMS(ctx context.Context) (int, error) {
+	data, err := s.getData(ctx, "player:player/data/playTime")
 	if err != nil {
 		return 0, err
 	}

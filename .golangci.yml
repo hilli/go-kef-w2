@@ -1,0 +1,111 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - copyloopvar
+    - dogsled
+    - dupl
+    - errname
+    - errorlint
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gosec
+    - misspell
+    - nakedret
+    - nilerr
+    - noctx
+    - prealloc
+    - predeclared
+    - revive
+    - unconvert
+    - unparam
+    - whitespace
+
+  settings:
+    gocyclo:
+      min-complexity: 20
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    misspell:
+      locale: US
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - std-error-handling
+    rules:
+      # Allow using init functions in cmd packages
+      - path: cmd/
+        linters:
+          - gochecknoinits
+      # Ignore gosec G104 in cmd packages (printer errors are non-critical)
+      - path: cmd/
+        linters:
+          - gosec
+        text: "G104"
+      # Ignore some linters in test files
+      - path: _test\.go
+        linters:
+          - dupl
+          - gosec
+          - goconst
+      # Ignore gosec in examples (example code prioritizes readability)
+      - path: examples/
+        linters:
+          - gosec
+      # Ignore long lines in generated code
+      - path: \.pb\.go
+        linters:
+          - all
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/hilli/go-kef-w2
+
+output:
+  formats:
+    text:
+      path: stdout
+  show-stats: true

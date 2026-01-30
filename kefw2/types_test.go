@@ -72,7 +72,7 @@ func TestCableModeString(t *testing.T) {
 func TestEQProfileV2String(t *testing.T) {
 	profile := EQProfileV2{
 		ProfileName:   "Custom",
-		ProfileId:     "custom-123",
+		ProfileID:     "custom-123",
 		Balance:       0,
 		BassExtension: "standard",
 		DeskMode:      false,

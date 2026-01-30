@@ -27,15 +27,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// muteCmd toggles the mute state of the speakers
+// muteCmd toggles the mute state of the speakers.
 var previousTrackCmd = &cobra.Command{
 	Use:     "previous",
 	Aliases: []string{"prev"},
 	Short:   "Play previous track when on WiFi source",
 	Long:    `Play previous track when on WiFi source`,
 	Args:    cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		canControlPlayback, err := currentSpeaker.CanControlPlayback()
+	Run: func(cmd *cobra.Command, _ []string) {
+		ctx := cmd.Context()
+		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
 		if err != nil {
 			errorPrinter.Printf("Can't skip back: %s\n", err.Error())
 			os.Exit(1)
@@ -44,7 +45,7 @@ var previousTrackCmd = &cobra.Command{
 			errorPrinter.Println("Not on WiFi/BT source.")
 			os.Exit(0)
 		}
-		err = currentSpeaker.PreviousTrack()
+		err = currentSpeaker.PreviousTrack(ctx)
 		if err != nil {
 			errorPrinter.Println(err)
 			os.Exit(1)

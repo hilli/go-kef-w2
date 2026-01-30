@@ -28,15 +28,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// muteCmd toggles the mute state of the speakers
+// muteCmd toggles the mute state of the speakers.
 var muteCmd = &cobra.Command{
 	Use:   "mute on/off",
 	Short: "Get or adjust the mute state of the speakers",
 	Long:  `Get or adjust the mute state of the speakers`,
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
 		if len(args) != 1 {
-			mute, _ := currentSpeaker.IsMuted()
+			mute, _ := currentSpeaker.IsMuted(ctx)
 			if mute {
 				headerPrinter.Print("Speakers are ")
 				contentPrinter.Println("muted")
@@ -52,9 +53,9 @@ var muteCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		if mute {
-			err = currentSpeaker.Mute()
+			err = currentSpeaker.Mute(ctx)
 		} else {
-			err = currentSpeaker.Unmute()
+			err = currentSpeaker.Unmute(ctx)
 		}
 		if err != nil {
 			errorPrinter.Println(err)
@@ -68,7 +69,7 @@ func init() {
 	rootCmd.AddCommand(muteCmd)
 }
 
-func MuteCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func MuteCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	return []string{"on", "off", "true", "false", "0", "1", "muted", "unmute", "unmuted"}, cobra.ShellCompDirectiveNoFileComp
 }
 

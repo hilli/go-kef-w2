@@ -1,6 +1,7 @@
 package kefw2
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -323,11 +324,11 @@ func TestParseJSONValueEQProfile(t *testing.T) {
 	}
 }
 
-// Test the deprecated functions for backward compatibility
+// Test the deprecated functions for backward compatibility.
 func TestDeprecatedJSONFunctions(t *testing.T) {
 	t.Run("JSONStringValue with error", func(t *testing.T) {
 		_, err := JSONStringValue(nil, ErrEmptyData)
-		if err != ErrEmptyData {
+		if !errors.Is(err, ErrEmptyData) {
 			t.Errorf("JSONStringValue() should pass through error")
 		}
 	})
@@ -345,14 +346,14 @@ func TestDeprecatedJSONFunctions(t *testing.T) {
 
 	t.Run("JSONIntValue with error", func(t *testing.T) {
 		_, err := JSONIntValue(nil, ErrEmptyData)
-		if err != ErrEmptyData {
+		if !errors.Is(err, ErrEmptyData) {
 			t.Errorf("JSONIntValue() should pass through error")
 		}
 	})
 
 	t.Run("JSONUnmarshalValue with error", func(t *testing.T) {
 		_, err := JSONUnmarshalValue(nil, ErrEmptyData)
-		if err != ErrEmptyData {
+		if !errors.Is(err, ErrEmptyData) {
 			t.Errorf("JSONUnmarshalValue() should pass through error")
 		}
 	})

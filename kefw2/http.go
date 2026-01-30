@@ -15,13 +15,19 @@ import (
 	"time"
 )
 
-// Default HTTP configuration values
+const (
+	typeNameI32    = "i32_"
+	typeNameString = "string_"
+	typeNameBool   = "bool_"
+)
+
+// Default HTTP configuration values.
 const (
 	DefaultTimeout = 2 * time.Second
 	DefaultBaseURL = "http://%s/api"
 )
 
-// Common errors
+// Common errors.
 var (
 	ErrConnectionRefused = errors.New("connection refused")
 	ErrConnectionTimeout = errors.New("connection timed out")
@@ -74,11 +80,10 @@ func (s *KEFSpeaker) handleConnectionError(err error) error {
 
 // requestConfig holds configuration for an HTTP request.
 type requestConfig struct {
-	method  string
-	path    string
-	params  url.Values
-	body    []byte
-	timeout time.Duration
+	method string
+	path   string
+	params url.Values
+	body   []byte
 }
 
 // doRequest performs an HTTP request with the given configuration.
@@ -128,25 +133,12 @@ func (s *KEFSpeaker) doRequest(ctx context.Context, cfg requestConfig) ([]byte, 
 }
 
 // getData fetches data from the speaker API for a given path.
-func (s *KEFSpeaker) getData(path string) ([]byte, error) {
+func (s *KEFSpeaker) getData(ctx context.Context, path string) ([]byte, error) {
 	params := url.Values{}
 	params.Set("path", path)
 	params.Set("roles", "value")
 
-	return s.doRequest(context.Background(), requestConfig{
-		method: http.MethodGet,
-		path:   "getData",
-		params: params,
-	})
-}
-
-// getAllData fetches all data (including metadata) for a given path.
-func (s *KEFSpeaker) getAllData(path string) ([]byte, error) {
-	params := url.Values{}
-	params.Set("path", path)
-	params.Set("roles", "@all")
-
-	return s.doRequest(context.Background(), requestConfig{
+	return s.doRequest(ctx, requestConfig{
 		method: http.MethodGet,
 		path:   "getData",
 		params: params,
@@ -154,14 +146,14 @@ func (s *KEFSpeaker) getAllData(path string) ([]byte, error) {
 }
 
 // getRows fetches row data from the speaker API.
-func (s *KEFSpeaker) getRows(path string, extraParams map[string]string) ([]byte, error) {
+func (s *KEFSpeaker) getRows(ctx context.Context, path string, extraParams map[string]string) ([]byte, error) {
 	params := url.Values{}
 	params.Set("path", path)
 	for key, value := range extraParams {
 		params.Set(key, value)
 	}
 
-	return s.doRequest(context.Background(), requestConfig{
+	return s.doRequest(ctx, requestConfig{
 		method: http.MethodGet,
 		path:   "getRows",
 		params: params,
@@ -169,7 +161,7 @@ func (s *KEFSpeaker) getRows(path string, extraParams map[string]string) ([]byte
 }
 
 // setActivate sends an activate command to the speaker.
-func (s *KEFSpeaker) setActivate(path, item, value string) error {
+func (s *KEFSpeaker) setActivate(ctx context.Context, path, item, value string) error {
 	jsonStr, err := json.Marshal(map[string]string{item: value})
 	if err != nil {
 		return fmt.Errorf("marshaling value: %w", err)
@@ -185,7 +177,7 @@ func (s *KEFSpeaker) setActivate(path, item, value string) error {
 		return fmt.Errorf("marshaling request: %w", err)
 	}
 
-	_, err = s.doRequest(context.Background(), requestConfig{
+	_, err = s.doRequest(ctx, requestConfig{
 		method: http.MethodPost,
 		path:   "setData",
 		body:   reqBody,
@@ -214,18 +206,18 @@ func (c CableMode) KEFTypeInfo() (string, string) {
 }
 
 // setTypedValue sets a typed value on the speaker.
-func (s *KEFSpeaker) setTypedValue(path string, value any) error {
+func (s *KEFSpeaker) setTypedValue(ctx context.Context, path string, value any) error {
 	var typeName, typeValue string
 
 	switch v := value.(type) {
 	case int:
-		typeName = "i32_"
+		typeName = typeNameI32
 		typeValue = fmt.Sprintf("%d", v)
 	case string:
-		typeName = "string_"
+		typeName = typeNameString
 		typeValue = fmt.Sprintf("%q", v)
 	case bool:
-		typeName = "bool_"
+		typeName = typeNameBool
 		typeValue = fmt.Sprintf("%t", v)
 	case TypeEncoder:
 		typeName, typeValue = v.KEFTypeInfo()
@@ -254,7 +246,7 @@ func (s *KEFSpeaker) setTypedValue(path string, value any) error {
 
 	slog.Debug("setTypedValue", "path", path, "body", string(reqBody))
 
-	_, err = s.doRequest(context.Background(), requestConfig{
+	_, err = s.doRequest(ctx, requestConfig{
 		method: http.MethodPost,
 		path:   "setData",
 		body:   reqBody,

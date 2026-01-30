@@ -25,14 +25,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// configCmd represents the config command
+// configCmd represents the config command.
 var ConfigCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Configure kefw2",
 	Long: `kefw2 needs to be configured with the IP address of your W2 speaker.
 	This will do it.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help() // Just display help for bare config command
+	Run: func(cmd *cobra.Command, _ []string) {
+		_ = cmd.Help() // Just display help for bare config command
 	},
 }
 

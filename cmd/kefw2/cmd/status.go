@@ -23,44 +23,46 @@ package cmd
 
 import (
 	"fmt"
-	_ "image/jpeg"
-	_ "image/png"
+	_ "image/jpeg" // Required for image decoding
+	_ "image/png"  // Required for image decoding
 	"os"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/hilli/icat"
 	"github.com/spf13/cobra"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// volumeCmd represents the volume command
+// volumeCmd represents the volume command.
 var statusCmd = &cobra.Command{
 	Use:     "status",
 	Aliases: []string{"state", "st"},
 	Short:   "Status of the speakers",
 	Long:    `Status of the speakers`,
 	Args:    cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		source, err := currentSpeaker.Source()
+	Run: func(cmd *cobra.Command, _ []string) {
+		ctx := cmd.Context()
+		source, err := currentSpeaker.Source(ctx)
 		if err != nil {
 			errorPrinter.Println(err)
 			os.Exit(1)
 		}
-		canControlPlayback, err := currentSpeaker.CanControlPlayback()
+		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
 		if err != nil {
 			errorPrinter.Printf("Can't show status: %s\n", err.Error())
 			os.Exit(1)
 		}
 		if canControlPlayback {
-			pd, err := currentSpeaker.PlayerData()
+			pd, err := currentSpeaker.PlayerData(ctx)
 			if err != nil {
 				errorPrinter.Println(err)
 				os.Exit(1)
 			}
-			if playstate, err := currentSpeaker.IsPlaying(); err != nil {
+			if playstate, err := currentSpeaker.IsPlaying(ctx); err != nil {
 				errorPrinter.Println("error getting playstate:", err)
 			} else {
 				if playstate {
-					playTime, _ := currentSpeaker.SongProgress()
+					playTime, _ := currentSpeaker.SongProgress(ctx)
 					// Minimalistic output
 					headerPrinter.Print("Source: ")
 					contentPrinter.Println(source)
