@@ -16,9 +16,12 @@ import (
 )
 
 const (
-	typeNameI32    = "i32_"
-	typeNameString = "string_"
-	typeNameBool   = "bool_"
+	typeNameI32               = "i32_"
+	typeNameString            = "string_"
+	typeNameBool              = "bool_"
+	typeNameKefPhysicalSource = "kefPhysicalSource"
+	typeNameKefSpeakerStatus  = "kefSpeakerStatus"
+	typeNameKefCableMode      = "kefCableMode"
 )
 
 // Default HTTP configuration values.
@@ -193,17 +196,17 @@ type TypeEncoder interface {
 
 // KEFTypeInfo implements TypeEncoder for Source.
 func (s Source) KEFTypeInfo() (string, string) {
-	return "kefPhysicalSource", string(s)
+	return typeNameKefPhysicalSource, string(s)
 }
 
 // KEFTypeInfo implements TypeEncoder for SpeakerStatus.
 func (s SpeakerStatus) KEFTypeInfo() (string, string) {
-	return "kefSpeakerStatus", fmt.Sprintf("%q", string(s))
+	return typeNameKefSpeakerStatus, fmt.Sprintf("%q", string(s))
 }
 
 // KEFTypeInfo implements TypeEncoder for CableMode.
 func (c CableMode) KEFTypeInfo() (string, string) {
-	return "kefCableMode", fmt.Sprintf("%q", string(c))
+	return typeNameKefCableMode, fmt.Sprintf("%q", string(c))
 }
 
 // setTypedValue sets a typed value on the speaker.

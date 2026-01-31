@@ -182,36 +182,16 @@ func (s *KEFSpeaker) UpdateInfo(ctx context.Context) error {
 }
 
 func (s *KEFSpeaker) getMACAddress(ctx context.Context) (string, error) {
-	data, err := s.getData(ctx, "settings:/system/primaryMacAddress")
-	if err != nil {
-		return "", err
-	}
-	return parseJSONString(data)
+	return parseTypedString(s.getData(ctx, "settings:/system/primaryMacAddress"))
 }
 
 // NetworkOperationMode returns whether the speaker is in wired or wireless mode.
 func (s *KEFSpeaker) NetworkOperationMode(ctx context.Context) (CableMode, error) {
-	data, err := s.getData(ctx, "settings:/kef/host/cableMode")
-	if err != nil {
-		return "", err
-	}
-	val, err := parseJSONValue(data)
-	if err != nil {
-		return "", err
-	}
-	mode, ok := val.(CableMode)
-	if !ok {
-		return "", fmt.Errorf("unexpected type for cable mode: %T", val)
-	}
-	return mode, nil
+	return parseTypedCableMode(s.getData(ctx, "settings:/kef/host/cableMode"))
 }
 
 func (s *KEFSpeaker) getName(ctx context.Context) (string, error) {
-	data, err := s.getData(ctx, "settings:/deviceName")
-	if err != nil {
-		return "", err
-	}
-	return parseJSONString(data)
+	return parseTypedString(s.getData(ctx, "settings:/deviceName"))
 }
 
 func (s *KEFSpeaker) getID(ctx context.Context) error {
@@ -241,12 +221,7 @@ func (s *KEFSpeaker) getID(ctx context.Context) error {
 }
 
 func (s *KEFSpeaker) getModelAndVersion(ctx context.Context) error {
-	data, err := s.getData(ctx, "settings:/releasetext")
-	if err != nil {
-		return err
-	}
-
-	releaseText, err := parseJSONString(data)
+	releaseText, err := parseTypedString(s.getData(ctx, "settings:/releasetext"))
 	if err != nil {
 		return err
 	}
@@ -274,11 +249,7 @@ func (s *KEFSpeaker) PlayPause(ctx context.Context) error {
 
 // GetVolume returns the current volume level.
 func (s *KEFSpeaker) GetVolume(ctx context.Context) (int, error) {
-	data, err := s.getData(ctx, "player:volume")
-	if err != nil {
-		return 0, err
-	}
-	return parseJSONInt(data)
+	return parseTypedInt(s.getData(ctx, "player:volume"))
 }
 
 // SetVolume sets the volume to the specified level.
@@ -298,19 +269,7 @@ func (s *KEFSpeaker) Unmute(ctx context.Context) error {
 
 // IsMuted returns whether the speaker is currently muted.
 func (s *KEFSpeaker) IsMuted(ctx context.Context) (bool, error) {
-	data, err := s.getData(ctx, "settings:/mediaPlayer/mute")
-	if err != nil {
-		return false, err
-	}
-	val, err := parseJSONValue(data)
-	if err != nil {
-		return false, err
-	}
-	muted, ok := val.(bool)
-	if !ok {
-		return false, fmt.Errorf("unexpected type for mute state: %T", val)
-	}
-	return muted, nil
+	return parseTypedBool(s.getData(ctx, "settings:/mediaPlayer/mute"))
 }
 
 // PowerOff puts the speaker into standby mode.
@@ -325,19 +284,7 @@ func (s *KEFSpeaker) SetSource(ctx context.Context, source Source) error {
 
 // Source returns the current audio source.
 func (s *KEFSpeaker) Source(ctx context.Context) (Source, error) {
-	data, err := s.getData(ctx, "settings:/kef/play/physicalSource")
-	if err != nil {
-		return SourceStandby, fmt.Errorf("getting speaker source: %w", err)
-	}
-	val, err := parseJSONValue(data)
-	if err != nil {
-		return SourceStandby, err
-	}
-	src, ok := val.(Source)
-	if !ok {
-		return SourceStandby, fmt.Errorf("unexpected type for source: %T", val)
-	}
-	return src, nil
+	return parseTypedSource(s.getData(ctx, "settings:/kef/play/physicalSource"))
 }
 
 // CanControlPlayback returns true if the current source supports playback control.
@@ -360,28 +307,12 @@ func (s *KEFSpeaker) IsPoweredOn(ctx context.Context) (bool, error) {
 
 // SpeakerState returns the current speaker status.
 func (s *KEFSpeaker) SpeakerState(ctx context.Context) (SpeakerStatus, error) {
-	data, err := s.getData(ctx, "settings:/kef/host/speakerStatus")
-	if err != nil {
-		return SpeakerStatusStandby, err
-	}
-	val, err := parseJSONValue(data)
-	if err != nil {
-		return SpeakerStatusStandby, err
-	}
-	status, ok := val.(SpeakerStatus)
-	if !ok {
-		return SpeakerStatusStandby, fmt.Errorf("unexpected type for speaker status: %T", val)
-	}
-	return status, nil
+	return parseTypedSpeakerStatus(s.getData(ctx, "settings:/kef/host/speakerStatus"))
 }
 
 // GetMaxVolume returns the maximum volume setting.
 func (s *KEFSpeaker) GetMaxVolume(ctx context.Context) (int, error) {
-	data, err := s.getData(ctx, "settings:/kef/host/maximumVolume")
-	if err != nil {
-		return 0, err
-	}
-	maxVolume, err := parseJSONInt(data)
+	maxVolume, err := parseTypedInt(s.getData(ctx, "settings:/kef/host/maximumVolume"))
 	if err != nil {
 		return 0, err
 	}
@@ -425,9 +356,5 @@ func (s *KEFSpeaker) SongProgress(ctx context.Context) (string, error) {
 
 // SongProgressMS returns the current playback position in milliseconds.
 func (s *KEFSpeaker) SongProgressMS(ctx context.Context) (int, error) {
-	data, err := s.getData(ctx, "player:player/data/playTime")
-	if err != nil {
-		return 0, err
-	}
-	return parseJSONInt(data)
+	return parseTypedInt(s.getData(ctx, "player:player/data/playTime"))
 }

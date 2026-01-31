@@ -5,356 +5,461 @@ import (
 	"testing"
 )
 
-func TestParseJSONString(t *testing.T) {
+func TestParseTypedInt(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   string
-		want    string
-		wantErr bool
-	}{
-		{
-			name:    "valid string response",
-			input:   `[{"type":"string_","string_":"KEF LS50 II"}]`,
-			want:    "KEF LS50 II",
-			wantErr: false,
-		},
-		{
-			name:    "empty string",
-			input:   `[{"type":"string_","string_":""}]`,
-			want:    "",
-			wantErr: false,
-		},
-		{
-			name:    "mac address format",
-			input:   `[{"type":"string_","string_":"AA:BB:CC:DD:EE:FF"}]`,
-			want:    "AA:BB:CC:DD:EE:FF",
-			wantErr: false,
-		},
-		{
-			name:    "empty input",
-			input:   "",
-			want:    "",
-			wantErr: true,
-		},
-		{
-			name:    "empty array",
-			input:   `[]`,
-			want:    "",
-			wantErr: true,
-		},
-		{
-			name:    "invalid json",
-			input:   `{invalid}`,
-			want:    "",
-			wantErr: true,
-		},
-		{
-			name:    "wrong type",
-			input:   `[{"type":"i32_","i32_":42}]`,
-			want:    "",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseJSONString([]byte(tt.input))
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseJSONString() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("parseJSONString() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestParseJSONInt(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
+		data    []byte
+		err     error
 		want    int
 		wantErr bool
 	}{
 		{
-			name:    "valid i32 response",
-			input:   `[{"type":"i32_","i32_":42}]`,
-			want:    42,
-			wantErr: false,
+			name: "valid i32",
+			data: []byte(`[{"type":"i32_","i32_":42}]`),
+			want: 42,
 		},
 		{
-			name:    "valid i64 response",
-			input:   `[{"type":"i64_","i64_":12345678}]`,
-			want:    12345678,
-			wantErr: false,
+			name: "valid i64",
+			data: []byte(`[{"type":"i64_","i64_":12345}]`),
+			want: 12345,
 		},
 		{
-			name:    "zero value",
-			input:   `[{"type":"i32_","i32_":0}]`,
-			want:    0,
-			wantErr: false,
-		},
-		{
-			name:    "volume level",
-			input:   `[{"type":"i32_","i32_":25}]`,
-			want:    25,
-			wantErr: false,
-		},
-		{
-			name:    "max volume",
-			input:   `[{"type":"i32_","i32_":100}]`,
-			want:    100,
-			wantErr: false,
-		},
-		{
-			name:    "play time in ms",
-			input:   `[{"type":"i64_","i64_":180000}]`,
-			want:    180000,
-			wantErr: false,
-		},
-		{
-			name:    "empty input",
-			input:   "",
-			want:    0,
+			name:    "empty array",
+			data:    []byte(`[]`),
 			wantErr: true,
 		},
 		{
 			name:    "wrong type",
-			input:   `[{"type":"string_","string_":"hello"}]`,
-			want:    0,
+			data:    []byte(`[{"type":"string_","string_":"hello"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "missing value",
+			data:    []byte(`[{"type":"i32_"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "invalid json",
+			data:    []byte(`{invalid`),
+			wantErr: true,
+		},
+		{
+			name:    "input error propagated",
+			err:     errors.New("upstream error"),
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseJSONInt([]byte(tt.input))
+			got, err := parseTypedInt(tt.data, tt.err)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseJSONInt() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("parseTypedInt() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("parseJSONInt() = %v, want %v", got, tt.want)
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("parseTypedInt() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestParseJSONBool(t *testing.T) {
+func TestParseTypedString(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   string
+		data    []byte
+		err     error
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "valid string",
+			data: []byte(`[{"type":"string_","string_":"test value"}]`),
+			want: "test value",
+		},
+		{
+			name:    "empty array",
+			data:    []byte(`[]`),
+			wantErr: true,
+		},
+		{
+			name:    "wrong type",
+			data:    []byte(`[{"type":"i32_","i32_":42}]`),
+			wantErr: true,
+		},
+		{
+			name:    "missing value",
+			data:    []byte(`[{"type":"string_"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "invalid json",
+			data:    []byte(`not json`),
+			wantErr: true,
+		},
+		{
+			name:    "input error propagated",
+			err:     errors.New("upstream error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseTypedString(tt.data, tt.err)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseTypedString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("parseTypedString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseTypedBool(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		err     error
 		want    bool
 		wantErr bool
 	}{
 		{
-			name:    "true value",
-			input:   `[{"type":"bool_","bool_":"true"}]`,
-			want:    true,
-			wantErr: false,
+			name: "true value",
+			data: []byte(`[{"type":"bool_","bool_":"true"}]`),
+			want: true,
 		},
 		{
-			name:    "false value",
-			input:   `[{"type":"bool_","bool_":"false"}]`,
-			want:    false,
-			wantErr: false,
+			name: "false value",
+			data: []byte(`[{"type":"bool_","bool_":"false"}]`),
+			want: false,
 		},
 		{
-			name:    "empty input",
-			input:   "",
-			want:    false,
+			name: "any non-false is true",
+			data: []byte(`[{"type":"bool_","bool_":"1"}]`),
+			want: true,
+		},
+		{
+			name:    "empty array",
+			data:    []byte(`[]`),
 			wantErr: true,
 		},
 		{
 			name:    "wrong type",
-			input:   `[{"type":"string_","string_":"true"}]`,
-			want:    false,
+			data:    []byte(`[{"type":"i32_","i32_":1}]`),
+			wantErr: true,
+		},
+		{
+			name:    "missing value",
+			data:    []byte(`[{"type":"bool_"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "input error propagated",
+			err:     errors.New("upstream error"),
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseJSONBool([]byte(tt.input))
+			got, err := parseTypedBool(tt.data, tt.err)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseJSONBool() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("parseTypedBool() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("parseJSONBool() = %v, want %v", got, tt.want)
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("parseTypedBool() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestParseJSONValue(t *testing.T) {
+func TestParseTypedSource(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   string
-		want    any
+		data    []byte
+		err     error
+		want    Source
 		wantErr bool
 	}{
 		{
-			name:    "source wifi",
-			input:   `[{"type":"kefPhysicalSource","kefPhysicalSource":"wifi"}]`,
-			want:    SourceWiFi,
-			wantErr: false,
+			name: "wifi source",
+			data: []byte(`[{"type":"kefPhysicalSource","kefPhysicalSource":"wifi"}]`),
+			want: SourceWiFi,
 		},
 		{
-			name:    "source bluetooth",
-			input:   `[{"type":"kefPhysicalSource","kefPhysicalSource":"bluetooth"}]`,
-			want:    SourceBluetooth,
-			wantErr: false,
+			name: "bluetooth source",
+			data: []byte(`[{"type":"kefPhysicalSource","kefPhysicalSource":"bluetooth"}]`),
+			want: SourceBluetooth,
 		},
 		{
-			name:    "source standby",
-			input:   `[{"type":"kefPhysicalSource","kefPhysicalSource":"standby"}]`,
-			want:    SourceStandby,
-			wantErr: false,
+			name: "standby source",
+			data: []byte(`[{"type":"kefPhysicalSource","kefPhysicalSource":"standby"}]`),
+			want: SourceStandby,
 		},
 		{
-			name:    "speaker status powerOn",
-			input:   `[{"type":"kefSpeakerStatus","kefSpeakerStatus":"powerOn"}]`,
-			want:    SpeakerStatusOn,
-			wantErr: false,
-		},
-		{
-			name:    "speaker status standby",
-			input:   `[{"type":"kefSpeakerStatus","kefSpeakerStatus":"standby"}]`,
-			want:    SpeakerStatusStandby,
-			wantErr: false,
-		},
-		{
-			name:    "cable mode wired",
-			input:   `[{"type":"kefCableMode","kefCableMode":"wired"}]`,
-			want:    Wired,
-			wantErr: false,
-		},
-		{
-			name:    "cable mode wireless",
-			input:   `[{"type":"kefCableMode","kefCableMode":"wireless"}]`,
-			want:    Wireless,
-			wantErr: false,
-		},
-		{
-			name:    "string value",
-			input:   `[{"type":"string_","string_":"test"}]`,
-			want:    "test",
-			wantErr: false,
-		},
-		{
-			name:    "int value",
-			input:   `[{"type":"i32_","i32_":50}]`,
-			want:    50,
-			wantErr: false,
-		},
-		{
-			name:    "bool true",
-			input:   `[{"type":"bool_","bool_":"true"}]`,
-			want:    true,
-			wantErr: false,
-		},
-		{
-			name:    "bool false",
-			input:   `[{"type":"bool_","bool_":"false"}]`,
-			want:    false,
-			wantErr: false,
-		},
-		{
-			name:    "unknown type",
-			input:   `[{"type":"unknown_type"}]`,
-			want:    nil,
+			name:    "empty array",
+			data:    []byte(`[]`),
 			wantErr: true,
 		},
 		{
-			name:    "empty input",
-			input:   "",
-			want:    nil,
+			name:    "wrong type",
+			data:    []byte(`[{"type":"string_","string_":"wifi"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "missing value",
+			data:    []byte(`[{"type":"kefPhysicalSource"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "input error propagated",
+			err:     errors.New("upstream error"),
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseJSONValue([]byte(tt.input))
+			got, err := parseTypedSource(tt.data, tt.err)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseJSONValue() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("parseTypedSource() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("parseJSONValue() = %v (%T), want %v (%T)", got, got, tt.want, tt.want)
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("parseTypedSource() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestParseJSONValueEQProfile(t *testing.T) {
-	input := `[{
-		"type": "kefEqProfileV2",
-		"kefEqProfileV2": {
-			"profileName": "Default",
-			"profileId": "default-id",
-			"balance": 0,
-			"bassExtension": "standard",
-			"deskMode": false,
-			"wallMode": false,
-			"trebleAmount": 0.0
-		}
-	}]`
-
-	got, err := parseJSONValue([]byte(input))
-	if err != nil {
-		t.Fatalf("parseJSONValue() error = %v", err)
+func TestParseTypedSpeakerStatus(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		err     error
+		want    SpeakerStatus
+		wantErr bool
+	}{
+		{
+			name: "power on",
+			data: []byte(`[{"type":"kefSpeakerStatus","kefSpeakerStatus":"powerOn"}]`),
+			want: SpeakerStatusOn,
+		},
+		{
+			name: "standby",
+			data: []byte(`[{"type":"kefSpeakerStatus","kefSpeakerStatus":"standby"}]`),
+			want: SpeakerStatusStandby,
+		},
+		{
+			name:    "empty array",
+			data:    []byte(`[]`),
+			wantErr: true,
+		},
+		{
+			name:    "wrong type",
+			data:    []byte(`[{"type":"string_","string_":"powerOn"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "missing value",
+			data:    []byte(`[{"type":"kefSpeakerStatus"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "input error propagated",
+			err:     errors.New("upstream error"),
+			wantErr: true,
+		},
 	}
 
-	profile, ok := got.(EQProfileV2)
-	if !ok {
-		t.Fatalf("parseJSONValue() returned %T, want EQProfileV2", got)
-	}
-
-	if profile.ProfileName != "Default" {
-		t.Errorf("ProfileName = %q, want %q", profile.ProfileName, "Default")
-	}
-	if profile.Balance != 0 {
-		t.Errorf("Balance = %d, want 0", profile.Balance)
-	}
-	if profile.BassExtension != "standard" {
-		t.Errorf("BassExtension = %q, want %q", profile.BassExtension, "standard")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseTypedSpeakerStatus(tt.data, tt.err)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseTypedSpeakerStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("parseTypedSpeakerStatus() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-// Test the deprecated functions for backward compatibility.
-func TestDeprecatedJSONFunctions(t *testing.T) {
-	t.Run("JSONStringValue with error", func(t *testing.T) {
-		_, err := JSONStringValue(nil, ErrEmptyData)
-		if !errors.Is(err, ErrEmptyData) {
-			t.Errorf("JSONStringValue() should pass through error")
-		}
-	})
+func TestParseTypedCableMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		err     error
+		want    CableMode
+		wantErr bool
+	}{
+		{
+			name: "wired mode",
+			data: []byte(`[{"type":"kefCableMode","kefCableMode":"wired"}]`),
+			want: Wired,
+		},
+		{
+			name: "wireless mode",
+			data: []byte(`[{"type":"kefCableMode","kefCableMode":"wireless"}]`),
+			want: Wireless,
+		},
+		{
+			name:    "empty array",
+			data:    []byte(`[]`),
+			wantErr: true,
+		},
+		{
+			name:    "wrong type",
+			data:    []byte(`[{"type":"string_","string_":"wired"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "missing value",
+			data:    []byte(`[{"type":"kefCableMode"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "input error propagated",
+			err:     errors.New("upstream error"),
+			wantErr: true,
+		},
+	}
 
-	t.Run("JSONStringValue without error", func(t *testing.T) {
-		data := []byte(`[{"type":"string_","string_":"test"}]`)
-		got, err := JSONStringValue(data, nil)
-		if err != nil {
-			t.Errorf("JSONStringValue() error = %v", err)
-		}
-		if got != "test" {
-			t.Errorf("JSONStringValue() = %q, want %q", got, "test")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseTypedCableMode(tt.data, tt.err)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseTypedCableMode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("parseTypedCableMode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-	t.Run("JSONIntValue with error", func(t *testing.T) {
-		_, err := JSONIntValue(nil, ErrEmptyData)
-		if !errors.Is(err, ErrEmptyData) {
-			t.Errorf("JSONIntValue() should pass through error")
-		}
-	})
+func TestParseTypedEQProfile(t *testing.T) {
+	validProfile := `[{"type":"kefEqProfileV2","kefEqProfileV2":{
+		"audioPolarity":"positive",
+		"balance":0,
+		"bassExtension":"standard",
+		"deskMode":false,
+		"deskModeSetting":-3.5,
+		"highPassMode":false,
+		"highPassModeFreq":80,
+		"isExpertMode":false,
+		"isKW1":false,
+		"phaseCorrection":true,
+		"profileId":"default-123",
+		"profileName":"Default",
+		"soundProfile":"default",
+		"subEnableStereo":false,
+		"subOutLPFreq":80.0,
+		"subwooferCount":0,
+		"subwooferGain":0,
+		"subwooferOut":false,
+		"subwooferPolarity":"positive",
+		"subwooferPreset":"none",
+		"trebleAmount":0.0,
+		"wallMode":false,
+		"wallModeSetting":0.0,
+		"wirelessSub":"none"
+	}}]`
 
-	t.Run("JSONUnmarshalValue with error", func(t *testing.T) {
-		_, err := JSONUnmarshalValue(nil, ErrEmptyData)
-		if !errors.Is(err, ErrEmptyData) {
-			t.Errorf("JSONUnmarshalValue() should pass through error")
-		}
-	})
+	tests := []struct {
+		name    string
+		data    []byte
+		err     error
+		want    EQProfileV2
+		wantErr bool
+	}{
+		{
+			name: "valid profile",
+			data: []byte(validProfile),
+			want: EQProfileV2{
+				AudioPolarity:     "positive",
+				Balance:           0,
+				BassExtension:     "standard",
+				DeskMode:          false,
+				DeskModeSetting:   -3.5,
+				HighPassMode:      false,
+				HighPassModeFreq:  80,
+				IsExpertMode:      false,
+				IsKW1:             false,
+				PhaseCorrection:   true,
+				ProfileID:         "default-123",
+				ProfileName:       "Default",
+				SoundProfile:      "default",
+				SubEnableStereo:   false,
+				SubOutLPFreq:      80.0,
+				SubwooferCount:    0,
+				SubwooferGain:     0,
+				SubwooferOut:      false,
+				SubwooferPolarity: "positive",
+				SubwooferPreset:   "none",
+				TrebleAmount:      0.0,
+				WallMode:          false,
+				WallModeSetting:   0.0,
+				WirelessSub:       "none",
+			},
+		},
+		{
+			name:    "empty array",
+			data:    []byte(`[]`),
+			wantErr: true,
+		},
+		{
+			name:    "wrong type",
+			data:    []byte(`[{"type":"string_","string_":"test"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "missing value",
+			data:    []byte(`[{"type":"kefEqProfileV2"}]`),
+			wantErr: true,
+		},
+		{
+			name:    "invalid json",
+			data:    []byte(`{invalid`),
+			wantErr: true,
+		},
+		{
+			name:    "input error propagated",
+			err:     errors.New("upstream error"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseTypedEQProfile(tt.data, tt.err)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseTypedEQProfile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if got.ProfileName != tt.want.ProfileName {
+					t.Errorf("parseTypedEQProfile() ProfileName = %v, want %v", got.ProfileName, tt.want.ProfileName)
+				}
+				if got.ProfileID != tt.want.ProfileID {
+					t.Errorf("parseTypedEQProfile() ProfileID = %v, want %v", got.ProfileID, tt.want.ProfileID)
+				}
+				if got.BassExtension != tt.want.BassExtension {
+					t.Errorf("parseTypedEQProfile() BassExtension = %v, want %v", got.BassExtension, tt.want.BassExtension)
+				}
+				if got.DeskModeSetting != tt.want.DeskModeSetting {
+					t.Errorf("parseTypedEQProfile() DeskModeSetting = %v, want %v", got.DeskModeSetting, tt.want.DeskModeSetting)
+				}
+				if got.PhaseCorrection != tt.want.PhaseCorrection {
+					t.Errorf("parseTypedEQProfile() PhaseCorrection = %v, want %v", got.PhaseCorrection, tt.want.PhaseCorrection)
+				}
+			}
+		})
+	}
 }
