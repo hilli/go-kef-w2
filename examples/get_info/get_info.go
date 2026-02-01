@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	speaker, err := kefw2.NewSpeaker("10.0.0.143")
+	speaker, err := kefw2.NewSpeaker("10.0.0.149")
 	if err != nil {
 		log.Fatal(err)
 	}

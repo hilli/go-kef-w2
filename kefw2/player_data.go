@@ -31,6 +31,8 @@ type PlayerResource struct {
 
 // PlayerTrackRoles contains track metadata including title, icon, and media data.
 type PlayerTrackRoles struct {
+	Path      string          `json:"path"`      // "playlists:item/{index}" when playing from queue (1-based)
+	ID        string          `json:"id"`        // Queue index as string (1-based) when playing from queue
 	Icon      string          `json:"icon"`      // URL to album art or track icon
 	MediaData PlayerMediaData `json:"mediaData"` // Detailed media information
 	Title     string          `json:"title"`     // Track title
