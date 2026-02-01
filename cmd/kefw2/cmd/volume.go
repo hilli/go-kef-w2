@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -44,15 +43,9 @@ var volumeCmd = &cobra.Command{
 			return
 		}
 		volume, err := parseVolume(args[0])
-		if err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Invalid volume")
 		err = currentSpeaker.SetVolume(ctx, volume)
-		if err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to set volume")
 	},
 	ValidArgsFunction: VolumeCompletion,
 }

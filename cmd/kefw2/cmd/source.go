@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -46,15 +45,9 @@ var sourceCmd = &cobra.Command{
 			return
 		}
 		source, err := parseSource(args[0])
-		if err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Invalid source")
 		err = currentSpeaker.SetSource(ctx, source)
-		if err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to set source")
 	},
 	ValidArgsFunction: SourceCompletion,
 }

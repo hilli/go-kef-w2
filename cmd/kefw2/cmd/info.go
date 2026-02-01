@@ -22,8 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 )
 
@@ -38,10 +36,7 @@ var infoCmd = &cobra.Command{
 
 		// Update speaker info to ensure we have the latest data
 		err := currentSpeaker.UpdateInfo(ctx)
-		if err != nil {
-			errorPrinter.Printf("Error updating speaker information: %s\n", err.Error())
-			os.Exit(1)
-		}
+		exitOnError(err, "Error updating speaker information")
 
 		// Display speaker information
 		headerPrinter.Print("Speaker Name: ")

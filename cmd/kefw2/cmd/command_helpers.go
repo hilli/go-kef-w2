@@ -41,30 +41,54 @@ import (
 // Returns the matched item and true if found, nil and false otherwise.
 // Used by both radio and podcast commands for name-based lookups.
 func findItemByName(items []kefw2.ContentItem, name string) (*kefw2.ContentItem, bool) {
+	return findItemByNameWithFilter(items, name, "")
+}
+
+// findItemByNameWithFilter finds a content item by name, optionally filtering by type.
+// If typeFilter is non-empty, only items with matching Type are considered.
+// Matching strategies (in order):
+// 1. Exact case-insensitive match
+// 2. Case-insensitive substring match (item title contains query)
+// 3. Case-insensitive substring match (query contains item title) - only if no typeFilter
+func findItemByNameWithFilter(items []kefw2.ContentItem, name string, typeFilter string) (*kefw2.ContentItem, bool) {
 	lowerName := strings.ToLower(name)
+
+	// Helper to check if item matches the type filter
+	matchesType := func(item *kefw2.ContentItem) bool {
+		return typeFilter == "" || item.Type == typeFilter
+	}
 
 	// First pass: exact case-insensitive match
 	for i := range items {
-		if strings.EqualFold(items[i].Title, name) {
+		if matchesType(&items[i]) && strings.EqualFold(items[i].Title, name) {
 			return &items[i], true
 		}
 	}
 
 	// Second pass: item title contains the query
 	for i := range items {
-		if strings.Contains(strings.ToLower(items[i].Title), lowerName) {
+		if matchesType(&items[i]) && strings.Contains(strings.ToLower(items[i].Title), lowerName) {
 			return &items[i], true
 		}
 	}
 
 	// Third pass: query contains the item title (for partial input)
-	for i := range items {
-		if strings.Contains(lowerName, strings.ToLower(items[i].Title)) {
-			return &items[i], true
+	// Only used when no type filter (maintains backward compatibility)
+	if typeFilter == "" {
+		for i := range items {
+			if strings.Contains(lowerName, strings.ToLower(items[i].Title)) {
+				return &items[i], true
+			}
 		}
 	}
 
 	return nil, false
+}
+
+// findEpisodeByName finds an episode by name in a list of episodes.
+// This is a convenience wrapper around findItemByNameWithFilter for audio items.
+func findEpisodeByName(episodes []kefw2.ContentItem, name string) (*kefw2.ContentItem, bool) {
+	return findItemByNameWithFilter(episodes, name, "audio")
 }
 
 // ============================================

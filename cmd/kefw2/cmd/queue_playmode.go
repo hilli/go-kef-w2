@@ -22,7 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -50,10 +49,7 @@ Examples:
 		if len(args) == 0 {
 			// Get current shuffle state
 			enabled, err := client.IsShuffleEnabled()
-			if err != nil {
-				errorPrinter.Printf("Failed to get shuffle state: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Failed to get shuffle state")
 
 			headerPrinter.Print("Shuffle: ")
 			if enabled {
@@ -73,14 +69,11 @@ Examples:
 		case "off", "false", "0", "no":
 			enable = false
 		default:
-			errorPrinter.Printf("Invalid value: %s (use 'on' or 'off')\n", args[0])
-			os.Exit(1)
+			exitWithError("Invalid value: %s (use 'on' or 'off')", args[0])
 		}
 
-		if err := client.SetShuffle(enable); err != nil {
-			errorPrinter.Printf("Failed to set shuffle: %v\n", err)
-			os.Exit(1)
-		}
+		err := client.SetShuffle(enable)
+		exitOnError(err, "Failed to set shuffle")
 
 		if enable {
 			taskConpletedPrinter.Println("Shuffle enabled.")
@@ -116,10 +109,7 @@ Examples:
 		if len(args) == 0 {
 			// Get current repeat mode
 			mode, err := client.GetRepeatMode()
-			if err != nil {
-				errorPrinter.Printf("Failed to get repeat mode: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Failed to get repeat mode")
 
 			headerPrinter.Print("Repeat: ")
 			contentPrinter.Println(mode)
@@ -138,14 +128,11 @@ Examples:
 		case "queue", "playlist":
 			mode = "all"
 		default:
-			errorPrinter.Printf("Invalid mode: %s (use 'off', 'one', or 'all')\n", args[0])
-			os.Exit(1)
+			exitWithError("Invalid mode: %s (use 'off', 'one', or 'all')", args[0])
 		}
 
-		if err := client.SetRepeat(mode); err != nil {
-			errorPrinter.Printf("Failed to set repeat mode: %v\n", err)
-			os.Exit(1)
-		}
+		err := client.SetRepeat(mode)
+		exitOnError(err, "Failed to set repeat mode")
 
 		taskConpletedPrinter.Printf("Repeat mode set to: %s\n", mode)
 	},
@@ -161,10 +148,7 @@ var queueModeCmd = &cobra.Command{
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		shuffleEnabled, err := client.IsShuffleEnabled()
-		if err != nil {
-			errorPrinter.Printf("Failed to get play mode: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get play mode")
 		repeatMode, _ := client.GetRepeatMode()
 
 		headerPrinter.Println("Play Mode:")

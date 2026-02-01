@@ -54,9 +54,6 @@ var rootCmd = &cobra.Command{
 	Use:   "kefw2",
 	Short: "kefw2 is a CLI tool for controlling KEF's W2 platform speakers",
 	Long:  ``,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // noFileCompletion is a ValidArgsFunction that disables file completion
@@ -162,10 +159,6 @@ func init() {
 		}
 		return completions, cobra.ShellCompDirectiveNoFileComp
 	})
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.

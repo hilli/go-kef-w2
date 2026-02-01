@@ -752,27 +752,6 @@ func parsePodcastPath(path string) (string, string, bool) {
 	return parts[0], parts[1], true
 }
 
-// findEpisodeByName finds an episode by name in a list of episodes
-func findEpisodeByName(episodes []kefw2.ContentItem, name string) (*kefw2.ContentItem, bool) {
-	lowerName := strings.ToLower(name)
-
-	// First pass: exact case-insensitive match
-	for i := range episodes {
-		if episodes[i].Type == "audio" && strings.EqualFold(episodes[i].Title, name) {
-			return &episodes[i], true
-		}
-	}
-
-	// Second pass: episode title contains the query
-	for i := range episodes {
-		if episodes[i].Type == "audio" && strings.Contains(strings.ToLower(episodes[i].Title), lowerName) {
-			return &episodes[i], true
-		}
-	}
-
-	return nil, false
-}
-
 // playPodcastLatestEpisode plays the latest episode of a podcast
 func playPodcastLatestEpisode(client *kefw2.AirableClient, podcast *kefw2.ContentItem) error {
 	episode, err := client.GetLatestEpisode(podcast)

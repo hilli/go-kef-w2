@@ -54,10 +54,7 @@ Press Ctrl+C to stop.`,
 		eventClient, err := currentSpeaker.NewEventClient(
 			kefw2.WithPollTimeout(timeout),
 		)
-		if err != nil {
-			_, _ = errorPrinter.Printf("Failed to create event client: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to create event client")
 		defer eventClient.Close()
 
 		if !jsonOutput {
