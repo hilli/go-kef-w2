@@ -270,6 +270,17 @@ kefw2 cache clear
 kefw2 cache status
 ```
 
+### Event tracking
+
+Track the event from the KEFs
+
+```shell
+kefw2 event
+
+# Or as JSON
+kefw2 events --json
+```
+
 ### Plan
 
 - [x] Set volume
