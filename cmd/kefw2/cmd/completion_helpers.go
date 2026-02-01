@@ -322,125 +322,15 @@ func PodcastBrowseCompletion(cmd *cobra.Command, args []string, toComplete strin
 // Radio Station Completion Functions
 // ============================================
 
-// RadioLocalCompletion provides tab completion for local radio stations
-func RadioLocalCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Don't complete if we already have an argument
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	resp, err := client.GetRadioLocalAll()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	return buildStationCompletions(resp.Rows, toComplete), cobra.ShellCompDirectiveNoFileComp
-}
-
-// RadioFavoritesCompletion provides tab completion for favorite radio stations
-func RadioFavoritesCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Don't complete if we already have an argument
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	resp, err := client.GetRadioFavoritesAll()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	return buildStationCompletions(resp.Rows, toComplete), cobra.ShellCompDirectiveNoFileComp
-}
-
-// RadioTrendingCompletion provides tab completion for trending radio stations
-func RadioTrendingCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Don't complete if we already have an argument
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	resp, err := client.GetRadioTrendingAll()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	return buildStationCompletions(resp.Rows, toComplete), cobra.ShellCompDirectiveNoFileComp
-}
-
-// RadioHQCompletion provides tab completion for high quality radio stations
-func RadioHQCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Don't complete if we already have an argument
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	resp, err := client.GetRadioHQAll()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	return buildStationCompletions(resp.Rows, toComplete), cobra.ShellCompDirectiveNoFileComp
-}
-
-// RadioNewCompletion provides tab completion for new radio stations
-func RadioNewCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Don't complete if we already have an argument
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	resp, err := client.GetRadioNewAll()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	return buildStationCompletions(resp.Rows, toComplete), cobra.ShellCompDirectiveNoFileComp
-}
-
-// RadioPopularCompletion provides tab completion for popular radio stations
-func RadioPopularCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Don't complete if we already have an argument
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	resp, err := client.GetRadioPopularAll()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	return buildStationCompletions(resp.Rows, toComplete), cobra.ShellCompDirectiveNoFileComp
-}
+// Radio completion functions using MakeStationCompletion factory
+var (
+	RadioLocalCompletion     = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioLocalAll() })
+	RadioFavoritesCompletion = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioFavoritesAll() })
+	RadioTrendingCompletion  = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioTrendingAll() })
+	RadioHQCompletion        = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioHQAll() })
+	RadioNewCompletion       = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioNewAll() })
+	RadioPopularCompletion   = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioPopularAll() })
+)
 
 // DynamicRadioSearchCompletion provides dynamic completion for radio search by querying the API
 func DynamicRadioSearchCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -507,70 +397,13 @@ func isPlayableStation(item kefw2.ContentItem) bool {
 // Podcast Completion Functions
 // ============================================
 
-// PodcastPopularCompletion provides tab completion for popular podcasts
-// Supports hierarchical completion: "ShowName/" triggers episode listing
-func PodcastPopularCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	return buildPodcastCompletionsWithEpisodes(client, func() (*kefw2.RowsResponse, error) {
-		return client.GetPodcastPopularAll()
-	}, toComplete)
-}
-
-// PodcastTrendingCompletion provides tab completion for trending podcasts
-func PodcastTrendingCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	return buildPodcastCompletionsWithEpisodes(client, func() (*kefw2.RowsResponse, error) {
-		return client.GetPodcastTrendingAll()
-	}, toComplete)
-}
-
-// PodcastHistoryCompletion provides tab completion for podcast history
-func PodcastHistoryCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	return buildPodcastCompletionsWithEpisodes(client, func() (*kefw2.RowsResponse, error) {
-		return client.GetPodcastHistoryAll()
-	}, toComplete)
-}
-
-// PodcastFavoritesCompletion provides tab completion for favorite podcasts
-func PodcastFavoritesCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) > 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
-	return buildPodcastCompletionsWithEpisodes(client, func() (*kefw2.RowsResponse, error) {
-		return client.GetPodcastFavoritesAll()
-	}, toComplete)
-}
+// Podcast completion functions using MakePodcastCompletion factory
+var (
+	PodcastPopularCompletion   = MakePodcastCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastPopularAll() })
+	PodcastTrendingCompletion  = MakePodcastCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastTrendingAll() })
+	PodcastHistoryCompletion   = MakePodcastCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastHistoryAll() })
+	PodcastFavoritesCompletion = MakePodcastCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastFavoritesAll() })
+)
 
 // DynamicPodcastSearchCompletion provides dynamic completion for podcast search
 func DynamicPodcastSearchCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

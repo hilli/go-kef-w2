@@ -515,10 +515,7 @@ var radioSearchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			errorPrinter.Printf("Failed to play: %v\n", result.Error)
+		if HandlePickerResult(result, ActionPlay) {
 			os.Exit(1)
 		}
 	},
@@ -593,16 +590,7 @@ var radioFavoritesCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if result.Removed && result.Selected != nil {
-			taskConpletedPrinter.Printf("Removed from favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if removeFav {
-				errorPrinter.Printf("Failed to remove favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
+		if HandlePickerResult(result, action) {
 			os.Exit(1)
 		}
 	},
@@ -659,430 +647,97 @@ var radioPlayCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			errorPrinter.Printf("Failed to play: %v\n", result.Error)
+		if HandlePickerResult(result, ActionPlay) {
 			os.Exit(1)
 		}
 	},
 }
 
 // radioPopularCmd lists popular stations
-var radioPopularCmd = &cobra.Command{
+var radioPopularCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "popular [station]",
 	Short:             "Browse and play popular radio stations",
 	ValidArgsFunction: RadioPopularCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
-		saveFav, _ := cmd.Flags().GetBool("save-favorite")
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		resp, err := client.GetRadioPopularAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get popular stations: %v\n", err)
-			os.Exit(1)
-		}
-
-		stations := filterPlayableStations(resp.Rows)
-
-		if len(stations) == 0 {
-			contentPrinter.Println("No popular stations found.")
-			return
-		}
-
-		// If a station name was provided, find and play/save it directly
-		if len(args) > 0 {
-			stationName := strings.Join(args, " ")
-			if station, found := findStationByName(stations, stationName); found {
-				if saveFav {
-					headerPrinter.Printf("Saving: %s\n", station.Title)
-					if err := client.AddRadioFavorite(station); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", station.Title)
-				} else {
-					headerPrinter.Printf("Playing: %s\n", station.Title)
-					if err := playRadioStationWithDetails(client, station); err != nil {
-						errorPrinter.Printf("Failed to play: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
-				}
-				return
-			}
-			errorPrinter.Printf("Station '%s' not found in popular stations.\n", stationName)
-			os.Exit(1)
-		}
-
-		// Show interactive picker using unified content picker
-		action := ActionPlay
-		title := "Popular Radio Stations"
-		if saveFav {
-			action = ActionSaveFavorite
-			title = title + " (save mode)"
-		}
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServiceRadio,
-			Items:       stations,
-			Title:       title,
-			CurrentPath: "",
-			Action:      action,
-			Callbacks:   DefaultRadioCallbacks(client),
-		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
-			os.Exit(1)
-		}
-	},
-}
+	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioPopularAll() },
+	EmptyMessage:      "No popular stations found.",
+	Title:             "Popular Radio Stations",
+	ServiceType:       ServiceRadio,
+	Callbacks:         DefaultRadioCallbacks,
+	FilterItems:       filterPlayableStations,
+	FindByName:        findStationByName,
+	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
+	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
+	SupportsSaveFav:   true,
+})
 
 // radioLocalCmd lists local stations
-var radioLocalCmd = &cobra.Command{
+var radioLocalCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "local [station]",
 	Short:             "Browse and play local radio stations",
 	ValidArgsFunction: RadioLocalCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
-		saveFav, _ := cmd.Flags().GetBool("save-favorite")
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		resp, err := client.GetRadioLocalAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get local stations: %v\n", err)
-			os.Exit(1)
-		}
-
-		stations := filterPlayableStations(resp.Rows)
-
-		if len(stations) == 0 {
-			contentPrinter.Println("No local stations found.")
-			return
-		}
-
-		// If a station name was provided, find and play/save it directly
-		if len(args) > 0 {
-			stationName := strings.Join(args, " ")
-			if station, found := findStationByName(stations, stationName); found {
-				if saveFav {
-					headerPrinter.Printf("Saving: %s\n", station.Title)
-					if err := client.AddRadioFavorite(station); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", station.Title)
-				} else {
-					headerPrinter.Printf("Playing: %s\n", station.Title)
-					if err := playRadioStationWithDetails(client, station); err != nil {
-						errorPrinter.Printf("Failed to play: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
-				}
-				return
-			}
-			errorPrinter.Printf("Station '%s' not found in local stations.\n", stationName)
-			os.Exit(1)
-		}
-
-		// Show interactive picker using unified content picker
-		action := ActionPlay
-		title := "Local Radio Stations"
-		if saveFav {
-			action = ActionSaveFavorite
-			title = title + " (save mode)"
-		}
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServiceRadio,
-			Items:       stations,
-			Title:       title,
-			CurrentPath: "",
-			Action:      action,
-			Callbacks:   DefaultRadioCallbacks(client),
-		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
-			os.Exit(1)
-		}
-	},
-}
+	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioLocalAll() },
+	EmptyMessage:      "No local stations found.",
+	Title:             "Local Radio Stations",
+	ServiceType:       ServiceRadio,
+	Callbacks:         DefaultRadioCallbacks,
+	FilterItems:       filterPlayableStations,
+	FindByName:        findStationByName,
+	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
+	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
+	SupportsSaveFav:   true,
+})
 
 // radioTrendingCmd lists trending stations
-var radioTrendingCmd = &cobra.Command{
+var radioTrendingCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "trending [station]",
 	Short:             "Browse and play trending radio stations",
 	ValidArgsFunction: RadioTrendingCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
-		saveFav, _ := cmd.Flags().GetBool("save-favorite")
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		resp, err := client.GetRadioTrendingAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get trending stations: %v\n", err)
-			os.Exit(1)
-		}
-
-		stations := filterPlayableStations(resp.Rows)
-
-		if len(stations) == 0 {
-			contentPrinter.Println("No trending stations found.")
-			return
-		}
-
-		// If a station name was provided, find and play/save it directly
-		if len(args) > 0 {
-			stationName := strings.Join(args, " ")
-			if station, found := findStationByName(stations, stationName); found {
-				if saveFav {
-					headerPrinter.Printf("Saving: %s\n", station.Title)
-					if err := client.AddRadioFavorite(station); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", station.Title)
-				} else {
-					headerPrinter.Printf("Playing: %s\n", station.Title)
-					if err := playRadioStationWithDetails(client, station); err != nil {
-						errorPrinter.Printf("Failed to play: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
-				}
-				return
-			}
-			errorPrinter.Printf("Station '%s' not found in trending stations.\n", stationName)
-			os.Exit(1)
-		}
-
-		// Show interactive picker using unified content picker
-		action := ActionPlay
-		title := "Trending Radio Stations"
-		if saveFav {
-			action = ActionSaveFavorite
-			title = title + " (save mode)"
-		}
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServiceRadio,
-			Items:       stations,
-			Title:       title,
-			CurrentPath: "",
-			Action:      action,
-			Callbacks:   DefaultRadioCallbacks(client),
-		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
-			os.Exit(1)
-		}
-	},
-}
+	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioTrendingAll() },
+	EmptyMessage:      "No trending stations found.",
+	Title:             "Trending Radio Stations",
+	ServiceType:       ServiceRadio,
+	Callbacks:         DefaultRadioCallbacks,
+	FilterItems:       filterPlayableStations,
+	FindByName:        findStationByName,
+	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
+	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
+	SupportsSaveFav:   true,
+})
 
 // radioHQCmd lists high quality stations
-var radioHQCmd = &cobra.Command{
+var radioHQCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "hq [station]",
 	Aliases:           []string{"highquality"},
 	Short:             "Browse and play high quality radio stations",
 	ValidArgsFunction: RadioHQCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
-		saveFav, _ := cmd.Flags().GetBool("save-favorite")
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		resp, err := client.GetRadioHQAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get HQ stations: %v\n", err)
-			os.Exit(1)
-		}
-
-		stations := filterPlayableStations(resp.Rows)
-
-		if len(stations) == 0 {
-			contentPrinter.Println("No HQ stations found.")
-			return
-		}
-
-		// If a station name was provided, find and play/save it directly
-		if len(args) > 0 {
-			stationName := strings.Join(args, " ")
-			if station, found := findStationByName(stations, stationName); found {
-				if saveFav {
-					headerPrinter.Printf("Saving: %s\n", station.Title)
-					if err := client.AddRadioFavorite(station); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", station.Title)
-				} else {
-					headerPrinter.Printf("Playing: %s\n", station.Title)
-					if err := playRadioStationWithDetails(client, station); err != nil {
-						errorPrinter.Printf("Failed to play: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
-				}
-				return
-			}
-			errorPrinter.Printf("Station '%s' not found in HQ stations.\n", stationName)
-			os.Exit(1)
-		}
-
-		// Show interactive picker using unified content picker
-		action := ActionPlay
-		title := "High Quality Radio Stations"
-		if saveFav {
-			action = ActionSaveFavorite
-			title = title + " (save mode)"
-		}
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServiceRadio,
-			Items:       stations,
-			Title:       title,
-			CurrentPath: "",
-			Action:      action,
-			Callbacks:   DefaultRadioCallbacks(client),
-		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
-			os.Exit(1)
-		}
-	},
-}
+	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioHQAll() },
+	EmptyMessage:      "No HQ stations found.",
+	Title:             "High Quality Radio Stations",
+	ServiceType:       ServiceRadio,
+	Callbacks:         DefaultRadioCallbacks,
+	FilterItems:       filterPlayableStations,
+	FindByName:        findStationByName,
+	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
+	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
+	SupportsSaveFav:   true,
+})
 
 // radioNewCmd lists new stations
-var radioNewCmd = &cobra.Command{
+var radioNewCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "new [station]",
 	Short:             "Browse and play new radio stations",
 	ValidArgsFunction: RadioNewCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
-		saveFav, _ := cmd.Flags().GetBool("save-favorite")
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		resp, err := client.GetRadioNewAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get new stations: %v\n", err)
-			os.Exit(1)
-		}
-
-		stations := filterPlayableStations(resp.Rows)
-
-		if len(stations) == 0 {
-			contentPrinter.Println("No new stations found.")
-			return
-		}
-
-		// If a station name was provided, find and play/save it directly
-		if len(args) > 0 {
-			stationName := strings.Join(args, " ")
-			if station, found := findStationByName(stations, stationName); found {
-				if saveFav {
-					headerPrinter.Printf("Saving: %s\n", station.Title)
-					if err := client.AddRadioFavorite(station); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", station.Title)
-				} else {
-					headerPrinter.Printf("Playing: %s\n", station.Title)
-					if err := playRadioStationWithDetails(client, station); err != nil {
-						errorPrinter.Printf("Failed to play: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
-				}
-				return
-			}
-			errorPrinter.Printf("Station '%s' not found in new stations.\n", stationName)
-			os.Exit(1)
-		}
-
-		// Show interactive picker using unified content picker
-		action := ActionPlay
-		title := "New Radio Stations"
-		if saveFav {
-			action = ActionSaveFavorite
-			title = title + " (save mode)"
-		}
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServiceRadio,
-			Items:       stations,
-			Title:       title,
-			CurrentPath: "",
-			Action:      action,
-			Callbacks:   DefaultRadioCallbacks(client),
-		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
-			os.Exit(1)
-		}
-	},
-}
+	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioNewAll() },
+	EmptyMessage:      "No new stations found.",
+	Title:             "New Radio Stations",
+	ServiceType:       ServiceRadio,
+	Callbacks:         DefaultRadioCallbacks,
+	FilterItems:       filterPlayableStations,
+	FindByName:        findStationByName,
+	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
+	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
+	SupportsSaveFav:   true,
+})
 
 // radioBrowseCmd browses radio categories with hierarchical path completion
 var radioBrowseCmd = &cobra.Command{
@@ -1177,16 +832,7 @@ an interactive fuzzy-filter picker.`,
 			os.Exit(1)
 		}
 
-		if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFavoriteFlag {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
+		if HandlePickerResult(result, action) {
 			os.Exit(1)
 		}
 	},
@@ -1207,12 +853,8 @@ func init() {
 	// Flags for radioBrowseCmd
 	radioBrowseCmd.Flags().BoolVarP(&saveFavoriteFlag, "save-favorite", "f", false, "Save selected station as favorite instead of playing")
 
-	// Flags for radio category commands - save favorite
-	radioPopularCmd.Flags().BoolP("save-favorite", "f", false, "Save selected station as favorite instead of playing")
-	radioLocalCmd.Flags().BoolP("save-favorite", "f", false, "Save selected station as favorite instead of playing")
-	radioTrendingCmd.Flags().BoolP("save-favorite", "f", false, "Save selected station as favorite instead of playing")
-	radioHQCmd.Flags().BoolP("save-favorite", "f", false, "Save selected station as favorite instead of playing")
-	radioNewCmd.Flags().BoolP("save-favorite", "f", false, "Save selected station as favorite instead of playing")
+	// Note: radioPopularCmd, radioLocalCmd, radioTrendingCmd, radioHQCmd, radioNewCmd
+	// get their --save-favorite flag automatically from MakeCategoryCommand
 
 	// Flags for radioFavoritesCmd - remove favorite
 	radioFavoritesCmd.Flags().BoolP("remove", "r", false, "Remove selected station from favorites instead of playing")

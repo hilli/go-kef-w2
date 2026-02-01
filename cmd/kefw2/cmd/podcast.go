@@ -466,18 +466,7 @@ var podcastSearchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if result.Queued && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
-		} else if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
+		if HandlePickerResult(result, action) {
 			os.Exit(1)
 		}
 	},
@@ -598,415 +587,47 @@ var podcastFavoritesCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if result.Queued && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
-		} else if result.Removed && result.Selected != nil {
-			taskConpletedPrinter.Printf("Removed from favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if removeFav {
-				errorPrinter.Printf("Failed to remove favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
+		if HandlePickerResult(result, action) {
 			os.Exit(1)
 		}
 	},
 }
 
 // podcastPopularCmd lists popular podcasts
-var podcastPopularCmd = &cobra.Command{
+var podcastPopularCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Use:               "popular [show[/episode]]",
 	Short:             "Browse and play popular podcasts",
 	ValidArgsFunction: PodcastPopularCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
-		saveFav, _ := cmd.Flags().GetBool("save-favorite")
-		addToQueue, _ := cmd.Flags().GetBool("queue")
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		resp, err := client.GetPodcastPopularAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get popular podcasts: %v\n", err)
-			os.Exit(1)
-		}
-
-		podcasts := filterPodcastContainers(resp.Rows)
-
-		if len(podcasts) == 0 {
-			contentPrinter.Println("No popular podcasts found.")
-			return
-		}
-
-		// If a podcast name was provided, find and play/save it directly
-		if len(args) > 0 {
-			showName, episodeName, hasEpisode := parsePodcastPath(strings.Join(args, " "))
-			if podcast, found := findPodcastByName(podcasts, showName); found {
-				if saveFav {
-					headerPrinter.Printf("Saving: %s\n", podcast.Title)
-					if err := client.AddPodcastFavorite(podcast); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", podcast.Title)
-				} else if hasEpisode {
-					// Play specific episode
-					episodes, err := client.GetPodcastEpisodesAll(podcast.Path)
-					if err != nil {
-						errorPrinter.Printf("Failed to get episodes: %v\n", err)
-						os.Exit(1)
-					}
-					if episode, found := findEpisodeByName(episodes.Rows, episodeName); found {
-						if addToQueue {
-							headerPrinter.Printf("Adding to queue: %s\n", episode.Title)
-							if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-								errorPrinter.Printf("Failed to add to queue: %v\n", err)
-								os.Exit(1)
-							}
-							taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
-						} else {
-							headerPrinter.Printf("Playing: %s\n", episode.Title)
-							if err := client.PlayPodcastEpisode(episode); err != nil {
-								errorPrinter.Printf("Failed to play: %v\n", err)
-								os.Exit(1)
-							}
-							taskConpletedPrinter.Printf("Now playing: %s\n", episode.Title)
-						}
-					} else {
-						errorPrinter.Printf("Episode '%s' not found in '%s'.\n", episodeName, podcast.Title)
-						os.Exit(1)
-					}
-				} else {
-					// Play latest episode
-					if addToQueue {
-						headerPrinter.Printf("Adding latest episode of '%s' to queue\n", podcast.Title)
-						episode, err := client.GetLatestEpisode(podcast)
-						if err != nil {
-							errorPrinter.Printf("Failed to get latest episode: %v\n", err)
-							os.Exit(1)
-						}
-						if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-							errorPrinter.Printf("Failed to add to queue: %v\n", err)
-							os.Exit(1)
-						}
-						taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
-					} else {
-						headerPrinter.Printf("Playing latest episode of: %s\n", podcast.Title)
-						if err := playPodcastLatestEpisode(client, podcast); err != nil {
-							errorPrinter.Printf("Failed to play: %v\n", err)
-							os.Exit(1)
-						}
-						taskConpletedPrinter.Printf("Now playing latest episode of: %s\n", podcast.Title)
-					}
-				}
-				return
-			}
-			errorPrinter.Printf("Podcast '%s' not found in popular podcasts.\n", showName)
-			os.Exit(1)
-		}
-
-		// Show interactive picker using unified content picker
-		action := ActionPlay
-		title := "Popular Podcasts"
-		if saveFav {
-			action = ActionSaveFavorite
-			title = title + " (save mode)"
-		} else if addToQueue {
-			action = ActionAddToQueue
-			title = title + " (queue mode)"
-		}
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServicePodcast,
-			Items:       podcasts,
-			Title:       title,
-			CurrentPath: "",
-			Action:      action,
-			Callbacks:   DefaultPodcastCallbacks(client),
-		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if result.Queued && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
-		} else if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
-			os.Exit(1)
-		}
-	},
-}
+	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastPopularAll() },
+	EmptyMessage:      "No popular podcasts found.",
+	NotFoundMessage:   "popular podcasts",
+	Title:             "Popular Podcasts",
+	Callbacks:         DefaultPodcastCallbacks,
+})
 
 // podcastTrendingCmd lists trending podcasts
-var podcastTrendingCmd = &cobra.Command{
+var podcastTrendingCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Use:               "trending [show[/episode]]",
 	Short:             "Browse and play trending podcasts",
 	ValidArgsFunction: PodcastTrendingCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
-		saveFav, _ := cmd.Flags().GetBool("save-favorite")
-		addToQueue, _ := cmd.Flags().GetBool("queue")
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		resp, err := client.GetPodcastTrendingAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get trending podcasts: %v\n", err)
-			os.Exit(1)
-		}
-
-		podcasts := filterPodcastContainers(resp.Rows)
-
-		if len(podcasts) == 0 {
-			contentPrinter.Println("No trending podcasts found.")
-			return
-		}
-
-		// If a podcast name was provided, find and play/save it directly
-		if len(args) > 0 {
-			showName, episodeName, hasEpisode := parsePodcastPath(strings.Join(args, " "))
-			if podcast, found := findPodcastByName(podcasts, showName); found {
-				if saveFav {
-					headerPrinter.Printf("Saving: %s\n", podcast.Title)
-					if err := client.AddPodcastFavorite(podcast); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", podcast.Title)
-				} else if hasEpisode {
-					// Play specific episode
-					episodes, err := client.GetPodcastEpisodesAll(podcast.Path)
-					if err != nil {
-						errorPrinter.Printf("Failed to get episodes: %v\n", err)
-						os.Exit(1)
-					}
-					if episode, found := findEpisodeByName(episodes.Rows, episodeName); found {
-						if addToQueue {
-							headerPrinter.Printf("Adding to queue: %s\n", episode.Title)
-							if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-								errorPrinter.Printf("Failed to add to queue: %v\n", err)
-								os.Exit(1)
-							}
-							taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
-						} else {
-							headerPrinter.Printf("Playing: %s\n", episode.Title)
-							if err := client.PlayPodcastEpisode(episode); err != nil {
-								errorPrinter.Printf("Failed to play: %v\n", err)
-								os.Exit(1)
-							}
-							taskConpletedPrinter.Printf("Now playing: %s\n", episode.Title)
-						}
-					} else {
-						errorPrinter.Printf("Episode '%s' not found in '%s'.\n", episodeName, podcast.Title)
-						os.Exit(1)
-					}
-				} else {
-					// Play latest episode
-					if addToQueue {
-						headerPrinter.Printf("Adding latest episode of '%s' to queue\n", podcast.Title)
-						episode, err := client.GetLatestEpisode(podcast)
-						if err != nil {
-							errorPrinter.Printf("Failed to get latest episode: %v\n", err)
-							os.Exit(1)
-						}
-						if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-							errorPrinter.Printf("Failed to add to queue: %v\n", err)
-							os.Exit(1)
-						}
-						taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
-					} else {
-						headerPrinter.Printf("Playing latest episode of: %s\n", podcast.Title)
-						if err := playPodcastLatestEpisode(client, podcast); err != nil {
-							errorPrinter.Printf("Failed to play: %v\n", err)
-							os.Exit(1)
-						}
-						taskConpletedPrinter.Printf("Now playing latest episode of: %s\n", podcast.Title)
-					}
-				}
-				return
-			}
-			errorPrinter.Printf("Podcast '%s' not found in trending podcasts.\n", showName)
-			os.Exit(1)
-		}
-
-		// Show interactive picker using unified content picker
-		action := ActionPlay
-		title := "Trending Podcasts"
-		if saveFav {
-			action = ActionSaveFavorite
-			title = title + " (save mode)"
-		} else if addToQueue {
-			action = ActionAddToQueue
-			title = title + " (queue mode)"
-		}
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServicePodcast,
-			Items:       podcasts,
-			Title:       title,
-			CurrentPath: "",
-			Action:      action,
-			Callbacks:   DefaultPodcastCallbacks(client),
-		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if result.Queued && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
-		} else if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
-			os.Exit(1)
-		}
-	},
-}
+	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastTrendingAll() },
+	EmptyMessage:      "No trending podcasts found.",
+	NotFoundMessage:   "trending podcasts",
+	Title:             "Trending Podcasts",
+	Callbacks:         DefaultPodcastCallbacks,
+})
 
 // podcastHistoryCmd lists recently played podcasts
-var podcastHistoryCmd = &cobra.Command{
+var podcastHistoryCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Use:               "history [show[/episode]]",
 	Short:             "Browse and play recently played podcasts",
 	ValidArgsFunction: PodcastHistoryCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
-		saveFav, _ := cmd.Flags().GetBool("save-favorite")
-		addToQueue, _ := cmd.Flags().GetBool("queue")
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		resp, err := client.GetPodcastHistoryAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get podcast history: %v\n", err)
-			os.Exit(1)
-		}
-
-		podcasts := filterPodcastContainers(resp.Rows)
-
-		if len(podcasts) == 0 {
-			contentPrinter.Println("No podcasts in history.")
-			return
-		}
-
-		// If a podcast name was provided, find and play/save it directly
-		if len(args) > 0 {
-			showName, episodeName, hasEpisode := parsePodcastPath(strings.Join(args, " "))
-			if podcast, found := findPodcastByName(podcasts, showName); found {
-				if saveFav {
-					headerPrinter.Printf("Saving: %s\n", podcast.Title)
-					if err := client.AddPodcastFavorite(podcast); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", podcast.Title)
-				} else if hasEpisode {
-					// Play specific episode
-					episodes, err := client.GetPodcastEpisodesAll(podcast.Path)
-					if err != nil {
-						errorPrinter.Printf("Failed to get episodes: %v\n", err)
-						os.Exit(1)
-					}
-					if episode, found := findEpisodeByName(episodes.Rows, episodeName); found {
-						if addToQueue {
-							headerPrinter.Printf("Adding to queue: %s\n", episode.Title)
-							if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-								errorPrinter.Printf("Failed to add to queue: %v\n", err)
-								os.Exit(1)
-							}
-							taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
-						} else {
-							headerPrinter.Printf("Playing: %s\n", episode.Title)
-							if err := client.PlayPodcastEpisode(episode); err != nil {
-								errorPrinter.Printf("Failed to play: %v\n", err)
-								os.Exit(1)
-							}
-							taskConpletedPrinter.Printf("Now playing: %s\n", episode.Title)
-						}
-					} else {
-						errorPrinter.Printf("Episode '%s' not found in '%s'.\n", episodeName, podcast.Title)
-						os.Exit(1)
-					}
-				} else {
-					// Play latest episode
-					if addToQueue {
-						headerPrinter.Printf("Adding latest episode of '%s' to queue\n", podcast.Title)
-						episode, err := client.GetLatestEpisode(podcast)
-						if err != nil {
-							errorPrinter.Printf("Failed to get latest episode: %v\n", err)
-							os.Exit(1)
-						}
-						if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-							errorPrinter.Printf("Failed to add to queue: %v\n", err)
-							os.Exit(1)
-						}
-						taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
-					} else {
-						headerPrinter.Printf("Playing latest episode of: %s\n", podcast.Title)
-						if err := playPodcastLatestEpisode(client, podcast); err != nil {
-							errorPrinter.Printf("Failed to play: %v\n", err)
-							os.Exit(1)
-						}
-						taskConpletedPrinter.Printf("Now playing latest episode of: %s\n", podcast.Title)
-					}
-				}
-				return
-			}
-			errorPrinter.Printf("Podcast '%s' not found in history.\n", showName)
-			os.Exit(1)
-		}
-
-		// Show interactive picker using unified content picker
-		action := ActionPlay
-		title := "Podcast History"
-		if saveFav {
-			action = ActionSaveFavorite
-			title = title + " (save mode)"
-		} else if addToQueue {
-			action = ActionAddToQueue
-			title = title + " (queue mode)"
-		}
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServicePodcast,
-			Items:       podcasts,
-			Title:       title,
-			CurrentPath: "",
-			Action:      action,
-			Callbacks:   DefaultPodcastCallbacks(client),
-		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		if result.Queued && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
-		} else if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
-			os.Exit(1)
-		}
-	},
-}
+	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastHistoryAll() },
+	EmptyMessage:      "No podcasts in history.",
+	NotFoundMessage:   "history",
+	Title:             "Podcast History",
+	Callbacks:         DefaultPodcastCallbacks,
+})
 
 // podcastPlayCmd plays a podcast by searching and playing the first episode
 var podcastPlayCmd = &cobra.Command{
@@ -1102,12 +723,7 @@ Examples:
 			os.Exit(1)
 		}
 
-		if result.Queued && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			errorPrinter.Printf("Failed to play: %v\n", result.Error)
+		if HandlePickerResult(result, action) {
 			os.Exit(1)
 		}
 	},
@@ -1285,18 +901,7 @@ Use TAB to navigate through categories:
 			os.Exit(1)
 		}
 
-		if result.Queued && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
-		} else if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if saveFav {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
+		if HandlePickerResult(result, action) {
 			os.Exit(1)
 		}
 	},
@@ -1381,18 +986,7 @@ Use the fuzzy filter to quickly find what you're looking for.`,
 			os.Exit(1)
 		}
 
-		if result.Queued && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
-		} else if result.Saved && result.Selected != nil {
-			taskConpletedPrinter.Printf("Saved to favorites: %s\n", result.Selected.Title)
-		} else if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
-		} else if result.Error != nil {
-			if podcastSaveFavoriteFlag {
-				errorPrinter.Printf("Failed to save favorite: %v\n", result.Error)
-			} else {
-				errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			}
+		if HandlePickerResult(result, action) {
 			os.Exit(1)
 		}
 	},
@@ -1412,10 +1006,10 @@ func init() {
 	// Flags for podcastBrowseCmd
 	podcastBrowseCmd.Flags().BoolVarP(&podcastSaveFavoriteFlag, "save-favorite", "f", false, "Save selected podcast as favorite instead of playing")
 
-	// Flags for podcast category commands - save favorite
-	podcastPopularCmd.Flags().BoolP("save-favorite", "f", false, "Save selected podcast as favorite instead of playing")
-	podcastTrendingCmd.Flags().BoolP("save-favorite", "f", false, "Save selected podcast as favorite instead of playing")
-	podcastHistoryCmd.Flags().BoolP("save-favorite", "f", false, "Save selected podcast as favorite instead of playing")
+	// Note: podcastPopularCmd, podcastTrendingCmd, podcastHistoryCmd get their
+	// --save-favorite and --queue flags automatically from MakePodcastCategoryCommand
+
+	// Flags for other podcast commands - save favorite
 	podcastSearchCmd.Flags().BoolP("save-favorite", "f", false, "Save selected podcast as favorite instead of playing")
 	podcastFilterCmd.Flags().BoolP("save-favorite", "f", false, "Save selected podcast as favorite instead of playing")
 
@@ -1426,9 +1020,6 @@ func init() {
 	podcastPlayCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
 	podcastSearchCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
 	podcastFavoritesCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
-	podcastPopularCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
-	podcastTrendingCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
-	podcastHistoryCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
 	podcastFilterCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
 	podcastBrowseCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
 }
