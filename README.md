@@ -190,9 +190,6 @@ kefw2 podcast browse
 Play music from local network media servers:
 
 ```shell
-# List available media servers
-kefw2 upnp servers
-
 # Browse a server (with tab completion)
 kefw2 upnp browse "My NAS/Music/Albums"
 
@@ -224,8 +221,25 @@ kefw2 queue save "My Playlist"
 kefw2 queue load "My Playlist"
 
 # Set playback mode
-kefw2 queue playmode shuffle
-kefw2 queue playmode repeat
+kefw2 queue mode shuffle
+kefw2 queue mode repeat
+```
+
+### Favorites
+
+Add and manage favorites:
+
+```shell
+# Add current playing item to favorites
+kefw2 radio favorites add
+kefw2 podcast favorites add
+
+# Add a specific item to favorites
+kefw2 radio favorites add "BBC Radio 1"
+kefw2 podcast favorites add "The Daily"
+
+# Remove from favorites
+kefw2 radio favorites remove "BBC Radio 1"
 ```
 
 ### Cache Configuration
@@ -416,37 +430,6 @@ episodes, err := client.GetPodcastEpisodes(ctx, podcastPath)
 // Browse UPnP servers
 servers, err := client.GetMediaServers(ctx)
 ```
-
-## Player
-
-UI for controlling the speakers, show whats playing etc.
-
-The idea is to create a [Fyne](https://fyne.io/) App that will let you select inputs, show whats playing etc.
-My own needs is to have a Raspberry Pi with a touch screen interact with the speakers and not least control the brightness of the screen.
-
-### Plan
-
-- [ ] Cross compilation of Fyne apps
-- [ ] Input selection buttons
-- [ ] Volume/mute control
-- [ ] Play/pause button for available targets
-- [ ] Display artwork and track info in wifi mode
-- [ ] Streaming page, playing Tidal, Qobuz, podcasts, radio
-
-## Web interface & HomeKit HUB
-
-Not there yet.
-
-### Plan
-
-- [ ] Turn on/off
-- [ ] Set volume
-- [ ] Mute/unmute
-- [ ] Select source
-- [ ] Status page, refreshing, display artwork and track info in wifi mode (web)
-- [ ] Settings page, editing (web)
-- [ ] Backup/restore settings to file download (web)
-- [ ] Streaming page, playing Tidal, Qobuz, podcasts, radio, etc (web)
 
 ## License
 

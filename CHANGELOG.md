@@ -35,7 +35,6 @@ New `kefw2 podcast` command for podcast playback:
 
 New `kefw2 upnp` command for playing from local network media servers:
 
-- `upnp servers` - List available media servers
 - `upnp browse [path]` - Browse server contents with tab completion
 - `upnp play <path>` - Play media files
 - `config upnp server <name>` - Set default UPnP server
@@ -49,7 +48,7 @@ New `kefw2 queue` command for managing playback queue:
 - `queue clear` - Clear the queue
 - `queue save <name>` - Save queue as preset
 - `queue load <name>` - Load saved queue preset
-- `queue playmode <mode>` - Set repeat/shuffle mode
+- `queue mode <mode>` - Set repeat/shuffle mode
 
 #### Cache System
 
