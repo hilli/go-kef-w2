@@ -28,9 +28,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// cacheConfigSettings defines the available cache settings for completion
-var cacheConfigSettings = []string{"enable", "disable", "ttl-default", "ttl-radio", "ttl-podcast", "ttl-upnp"}
-
 // configCacheCmd configures cache settings
 var configCacheCmd = &cobra.Command{
 	Use:   "cache [setting] [value]",

@@ -31,6 +31,43 @@ import (
 )
 
 // ============================================
+// Shared Utility Functions
+// ============================================
+
+// findItemByName finds a content item by name with fallback matching strategies:
+// 1. Exact case-insensitive match
+// 2. Case-insensitive substring match (item title contains query)
+// 3. Case-insensitive substring match (query contains item title)
+// Returns the matched item and true if found, nil and false otherwise.
+// Used by both radio and podcast commands for name-based lookups.
+func findItemByName(items []kefw2.ContentItem, name string) (*kefw2.ContentItem, bool) {
+	lowerName := strings.ToLower(name)
+
+	// First pass: exact case-insensitive match
+	for i := range items {
+		if strings.EqualFold(items[i].Title, name) {
+			return &items[i], true
+		}
+	}
+
+	// Second pass: item title contains the query
+	for i := range items {
+		if strings.Contains(strings.ToLower(items[i].Title), lowerName) {
+			return &items[i], true
+		}
+	}
+
+	// Third pass: query contains the item title (for partial input)
+	for i := range items {
+		if strings.Contains(lowerName, strings.ToLower(items[i].Title)) {
+			return &items[i], true
+		}
+	}
+
+	return nil, false
+}
+
+// ============================================
 // Pattern 3: Shared Result Handler
 // ============================================
 
@@ -347,7 +384,7 @@ func MakePodcastCategoryCommand(cfg PodcastCategoryConfig) *cobra.Command {
 			// If a podcast name was provided, find and play/save it directly
 			if len(args) > 0 {
 				showName, episodeName, hasEpisode := parsePodcastPath(strings.Join(args, " "))
-				if podcast, found := findPodcastByName(podcasts, showName); found {
+				if podcast, found := findItemByName(podcasts, showName); found {
 					if saveFav {
 						headerPrinter.Printf("Saving: %s\n", podcast.Title)
 						if err := client.AddPodcastFavorite(podcast); err != nil {

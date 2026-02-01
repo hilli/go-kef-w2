@@ -9,17 +9,6 @@ import (
 // UPnP/DLNA media server methods for the AirableClient.
 // Access local media servers like Plex, Sonos, etc.
 
-// MediaServer represents a UPnP/DLNA media server.
-type MediaServer struct {
-	ContentItem
-	UUID string // Extracted from path
-}
-
-// UPnPTrack represents a track from a UPnP media server.
-type UPnPTrack struct {
-	ContentItem
-}
-
 // GetMediaServers returns the list of available UPnP/DLNA media servers.
 // Entry point: ui:/upnp
 func (a *AirableClient) GetMediaServers() (*RowsResponse, error) {

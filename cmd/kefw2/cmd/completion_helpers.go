@@ -254,17 +254,6 @@ func buildRadioCompletions(items []CachedItem, currentPath string) []string {
 // Utility Functions for Completion
 // ============================================
 
-// FilterItemsByType returns only items matching the given type
-func FilterItemsByType(items []CachedItem, itemType string) []CachedItem {
-	filtered := make([]CachedItem, 0)
-	for _, item := range items {
-		if item.Type == itemType {
-			filtered = append(filtered, item)
-		}
-	}
-	return filtered
-}
-
 // FilterItemsByPrefix returns items whose title starts with the given prefix
 func FilterItemsByPrefix(items []CachedItem, prefix string) []CachedItem {
 	if prefix == "" {

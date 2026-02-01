@@ -52,12 +52,6 @@ var (
 	upnpPlayingStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("82"))
-
-	upnpContainerStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("39"))
-
-	upnpAudioStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("82"))
 )
 
 // upnpItem represents a media server, container, or track in the list

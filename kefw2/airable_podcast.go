@@ -9,16 +9,6 @@ import (
 // Podcast-specific methods for the AirableClient.
 // Podcasts are accessed via the Airable feeds service.
 
-// Podcast represents a podcast with episodes.
-type Podcast struct {
-	ContentItem
-}
-
-// PodcastEpisode represents a single podcast episode.
-type PodcastEpisode struct {
-	ContentItem
-}
-
 // GetPodcastMenu returns the top-level podcast menu.
 // Entry point: ui:/airablefeeds
 func (a *AirableClient) GetPodcastMenu() (*RowsResponse, error) {
@@ -511,7 +501,7 @@ func (a *AirableClient) BrowsePodcastByDisplayPath(displayPath string) (*RowsRes
 	}
 
 	// Parse the display path into segments
-	segments := parsePodcastDisplayPath(displayPath)
+	segments := parseDisplayPath(displayPath)
 	if len(segments) == 0 {
 		return a.GetRows(a.PodcastBaseURL, 0, 100)
 	}
@@ -543,26 +533,4 @@ func (a *AirableClient) BrowsePodcastByDisplayPath(displayPath string) (*RowsRes
 
 	// Return items at the resolved path
 	return a.GetRows(currentPath, 0, 100)
-}
-
-// parsePodcastDisplayPath splits a display path into segments, handling %2F escapes.
-func parsePodcastDisplayPath(path string) []string {
-	if path == "" {
-		return nil
-	}
-
-	// Use a placeholder for escaped slashes, split, then unescape
-	const placeholder = "\x00"
-	escaped := strings.ReplaceAll(path, "%2F", placeholder)
-	segments := strings.Split(escaped, "/")
-
-	// Unescape and clean up
-	result := make([]string, 0, len(segments))
-	for _, seg := range segments {
-		seg = strings.ReplaceAll(seg, placeholder, "/")
-		if seg != "" {
-			result = append(result, seg)
-		}
-	}
-	return result
 }

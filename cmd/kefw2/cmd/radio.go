@@ -98,8 +98,6 @@ type playResultMsg struct {
 	err         error
 }
 
-type loadingMsg struct{}
-
 func initialRadioModel(client *kefw2.AirableClient) radioModel {
 	ti := textinput.New()
 	ti.Placeholder = "Search radio stations..."
@@ -404,38 +402,6 @@ func filterPlayableStations(rows []kefw2.ContentItem) []kefw2.ContentItem {
 	return stations
 }
 
-// findStationByName finds a station by name with fallback matching strategies:
-// 1. Exact case-insensitive match
-// 2. Case-insensitive substring match (station title contains query)
-// 3. Case-insensitive substring match (query contains station title)
-// Returns the matched station and true if found, nil and false otherwise
-func findStationByName(stations []kefw2.ContentItem, name string) (*kefw2.ContentItem, bool) {
-	lowerName := strings.ToLower(name)
-
-	// First pass: exact case-insensitive match
-	for i := range stations {
-		if strings.EqualFold(stations[i].Title, name) {
-			return &stations[i], true
-		}
-	}
-
-	// Second pass: station title contains the query
-	for i := range stations {
-		if strings.Contains(strings.ToLower(stations[i].Title), lowerName) {
-			return &stations[i], true
-		}
-	}
-
-	// Third pass: query contains the station title (for partial input)
-	for i := range stations {
-		if strings.Contains(lowerName, strings.ToLower(stations[i].Title)) {
-			return &stations[i], true
-		}
-	}
-
-	return nil, false
-}
-
 // playRadioStationWithDetails plays a radio station, resolving it to playable form first.
 // Stations from list endpoints (hq, trending, etc.) are containers that need to be
 // browsed into to get the actual playable stream.
@@ -547,7 +513,7 @@ var radioFavoritesCmd = &cobra.Command{
 		// If a station name was provided, find and play/remove it directly
 		if len(args) > 0 {
 			stationName := strings.Join(args, " ")
-			if station, found := findStationByName(stations, stationName); found {
+			if station, found := findItemByName(stations, stationName); found {
 				if removeFav {
 					headerPrinter.Printf("Removing: %s\n", station.Title)
 					if err := client.RemoveRadioFavorite(station); err != nil {
@@ -664,7 +630,7 @@ var radioPopularCmd = MakeCategoryCommand(CategoryConfig{
 	ServiceType:       ServiceRadio,
 	Callbacks:         DefaultRadioCallbacks,
 	FilterItems:       filterPlayableStations,
-	FindByName:        findStationByName,
+	FindByName:        findItemByName,
 	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
 	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
 	SupportsSaveFav:   true,
@@ -681,7 +647,7 @@ var radioLocalCmd = MakeCategoryCommand(CategoryConfig{
 	ServiceType:       ServiceRadio,
 	Callbacks:         DefaultRadioCallbacks,
 	FilterItems:       filterPlayableStations,
-	FindByName:        findStationByName,
+	FindByName:        findItemByName,
 	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
 	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
 	SupportsSaveFav:   true,
@@ -698,7 +664,7 @@ var radioTrendingCmd = MakeCategoryCommand(CategoryConfig{
 	ServiceType:       ServiceRadio,
 	Callbacks:         DefaultRadioCallbacks,
 	FilterItems:       filterPlayableStations,
-	FindByName:        findStationByName,
+	FindByName:        findItemByName,
 	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
 	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
 	SupportsSaveFav:   true,
@@ -716,7 +682,7 @@ var radioHQCmd = MakeCategoryCommand(CategoryConfig{
 	ServiceType:       ServiceRadio,
 	Callbacks:         DefaultRadioCallbacks,
 	FilterItems:       filterPlayableStations,
-	FindByName:        findStationByName,
+	FindByName:        findItemByName,
 	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
 	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
 	SupportsSaveFav:   true,
@@ -733,7 +699,7 @@ var radioNewCmd = MakeCategoryCommand(CategoryConfig{
 	ServiceType:       ServiceRadio,
 	Callbacks:         DefaultRadioCallbacks,
 	FilterItems:       filterPlayableStations,
-	FindByName:        findStationByName,
+	FindByName:        findItemByName,
 	PlayItem:          func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.ResolveAndPlayRadioStation(i) },
 	AddFavorite:       func(c *kefw2.AirableClient, i *kefw2.ContentItem) error { return c.AddRadioFavorite(i) },
 	SupportsSaveFav:   true,

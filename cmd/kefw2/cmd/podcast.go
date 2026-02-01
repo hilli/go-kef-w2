@@ -499,7 +499,7 @@ var podcastFavoritesCmd = &cobra.Command{
 		// If a podcast name was provided, find and play/remove it directly
 		if len(args) > 0 {
 			showName, episodeName, hasEpisode := parsePodcastPath(strings.Join(args, " "))
-			if podcast, found := findPodcastByName(podcasts, showName); found {
+			if podcast, found := findItemByName(podcasts, showName); found {
 				if removeFav {
 					headerPrinter.Printf("Removing: %s\n", podcast.Title)
 					if err := client.RemovePodcastFavorite(podcast); err != nil {
@@ -738,38 +738,6 @@ func filterPodcastContainers(rows []kefw2.ContentItem) []kefw2.ContentItem {
 		}
 	}
 	return podcasts
-}
-
-// findPodcastByName finds a podcast by name with fallback matching strategies:
-// 1. Exact case-insensitive match
-// 2. Case-insensitive substring match (podcast title contains query)
-// 3. Case-insensitive substring match (query contains podcast title)
-// Returns the matched podcast and true if found, nil and false otherwise
-func findPodcastByName(podcasts []kefw2.ContentItem, name string) (*kefw2.ContentItem, bool) {
-	lowerName := strings.ToLower(name)
-
-	// First pass: exact case-insensitive match
-	for i := range podcasts {
-		if strings.EqualFold(podcasts[i].Title, name) {
-			return &podcasts[i], true
-		}
-	}
-
-	// Second pass: podcast title contains the query
-	for i := range podcasts {
-		if strings.Contains(strings.ToLower(podcasts[i].Title), lowerName) {
-			return &podcasts[i], true
-		}
-	}
-
-	// Third pass: query contains the podcast title (for partial input)
-	for i := range podcasts {
-		if strings.Contains(lowerName, strings.ToLower(podcasts[i].Title)) {
-			return &podcasts[i], true
-		}
-	}
-
-	return nil, false
 }
 
 // parsePodcastPath parses a "show/episode" path into show name and optional episode name.

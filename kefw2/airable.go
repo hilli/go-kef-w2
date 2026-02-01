@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -439,4 +440,28 @@ func (a *AirableClient) SearchTidal(query string) (*RowsResponse, error) {
 	}
 
 	return nil, fmt.Errorf("no search results path returned")
+}
+
+// parseDisplayPath splits a display path into segments, handling %2F escapes.
+// Used by both radio and podcast browsing to handle paths like "by Genre/Jazz"
+// where names containing "/" are escaped as "%2F".
+func parseDisplayPath(path string) []string {
+	if path == "" {
+		return nil
+	}
+
+	// Use a placeholder for escaped slashes, split, then unescape
+	const placeholder = "\x00"
+	escaped := strings.ReplaceAll(path, "%2F", placeholder)
+	segments := strings.Split(escaped, "/")
+
+	// Unescape and clean up
+	result := make([]string, 0, len(segments))
+	for _, seg := range segments {
+		seg = strings.ReplaceAll(seg, placeholder, "/")
+		if seg != "" {
+			result = append(result, seg)
+		}
+	}
+	return result
 }

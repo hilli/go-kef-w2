@@ -9,11 +9,6 @@ import (
 // Radio-specific methods for the AirableClient.
 // Internet radio stations are accessed via the Airable service.
 
-// RadioStation represents an internet radio station with full playback information.
-type RadioStation struct {
-	ContentItem
-}
-
 // GetRadioMenu returns the top-level radio menu.
 // Entry point: ui:/airableradios
 func (a *AirableClient) GetRadioMenu() (*RowsResponse, error) {
@@ -122,15 +117,6 @@ func (a *AirableClient) GetRadioFavoritesAll() (*RowsResponse, error) {
 	return a.GetAllRows(fmt.Sprintf("%s/airable/radios/favorites", baseURL))
 }
 
-// GetRadioHistory returns recently played radio stations.
-func (a *AirableClient) GetRadioHistory() (*RowsResponse, error) {
-	baseURL, err := a.getRadioBaseURLPath()
-	if err != nil {
-		return nil, err
-	}
-	return a.GetRows(fmt.Sprintf("%s/airable/radios/history", baseURL), 0, 50)
-}
-
 // GetRadioLocal returns local radio stations based on geolocation.
 func (a *AirableClient) GetRadioLocal() (*RowsResponse, error) {
 	baseURL, err := a.getRadioBaseURLPath()
@@ -183,15 +169,6 @@ func (a *AirableClient) GetRadioTrendingAll() (*RowsResponse, error) {
 		return nil, err
 	}
 	return a.GetAllRows(fmt.Sprintf("%s/airable/radios/trending", baseURL))
-}
-
-// GetRadioRecommendations returns recommended radio stations.
-func (a *AirableClient) GetRadioRecommendations() (*RowsResponse, error) {
-	baseURL, err := a.getRadioBaseURLPath()
-	if err != nil {
-		return nil, err
-	}
-	return a.GetRows(fmt.Sprintf("%s/airable/radios/recommendations", baseURL), 0, 50)
 }
 
 // GetRadioHQ returns high quality radio stations.
@@ -641,26 +618,4 @@ func (a *AirableClient) BrowseRadioByDisplayPath(displayPath string) (*RowsRespo
 
 	// Return items at the resolved path
 	return a.GetRows(currentPath, 0, 100)
-}
-
-// parseDisplayPath splits a display path into segments, handling %2F escapes.
-func parseDisplayPath(path string) []string {
-	if path == "" {
-		return nil
-	}
-
-	// Use a placeholder for escaped slashes, split, then unescape
-	const placeholder = "\x00"
-	escaped := strings.ReplaceAll(path, "%2F", placeholder)
-	segments := strings.Split(escaped, "/")
-
-	// Unescape and clean up
-	result := make([]string, 0, len(segments))
-	for _, seg := range segments {
-		seg = strings.ReplaceAll(seg, placeholder, "/")
-		if seg != "" {
-			result = append(result, seg)
-		}
-	}
-	return result
 }
