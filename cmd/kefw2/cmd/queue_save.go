@@ -189,14 +189,10 @@ Examples:
 
 		// Get current queue
 		resp, err := client.GetPlayQueue()
-		if err != nil {
-			errorPrinter.Printf("Failed to get play queue: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get play queue")
 
 		if len(resp.Rows) == 0 {
-			errorPrinter.Println("Play queue is empty. Nothing to save.")
-			os.Exit(1)
+			exitWithError("Play queue is empty. Nothing to save.")
 		}
 
 		// Convert to SavedTrack format
@@ -213,23 +209,15 @@ Examples:
 
 		// Marshal to YAML
 		data, err := yaml.Marshal(&savedQueue)
-		if err != nil {
-			errorPrinter.Printf("Failed to serialize queue: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to serialize queue")
 
 		// Get file path
 		filePath, err := getSavedQueuePath(name)
-		if err != nil {
-			errorPrinter.Printf("Failed to get queue file path: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get queue file path")
 
 		// Write to file
-		if err := os.WriteFile(filePath, data, 0644); err != nil {
-			errorPrinter.Printf("Failed to save queue: %v\n", err)
-			os.Exit(1)
-		}
+		err = os.WriteFile(filePath, data, 0644)
+		exitOnError(err, "Failed to save queue")
 
 		taskConpletedPrinter.Printf("Saved %d tracks to '%s'\n", len(resp.Rows), name)
 	},
@@ -254,32 +242,24 @@ Examples:
 
 		// Get file path
 		filePath, err := getSavedQueuePath(name)
-		if err != nil {
-			errorPrinter.Printf("Failed to get queue file path: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get queue file path")
 
 		// Read file
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				errorPrinter.Printf("Saved queue '%s' not found.\n", name)
-				os.Exit(1)
+				exitWithError("Saved queue '%s' not found.", name)
 			}
-			errorPrinter.Printf("Failed to read queue file: %v\n", err)
-			os.Exit(1)
+			exitWithError("Failed to read queue file: %v", err)
 		}
 
 		// Unmarshal from YAML
 		var savedQueue SavedQueue
-		if err := yaml.Unmarshal(data, &savedQueue); err != nil {
-			errorPrinter.Printf("Failed to parse queue file: %v\n", err)
-			os.Exit(1)
-		}
+		err = yaml.Unmarshal(data, &savedQueue)
+		exitOnError(err, "Failed to parse queue file")
 
 		if len(savedQueue.Tracks) == 0 {
-			errorPrinter.Println("Saved queue is empty.")
-			os.Exit(1)
+			exitWithError("Saved queue is empty.")
 		}
 
 		// Convert SavedTracks to ContentItems
@@ -289,16 +269,12 @@ Examples:
 		}
 
 		// Clear current queue
-		if err := client.ClearPlaylist(); err != nil {
-			errorPrinter.Printf("Failed to clear current queue: %v\n", err)
-			os.Exit(1)
-		}
+		err = client.ClearPlaylist()
+		exitOnError(err, "Failed to clear current queue")
 
 		// Add tracks to queue and start playback
-		if err := client.AddToQueue(contentItems, true); err != nil {
-			errorPrinter.Printf("Failed to load queue: %v\n", err)
-			os.Exit(1)
-		}
+		err = client.AddToQueue(contentItems, true)
+		exitOnError(err, "Failed to load queue")
 
 		taskConpletedPrinter.Printf("Loaded %d tracks from '%s'\n", len(savedQueue.Tracks), name)
 	},
@@ -312,10 +288,7 @@ var queueSavedCmd = &cobra.Command{
 	Long:    `List all saved queues stored locally.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		names, err := listSavedQueues()
-		if err != nil {
-			errorPrinter.Printf("Failed to list saved queues: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to list saved queues")
 
 		if len(names) == 0 {
 			contentPrinter.Println("No saved queues found.")
@@ -341,18 +314,14 @@ var queueDeleteSavedCmd = &cobra.Command{
 		name := args[0]
 
 		filePath, err := getSavedQueuePath(name)
-		if err != nil {
-			errorPrinter.Printf("Failed to get queue file path: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get queue file path")
 
-		if err := os.Remove(filePath); err != nil {
+		err = os.Remove(filePath)
+		if err != nil {
 			if os.IsNotExist(err) {
-				errorPrinter.Printf("Saved queue '%s' not found.\n", name)
-				os.Exit(1)
+				exitWithError("Saved queue '%s' not found.", name)
 			}
-			errorPrinter.Printf("Failed to delete queue: %v\n", err)
-			os.Exit(1)
+			exitWithError("Failed to delete queue: %v", err)
 		}
 
 		taskConpletedPrinter.Printf("Deleted saved queue '%s'\n", name)

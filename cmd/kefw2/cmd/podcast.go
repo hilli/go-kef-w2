@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -407,10 +406,8 @@ Keyboard shortcuts:
 		model := initialPodcastModel(client)
 
 		p := tea.NewProgram(model, tea.WithAltScreen())
-		if _, err := p.Run(); err != nil {
-			errorPrinter.Printf("Error running podcast browser: %v\n", err)
-			os.Exit(1)
-		}
+		_, err := p.Run()
+		exitOnError(err, "Error running podcast browser")
 	},
 }
 
@@ -430,10 +427,7 @@ var podcastSearchCmd = &cobra.Command{
 		headerPrinter.Printf("Searching for: %s\n", query)
 
 		resp, err := client.SearchPodcasts(query)
-		if err != nil {
-			errorPrinter.Printf("Search failed: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Search failed")
 
 		podcasts := filterPodcastContainers(resp.Rows)
 
@@ -461,13 +455,10 @@ var podcastSearchCmd = &cobra.Command{
 			Action:      action,
 			Callbacks:   DefaultPodcastCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, action) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }
@@ -484,10 +475,7 @@ var podcastFavoritesCmd = &cobra.Command{
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPodcastFavoritesAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get favorites: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get favorites")
 
 		podcasts := filterPodcastContainers(resp.Rows)
 
@@ -502,65 +490,47 @@ var podcastFavoritesCmd = &cobra.Command{
 			if podcast, found := findItemByName(podcasts, showName); found {
 				if removeFav {
 					headerPrinter.Printf("Removing: %s\n", podcast.Title)
-					if err := client.RemovePodcastFavorite(podcast); err != nil {
-						errorPrinter.Printf("Failed to remove favorite: %v\n", err)
-						os.Exit(1)
-					}
+					err := client.RemovePodcastFavorite(podcast)
+					exitOnError(err, "Failed to remove favorite")
 					taskConpletedPrinter.Printf("Removed from favorites: %s\n", podcast.Title)
 				} else if hasEpisode {
 					// Play specific episode
 					episodes, err := client.GetPodcastEpisodesAll(podcast.Path)
-					if err != nil {
-						errorPrinter.Printf("Failed to get episodes: %v\n", err)
-						os.Exit(1)
-					}
+					exitOnError(err, "Failed to get episodes")
 					if episode, found := findEpisodeByName(episodes.Rows, episodeName); found {
 						if addToQueue {
 							headerPrinter.Printf("Adding to queue: %s\n", episode.Title)
-							if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-								errorPrinter.Printf("Failed to add to queue: %v\n", err)
-								os.Exit(1)
-							}
+							err := client.AddToQueue([]kefw2.ContentItem{*episode}, false)
+							exitOnError(err, "Failed to add to queue")
 							taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
 						} else {
 							headerPrinter.Printf("Playing: %s\n", episode.Title)
-							if err := client.PlayPodcastEpisode(episode); err != nil {
-								errorPrinter.Printf("Failed to play: %v\n", err)
-								os.Exit(1)
-							}
+							err := client.PlayPodcastEpisode(episode)
+							exitOnError(err, "Failed to play")
 							taskConpletedPrinter.Printf("Now playing: %s\n", episode.Title)
 						}
 					} else {
-						errorPrinter.Printf("Episode '%s' not found in '%s'.\n", episodeName, podcast.Title)
-						os.Exit(1)
+						exitWithError("Episode '%s' not found in '%s'.", episodeName, podcast.Title)
 					}
 				} else {
 					// Play latest episode
 					if addToQueue {
 						headerPrinter.Printf("Adding latest episode of '%s' to queue\n", podcast.Title)
 						episode, err := client.GetLatestEpisode(podcast)
-						if err != nil {
-							errorPrinter.Printf("Failed to get latest episode: %v\n", err)
-							os.Exit(1)
-						}
-						if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-							errorPrinter.Printf("Failed to add to queue: %v\n", err)
-							os.Exit(1)
-						}
+						exitOnError(err, "Failed to get latest episode")
+						err = client.AddToQueue([]kefw2.ContentItem{*episode}, false)
+						exitOnError(err, "Failed to add to queue")
 						taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
 					} else {
 						headerPrinter.Printf("Playing latest episode of: %s\n", podcast.Title)
-						if err := playPodcastLatestEpisode(client, podcast); err != nil {
-							errorPrinter.Printf("Failed to play: %v\n", err)
-							os.Exit(1)
-						}
+						err := playPodcastLatestEpisode(client, podcast)
+						exitOnError(err, "Failed to play")
 						taskConpletedPrinter.Printf("Now playing latest episode of: %s\n", podcast.Title)
 					}
 				}
 				return
 			}
-			errorPrinter.Printf("Podcast '%s' not found in favorites.\n", showName)
-			os.Exit(1)
+			exitWithError("Podcast '%s' not found in favorites.", showName)
 		}
 
 		// Show interactive picker using unified content picker
@@ -582,13 +552,10 @@ var podcastFavoritesCmd = &cobra.Command{
 			Action:      action,
 			Callbacks:   DefaultPodcastCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, action) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }
@@ -652,10 +619,7 @@ Examples:
 		headerPrinter.Printf("Searching for: %s\n", query)
 
 		resp, err := client.SearchPodcasts(query)
-		if err != nil {
-			errorPrinter.Printf("Search failed: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Search failed")
 
 		// Filter for podcast containers
 		var podcasts []kefw2.ContentItem
@@ -666,8 +630,7 @@ Examples:
 		}
 
 		if len(podcasts) == 0 {
-			errorPrinter.Println("No podcasts found.")
-			os.Exit(1)
+			exitWithError("No podcasts found.")
 		}
 
 		// If only one podcast, get its episodes and play the first
@@ -676,33 +639,25 @@ Examples:
 			headerPrinter.Printf("Found podcast: %s\n", podcast.Title)
 
 			episodes, err := client.GetPodcastEpisodesAll(podcast.Path)
-			if err != nil {
-				errorPrinter.Printf("Failed to get episodes: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Failed to get episodes")
 
 			for _, ep := range episodes.Rows {
 				if ep.Type == "audio" {
 					if addToQueue {
 						headerPrinter.Printf("Adding to queue: %s\n", ep.Title)
-						if err := client.AddToQueue([]kefw2.ContentItem{ep}, true); err != nil {
-							errorPrinter.Printf("Failed to add to queue: %v\n", err)
-							os.Exit(1)
-						}
+						err := client.AddToQueue([]kefw2.ContentItem{ep}, true)
+						exitOnError(err, "Failed to add to queue")
 						taskConpletedPrinter.Printf("Added to queue: %s\n", ep.Title)
 					} else {
 						headerPrinter.Printf("Playing: %s\n", ep.Title)
-						if err := client.PlayPodcastEpisode(&ep); err != nil {
-							errorPrinter.Printf("Failed to play: %v\n", err)
-							os.Exit(1)
-						}
+						err := client.PlayPodcastEpisode(&ep)
+						exitOnError(err, "Failed to play")
 						taskConpletedPrinter.Printf("Now playing: %s\n", ep.Title)
 					}
 					return
 				}
 			}
-			errorPrinter.Println("No episodes found for this podcast.")
-			os.Exit(1)
+			exitWithError("No episodes found for this podcast.")
 		}
 
 		// Multiple podcasts - show interactive picker
@@ -718,13 +673,10 @@ Examples:
 			Action:      action,
 			Callbacks:   DefaultPodcastCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, action) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }
@@ -782,10 +734,7 @@ Use TAB to navigate through categories:
 
 		// Get the filter menu first
 		filterResp, err := client.GetPodcastFilter()
-		if err != nil {
-			errorPrinter.Printf("Failed to get filter menu: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get filter menu")
 
 		// Determine action based on flags
 		action := ActionPlay
@@ -808,10 +757,7 @@ Use TAB to navigate through categories:
 				Action:      action,
 				Callbacks:   DefaultPodcastCallbacks(client),
 			})
-			if err != nil {
-				errorPrinter.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Error")
 			if result.Queued && result.Selected != nil {
 				taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
 			} else if result.Played && result.Selected != nil {
@@ -823,10 +769,7 @@ Use TAB to navigate through categories:
 		// Browse to the specified path
 		browsePath := args[0]
 		resp, err := client.BrowsePodcastByDisplayPath(browsePath)
-		if err != nil {
-			errorPrinter.Printf("Failed to browse '%s': %v\n", browsePath, err)
-			os.Exit(1)
-		}
+		exitOnError(err, fmt.Sprintf("Failed to browse '%s'", browsePath))
 
 		if len(resp.Rows) == 0 {
 			contentPrinter.Printf("No items found at '%s'.\n", browsePath)
@@ -843,13 +786,10 @@ Use TAB to navigate through categories:
 			Action:      action,
 			Callbacks:   DefaultPodcastCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, action) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }
@@ -896,15 +836,10 @@ Use the fuzzy filter to quickly find what you're looking for.`,
 			resp, err = client.GetPodcastFavorites()
 			title = "Favorite Podcasts"
 		default:
-			errorPrinter.Printf("Unknown category: %s\n", category)
-			contentPrinter.Println("Available categories: popular, trending, history, favorites")
-			os.Exit(1)
+			exitWithError("Unknown category: %s. Available categories: popular, trending, history, favorites", category)
 		}
 
-		if err != nil {
-			errorPrinter.Printf("Failed to load %s: %v\n", category, err)
-			os.Exit(1)
-		}
+		exitOnError(err, fmt.Sprintf("Failed to load %s", category))
 
 		if len(resp.Rows) == 0 {
 			contentPrinter.Printf("No podcasts found in %s.\n", category)
@@ -928,13 +863,10 @@ Use the fuzzy filter to quickly find what you're looking for.`,
 			Action:      action,
 			Callbacks:   DefaultPodcastCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, action) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }

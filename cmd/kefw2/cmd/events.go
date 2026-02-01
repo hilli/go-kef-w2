@@ -97,8 +97,7 @@ Press Ctrl+C to stop.`,
 		// Start polling (blocks until context canceled or error)
 		if err := eventClient.Start(ctx); err != nil {
 			if !errors.Is(err, context.Canceled) {
-				_, _ = errorPrinter.Printf("Event stream error: %v\n", err)
-				os.Exit(1)
+				exitWithError("Event stream error: %v", err)
 			}
 		}
 	},

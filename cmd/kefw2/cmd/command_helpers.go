@@ -22,7 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -250,8 +249,7 @@ func MakeCategoryCommand(cfg CategoryConfig) *cobra.Command {
 			// Fetch items
 			resp, err := cfg.Fetcher(client)
 			if err != nil {
-				errorPrinter.Printf("Failed to get %s: %v\n", cfg.Use, err)
-				os.Exit(1)
+				exitWithError("Failed to get %s: %v", cfg.Use, err)
 			}
 
 			// Filter items
@@ -273,46 +271,37 @@ func MakeCategoryCommand(cfg CategoryConfig) *cobra.Command {
 
 				item, found := cfg.FindByName(items, itemName)
 				if !found {
-					errorPrinter.Printf("'%s' not found.\n", itemName)
-					os.Exit(1)
+					exitWithError("'%s' not found.", itemName)
 				}
 
 				if removeFav && cfg.RemoveFavorite != nil {
 					headerPrinter.Printf("Removing: %s\n", item.Title)
-					if err := cfg.RemoveFavorite(client, item); err != nil {
-						errorPrinter.Printf("Failed to remove favorite: %v\n", err)
-						os.Exit(1)
-					}
+					err := cfg.RemoveFavorite(client, item)
+					exitOnError(err, "Failed to remove favorite")
 					taskConpletedPrinter.Printf("Removed from favorites: %s\n", item.Title)
 					return
 				}
 
 				if saveFav && cfg.AddFavorite != nil {
 					headerPrinter.Printf("Saving: %s\n", item.Title)
-					if err := cfg.AddFavorite(client, item); err != nil {
-						errorPrinter.Printf("Failed to save favorite: %v\n", err)
-						os.Exit(1)
-					}
+					err := cfg.AddFavorite(client, item)
+					exitOnError(err, "Failed to save favorite")
 					taskConpletedPrinter.Printf("Saved to favorites: %s\n", item.Title)
 					return
 				}
 
 				if addToQueue && cfg.AddToQueue != nil {
 					headerPrinter.Printf("Adding to queue: %s\n", item.Title)
-					if err := cfg.AddToQueue(client, item); err != nil {
-						errorPrinter.Printf("Failed to add to queue: %v\n", err)
-						os.Exit(1)
-					}
+					err := cfg.AddToQueue(client, item)
+					exitOnError(err, "Failed to add to queue")
 					taskConpletedPrinter.Printf("Added to queue: %s\n", item.Title)
 					return
 				}
 
 				// Default: play
 				headerPrinter.Printf("Playing: %s\n", item.Title)
-				if err := cfg.PlayItem(client, item); err != nil {
-					errorPrinter.Printf("Failed to play: %v\n", err)
-					os.Exit(1)
-				}
+				err := cfg.PlayItem(client, item)
+				exitOnError(err, "Failed to play")
 				taskConpletedPrinter.Printf("Now playing: %s\n", item.Title)
 				return
 			}
@@ -339,13 +328,10 @@ func MakeCategoryCommand(cfg CategoryConfig) *cobra.Command {
 				Action:      action,
 				Callbacks:   cfg.Callbacks(client),
 			})
-			if err != nil {
-				errorPrinter.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Error")
 
 			if HandlePickerResult(result, action) {
-				os.Exit(1)
+				exitWithError("Operation failed")
 			}
 		},
 	}
@@ -393,10 +379,7 @@ func MakePodcastCategoryCommand(cfg PodcastCategoryConfig) *cobra.Command {
 			client := kefw2.NewAirableClient(currentSpeaker)
 
 			resp, err := cfg.Fetcher(client)
-			if err != nil {
-				errorPrinter.Printf("Failed to get podcasts: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Failed to get podcasts")
 
 			podcasts := filterPodcastContainers(resp.Rows)
 
@@ -411,65 +394,47 @@ func MakePodcastCategoryCommand(cfg PodcastCategoryConfig) *cobra.Command {
 				if podcast, found := findItemByName(podcasts, showName); found {
 					if saveFav {
 						headerPrinter.Printf("Saving: %s\n", podcast.Title)
-						if err := client.AddPodcastFavorite(podcast); err != nil {
-							errorPrinter.Printf("Failed to save favorite: %v\n", err)
-							os.Exit(1)
-						}
+						err := client.AddPodcastFavorite(podcast)
+						exitOnError(err, "Failed to save favorite")
 						taskConpletedPrinter.Printf("Saved to favorites: %s\n", podcast.Title)
 					} else if hasEpisode {
 						// Play specific episode
 						episodes, err := client.GetPodcastEpisodesAll(podcast.Path)
-						if err != nil {
-							errorPrinter.Printf("Failed to get episodes: %v\n", err)
-							os.Exit(1)
-						}
+						exitOnError(err, "Failed to get episodes")
 						if episode, found := findEpisodeByName(episodes.Rows, episodeName); found {
 							if addToQueue {
 								headerPrinter.Printf("Adding to queue: %s\n", episode.Title)
-								if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-									errorPrinter.Printf("Failed to add to queue: %v\n", err)
-									os.Exit(1)
-								}
+								err := client.AddToQueue([]kefw2.ContentItem{*episode}, false)
+								exitOnError(err, "Failed to add to queue")
 								taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
 							} else {
 								headerPrinter.Printf("Playing: %s\n", episode.Title)
-								if err := client.PlayPodcastEpisode(episode); err != nil {
-									errorPrinter.Printf("Failed to play: %v\n", err)
-									os.Exit(1)
-								}
+								err := client.PlayPodcastEpisode(episode)
+								exitOnError(err, "Failed to play")
 								taskConpletedPrinter.Printf("Now playing: %s\n", episode.Title)
 							}
 						} else {
-							errorPrinter.Printf("Episode '%s' not found in '%s'.\n", episodeName, podcast.Title)
-							os.Exit(1)
+							exitWithError("Episode '%s' not found in '%s'.", episodeName, podcast.Title)
 						}
 					} else {
 						// Play latest episode
 						if addToQueue {
 							headerPrinter.Printf("Adding latest episode of '%s' to queue\n", podcast.Title)
 							episode, err := client.GetLatestEpisode(podcast)
-							if err != nil {
-								errorPrinter.Printf("Failed to get latest episode: %v\n", err)
-								os.Exit(1)
-							}
-							if err := client.AddToQueue([]kefw2.ContentItem{*episode}, false); err != nil {
-								errorPrinter.Printf("Failed to add to queue: %v\n", err)
-								os.Exit(1)
-							}
+							exitOnError(err, "Failed to get latest episode")
+							err = client.AddToQueue([]kefw2.ContentItem{*episode}, false)
+							exitOnError(err, "Failed to add to queue")
 							taskConpletedPrinter.Printf("Added to queue: %s\n", episode.Title)
 						} else {
 							headerPrinter.Printf("Playing latest episode of: %s\n", podcast.Title)
-							if err := playPodcastLatestEpisode(client, podcast); err != nil {
-								errorPrinter.Printf("Failed to play: %v\n", err)
-								os.Exit(1)
-							}
+							err := playPodcastLatestEpisode(client, podcast)
+							exitOnError(err, "Failed to play")
 							taskConpletedPrinter.Printf("Now playing latest episode of: %s\n", podcast.Title)
 						}
 					}
 					return
 				}
-				errorPrinter.Printf("Podcast '%s' not found in %s.\n", showName, cfg.NotFoundMessage)
-				os.Exit(1)
+				exitWithError("Podcast '%s' not found in %s.", showName, cfg.NotFoundMessage)
 			}
 
 			// Show interactive picker using unified content picker
@@ -491,13 +456,10 @@ func MakePodcastCategoryCommand(cfg PodcastCategoryConfig) *cobra.Command {
 				Action:      action,
 				Callbacks:   cfg.Callbacks(client),
 			})
-			if err != nil {
-				errorPrinter.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Error")
 
 			if HandlePickerResult(result, action) {
-				os.Exit(1)
+				exitWithError("Operation failed")
 			}
 		},
 	}

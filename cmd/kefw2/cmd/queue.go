@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -50,10 +49,7 @@ Keyboard shortcuts in picker:
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPlayQueue()
-		if err != nil {
-			errorPrinter.Printf("Failed to get play queue: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get play queue")
 
 		if len(resp.Rows) == 0 {
 			contentPrinter.Println("Play queue is empty.")
@@ -69,16 +65,12 @@ Keyboard shortcuts in picker:
 			Action:      ActionPlay,
 			Callbacks:   DefaultQueueCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if result.Played && result.Selected != nil {
 			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
 		} else if result.Error != nil {
-			errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			os.Exit(1)
+			exitWithError("Failed to play: %v", result.Error)
 		}
 	},
 }
@@ -117,10 +109,7 @@ var queueListCmd = &cobra.Command{
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPlayQueue()
-		if err != nil {
-			errorPrinter.Printf("Failed to get play queue: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get play queue")
 
 		if len(resp.Rows) == 0 {
 			contentPrinter.Println("Play queue is empty.")
@@ -146,10 +135,8 @@ var queueClearCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
-		if err := client.ClearPlaylist(); err != nil {
-			errorPrinter.Printf("Failed to clear queue: %v\n", err)
-			os.Exit(1)
-		}
+		err := client.ClearPlaylist()
+		exitOnError(err, "Failed to clear queue")
 
 		taskConpletedPrinter.Println("Queue cleared.")
 	},
@@ -171,10 +158,7 @@ Examples:
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPlayQueue()
-		if err != nil {
-			errorPrinter.Printf("Failed to get play queue: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get play queue")
 
 		if len(resp.Rows) == 0 {
 			contentPrinter.Println("Play queue is empty.")
@@ -187,15 +171,12 @@ Examples:
 		if idx, err := strconv.Atoi(arg); err == nil {
 			// User provided a 1-based index
 			if idx < 1 || idx > len(resp.Rows) {
-				errorPrinter.Printf("Invalid index: %d (queue has %d tracks)\n", idx, len(resp.Rows))
-				os.Exit(1)
+				exitWithError("Invalid index: %d (queue has %d tracks)", idx, len(resp.Rows))
 			}
 			index := idx - 1 // Convert to 0-based
 			trackTitle := resp.Rows[index].Title
-			if err := client.RemoveFromQueue([]int{index}); err != nil {
-				errorPrinter.Printf("Failed to remove track: %v\n", err)
-				os.Exit(1)
-			}
+			err := client.RemoveFromQueue([]int{index})
+			exitOnError(err, "Failed to remove track")
 			taskConpletedPrinter.Printf("Removed: %s\n", trackTitle)
 			return
 		}
@@ -203,15 +184,12 @@ Examples:
 		// Try to match by title or "title - artist" format
 		index := findQueueItemByLabel(resp.Rows, arg)
 		if index < 0 {
-			errorPrinter.Printf("Track not found: %s\n", arg)
-			os.Exit(1)
+			exitWithError("Track not found: %s", arg)
 		}
 
 		trackTitle := resp.Rows[index].Title
-		if err := client.RemoveFromQueue([]int{index}); err != nil {
-			errorPrinter.Printf("Failed to remove track: %v\n", err)
-			os.Exit(1)
-		}
+		err = client.RemoveFromQueue([]int{index})
+		exitOnError(err, "Failed to remove track")
 		taskConpletedPrinter.Printf("Removed: %s\n", trackTitle)
 	},
 }
@@ -309,10 +287,7 @@ Examples:
 
 		// Get queue first
 		resp, err := client.GetPlayQueue()
-		if err != nil {
-			errorPrinter.Printf("Failed to get play queue: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get play queue")
 
 		queueLen := len(resp.Rows)
 		if queueLen == 0 {
@@ -323,8 +298,7 @@ Examples:
 		// Parse the track to move (first argument)
 		fromIndex, err := parseQueueTrackArg(args[0], resp.Rows)
 		if err != nil {
-			errorPrinter.Printf("%v\n", err)
-			os.Exit(1)
+			exitWithError("%v", err)
 		}
 
 		// Parse the destination (second argument, and optionally third)
@@ -362,13 +336,11 @@ Examples:
 			}
 		case "before":
 			if len(args) != 3 {
-				errorPrinter.Println("'before' requires a target track: queue move <track> before <target>")
-				os.Exit(1)
+				exitWithError("'before' requires a target track: queue move <track> before <target>")
 			}
 			targetIdx, err := parseQueueTrackArg(args[2], resp.Rows)
 			if err != nil {
-				errorPrinter.Printf("Target track: %v\n", err)
-				os.Exit(1)
+				exitWithError("Target track: %v", err)
 			}
 			toIndex = targetIdx
 			// If moving from after target to before, adjust index
@@ -382,13 +354,11 @@ Examples:
 			}
 		case "after":
 			if len(args) != 3 {
-				errorPrinter.Println("'after' requires a target track: queue move <track> after <target>")
-				os.Exit(1)
+				exitWithError("'after' requires a target track: queue move <track> after <target>")
 			}
 			targetIdx, err := parseQueueTrackArg(args[2], resp.Rows)
 			if err != nil {
-				errorPrinter.Printf("Target track: %v\n", err)
-				os.Exit(1)
+				exitWithError("Target track: %v", err)
 			}
 			// If moving from before target to after, adjust index
 			if fromIndex < targetIdx {
@@ -403,15 +373,13 @@ Examples:
 			// Try parsing as position number or track title
 			toIndex, err = parseQueueTrackArg(args[1], resp.Rows)
 			if err != nil {
-				errorPrinter.Printf("Invalid destination: %v\n", err)
-				os.Exit(1)
+				exitWithError("Invalid destination: %v", err)
 			}
 		}
 
 		// Validate toIndex
 		if toIndex < 0 || toIndex >= queueLen {
-			errorPrinter.Printf("Invalid destination position: %d (queue has %d tracks)\n", toIndex+1, queueLen)
-			os.Exit(1)
+			exitWithError("Invalid destination position: %d (queue has %d tracks)", toIndex+1, queueLen)
 		}
 
 		// No-op if same position
@@ -421,10 +389,8 @@ Examples:
 
 		trackTitle := resp.Rows[fromIndex].Title
 
-		if err := client.MoveQueueItem(fromIndex, toIndex); err != nil {
-			errorPrinter.Printf("Failed to move track: %v\n", err)
-			os.Exit(1)
-		}
+		err = client.MoveQueueItem(fromIndex, toIndex)
+		exitOnError(err, "Failed to move track")
 
 		taskConpletedPrinter.Printf("Moved '%s' to position %d\n", trackTitle, toIndex+1)
 	},
@@ -464,10 +430,7 @@ Examples:
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPlayQueue()
-		if err != nil {
-			errorPrinter.Printf("Failed to get play queue: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get play queue")
 
 		if len(resp.Rows) == 0 {
 			contentPrinter.Println("Play queue is empty.")
@@ -481,8 +444,7 @@ Examples:
 		// Try to parse as index first
 		if idx, err := strconv.Atoi(arg); err == nil {
 			if idx < 1 || idx > len(resp.Rows) {
-				errorPrinter.Printf("Invalid index: %d (queue has %d tracks)\n", idx, len(resp.Rows))
-				os.Exit(1)
+				exitWithError("Invalid index: %d (queue has %d tracks)", idx, len(resp.Rows))
 			}
 			index = idx - 1
 			track = &resp.Rows[index]
@@ -490,16 +452,13 @@ Examples:
 			// Try to match by title or label
 			index = findQueueItemByLabel(resp.Rows, arg)
 			if index < 0 {
-				errorPrinter.Printf("Track not found: %s\n", arg)
-				os.Exit(1)
+				exitWithError("Track not found: %s", arg)
 			}
 			track = &resp.Rows[index]
 		}
 
-		if err := client.PlayQueueIndex(index, track); err != nil {
-			errorPrinter.Printf("Failed to play track: %v\n", err)
-			os.Exit(1)
-		}
+		err = client.PlayQueueIndex(index, track)
+		exitOnError(err, "Failed to play track")
 
 		taskConpletedPrinter.Printf("Now playing: %s\n", track.Title)
 	},
@@ -527,10 +486,7 @@ Examples:
 
 			// Try to resolve the path
 			content, err := client.BrowseContainer(path)
-			if err != nil {
-				errorPrinter.Printf("Failed to get content: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Failed to get content")
 
 			var tracks []kefw2.ContentItem
 
@@ -544,14 +500,11 @@ Examples:
 			}
 
 			if len(tracks) == 0 {
-				errorPrinter.Println("No audio tracks found at the specified path.")
-				os.Exit(1)
+				exitWithError("No audio tracks found at the specified path.")
 			}
 
-			if err := client.AddToQueue(tracks, true); err != nil {
-				errorPrinter.Printf("Failed to add to queue: %v\n", err)
-				os.Exit(1)
-			}
+			err = client.AddToQueue(tracks, true)
+			exitOnError(err, "Failed to add to queue")
 
 			if len(tracks) == 1 {
 				taskConpletedPrinter.Printf("Added '%s' to queue\n", tracks[0].Title)
@@ -563,15 +516,11 @@ Examples:
 
 		// No path provided, open interactive browser
 		serversResp, err := client.GetMediaServers()
-		if err != nil {
-			errorPrinter.Printf("Failed to list UPnP servers: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to list UPnP servers")
 
 		servers := serversResp.Rows
 		if len(servers) == 0 {
-			errorPrinter.Println("No UPnP media servers found on the network.")
-			os.Exit(1)
+			exitWithError("No UPnP media servers found on the network.")
 		}
 
 		// Start with server selection if multiple, otherwise go to first server
@@ -588,10 +537,7 @@ Examples:
 				Action:      ActionAddToQueue,
 				Callbacks:   DefaultUPnPCallbacks(client),
 			})
-			if err != nil {
-				errorPrinter.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Error")
 			if result.Selected == nil {
 				return // User cancelled
 			}
@@ -600,10 +546,7 @@ Examples:
 
 		// Browse and add to queue
 		content, err := client.BrowseContainer(startPath)
-		if err != nil {
-			errorPrinter.Printf("Failed to get content: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get content")
 
 		result, err := RunContentPicker(ContentPickerConfig{
 			ServiceType: ServiceUPnP,
@@ -613,10 +556,7 @@ Examples:
 			Action:      ActionAddToQueue,
 			Callbacks:   DefaultUPnPCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if result.Played && result.Selected != nil {
 			taskConpletedPrinter.Printf("Added '%s' to queue\n", result.Selected.Title)

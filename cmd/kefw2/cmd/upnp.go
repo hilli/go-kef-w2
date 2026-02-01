@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -406,10 +405,8 @@ Keyboard shortcuts:
 		model := initialUpnpModel(client)
 
 		p := tea.NewProgram(model, tea.WithAltScreen())
-		if _, err := p.Run(); err != nil {
-			errorPrinter.Printf("Error running media browser: %v\n", err)
-			os.Exit(1)
-		}
+		_, err := p.Run()
+		exitOnError(err, "Error running media browser")
 	},
 }
 
@@ -462,10 +459,7 @@ You can navigate into folders and play tracks directly from the picker.`,
 			}
 		}
 
-		if err != nil {
-			errorPrinter.Printf("Failed to browse: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to browse")
 
 		if len(resp.Rows) == 0 {
 			contentPrinter.Println("No items found.")
@@ -486,18 +480,14 @@ You can navigate into folders and play tracks directly from the picker.`,
 			Action:      action,
 			Callbacks:   DefaultUPnPCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if result.Queued && result.Selected != nil {
 			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
 		} else if result.Played && result.Selected != nil {
 			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
 		} else if result.Error != nil {
-			errorPrinter.Printf("Failed to play: %v\n", result.Error)
-			os.Exit(1)
+			exitWithError("Failed to play: %v", result.Error)
 		}
 	},
 }
@@ -530,10 +520,7 @@ Examples:
 		if strings.HasPrefix(path, "upnp:/") || strings.HasPrefix(path, "ui:/") {
 			// API path - we need to browse to get the tracks
 			resp, err := client.BrowseContainer(path)
-			if err != nil {
-				errorPrinter.Printf("Failed to browse path: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Failed to browse path")
 
 			var tracks []kefw2.ContentItem
 			for _, item := range resp.Rows {
@@ -543,33 +530,25 @@ Examples:
 			}
 
 			if len(tracks) == 0 {
-				errorPrinter.Println("No audio tracks found at this path.")
-				os.Exit(1)
+				exitWithError("No audio tracks found at this path.")
 			}
 
 			if addToQueue {
 				headerPrinter.Printf("Adding to queue: %s\n", path)
-				if err := client.AddToQueue(tracks, true); err != nil {
-					errorPrinter.Printf("Failed to add to queue: %v\n", err)
-					os.Exit(1)
-				}
+				err := client.AddToQueue(tracks, true)
+				exitOnError(err, "Failed to add to queue")
 				taskConpletedPrinter.Printf("Added %d tracks to queue.\n", len(tracks))
 			} else {
 				headerPrinter.Printf("Playing from: %s\n", path)
-				if err := client.PlayUPnPTracks(tracks); err != nil {
-					errorPrinter.Printf("Failed to play: %v\n", err)
-					os.Exit(1)
-				}
+				err := client.PlayUPnPTracks(tracks)
+				exitOnError(err, "Failed to play")
 				taskConpletedPrinter.Println("Playback started!")
 			}
 		} else {
 			// Display path - resolve via default server then play
 			serverPath := viper.GetString("upnp.default_server_path")
 			resp, err := client.BrowseUPnPByDisplayPath(path, serverPath)
-			if err != nil {
-				errorPrinter.Printf("Failed to resolve path: %v\n", err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Failed to resolve path")
 
 			// Collect audio tracks from the response
 			var tracks []kefw2.ContentItem
@@ -580,23 +559,18 @@ Examples:
 			}
 
 			if len(tracks) == 0 {
-				errorPrinter.Println("No audio tracks found at this path.")
-				os.Exit(1)
+				exitWithError("No audio tracks found at this path.")
 			}
 
 			if addToQueue {
 				headerPrinter.Printf("Adding to queue: %s\n", path)
-				if err := client.AddToQueue(tracks, true); err != nil {
-					errorPrinter.Printf("Failed to add to queue: %v\n", err)
-					os.Exit(1)
-				}
+				err := client.AddToQueue(tracks, true)
+				exitOnError(err, "Failed to add to queue")
 				taskConpletedPrinter.Printf("Added %d tracks to queue.\n", len(tracks))
 			} else {
 				headerPrinter.Printf("Playing from: %s\n", path)
-				if err := client.PlayUPnPTracks(tracks); err != nil {
-					errorPrinter.Printf("Failed to play: %v\n", err)
-					os.Exit(1)
-				}
+				err := client.PlayUPnPTracks(tracks)
+				exitOnError(err, "Failed to play")
 				taskConpletedPrinter.Println("Playback started!")
 			}
 		}

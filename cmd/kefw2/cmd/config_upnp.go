@@ -22,7 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -82,18 +81,13 @@ Examples:
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		server, err := client.GetMediaServerByName(serverName)
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		// Save to config
 		viper.Set("upnp.default_server", server.Title)
 		viper.Set("upnp.default_server_path", server.Path)
-		if err := viper.WriteConfig(); err != nil {
-			errorPrinter.Printf("Error saving config: %v\n", err)
-			os.Exit(1)
-		}
+		err = viper.WriteConfig()
+		exitOnError(err, "Error saving config")
 
 		taskConpletedPrinter.Print("Default UPnP server set: ")
 		contentPrinter.Println(server.Title)
@@ -110,10 +104,7 @@ var upnpServerListCmd = &cobra.Command{
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetMediaServers()
-		if err != nil {
-			errorPrinter.Printf("Failed to get media servers: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get media servers")
 
 		defaultServer := viper.GetString("upnp.default_server")
 

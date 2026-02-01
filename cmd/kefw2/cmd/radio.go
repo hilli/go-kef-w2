@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -434,10 +433,8 @@ Keyboard shortcuts:
 		model := initialRadioModel(client)
 
 		p := tea.NewProgram(model, tea.WithAltScreen())
-		if _, err := p.Run(); err != nil {
-			errorPrinter.Printf("Error running radio browser: %v\n", err)
-			os.Exit(1)
-		}
+		_, err := p.Run()
+		exitOnError(err, "Error running radio browser")
 	},
 }
 
@@ -455,10 +452,7 @@ var radioSearchCmd = &cobra.Command{
 		headerPrinter.Printf("Searching for: %s\n", query)
 
 		resp, err := client.SearchRadio(query)
-		if err != nil {
-			errorPrinter.Printf("Search failed: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Search failed")
 
 		stations := filterPlayableStations(resp.Rows)
 
@@ -476,13 +470,10 @@ var radioSearchCmd = &cobra.Command{
 			Action:      ActionPlay,
 			Callbacks:   DefaultRadioCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, ActionPlay) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }
@@ -498,10 +489,7 @@ var radioFavoritesCmd = &cobra.Command{
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetRadioFavoritesAll()
-		if err != nil {
-			errorPrinter.Printf("Failed to get favorites: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get favorites")
 
 		stations := filterPlayableStations(resp.Rows)
 
@@ -516,23 +504,18 @@ var radioFavoritesCmd = &cobra.Command{
 			if station, found := findItemByName(stations, stationName); found {
 				if removeFav {
 					headerPrinter.Printf("Removing: %s\n", station.Title)
-					if err := client.RemoveRadioFavorite(station); err != nil {
-						errorPrinter.Printf("Failed to remove favorite: %v\n", err)
-						os.Exit(1)
-					}
+					err := client.RemoveRadioFavorite(station)
+					exitOnError(err, "Failed to remove favorite")
 					taskConpletedPrinter.Printf("Removed from favorites: %s\n", station.Title)
 				} else {
 					headerPrinter.Printf("Playing: %s\n", station.Title)
-					if err := playRadioStationWithDetails(client, station); err != nil {
-						errorPrinter.Printf("Failed to play: %v\n", err)
-						os.Exit(1)
-					}
+					err := playRadioStationWithDetails(client, station)
+					exitOnError(err, "Failed to play")
 					taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
 				}
 				return
 			}
-			errorPrinter.Printf("Station '%s' not found in favorites.\n", stationName)
-			os.Exit(1)
+			exitWithError("Station '%s' not found in favorites.", stationName)
 		}
 
 		// Show interactive picker using unified content picker
@@ -551,13 +534,10 @@ var radioFavoritesCmd = &cobra.Command{
 			Action:      action,
 			Callbacks:   DefaultRadioCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, action) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }
@@ -575,26 +555,20 @@ var radioPlayCmd = &cobra.Command{
 		headerPrinter.Printf("Searching for: %s\n", query)
 
 		resp, err := client.SearchRadio(query)
-		if err != nil {
-			errorPrinter.Printf("Search failed: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Search failed")
 
 		stations := filterPlayableStations(resp.Rows)
 
 		if len(stations) == 0 {
-			errorPrinter.Println("No playable stations found.")
-			os.Exit(1)
+			exitWithError("No playable stations found.")
 		}
 
 		// If only one result, play it directly
 		if len(stations) == 1 {
 			station := stations[0]
 			headerPrinter.Printf("Playing: %s\n", station.Title)
-			if err := client.PlayRadioStation(&station); err != nil {
-				errorPrinter.Printf("Failed to play: %v\n", err)
-				os.Exit(1)
-			}
+			err := client.PlayRadioStation(&station)
+			exitOnError(err, "Failed to play")
 			taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
 			return
 		}
@@ -608,13 +582,10 @@ var radioPlayCmd = &cobra.Command{
 			Action:      ActionPlay,
 			Callbacks:   DefaultRadioCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, ActionPlay) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }
@@ -732,10 +703,7 @@ an interactive fuzzy-filter picker.`,
 		}
 
 		resp, err := client.BrowseRadioByDisplayPath(browsePath)
-		if err != nil {
-			errorPrinter.Printf("Browse failed: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Browse failed")
 
 		if len(resp.Rows) == 0 {
 			contentPrinter.Println("No items found at this path.")
@@ -754,10 +722,8 @@ an interactive fuzzy-filter picker.`,
 		if len(playableItems) == 1 && !saveFavoriteFlag {
 			station := &playableItems[0]
 			headerPrinter.Printf("Playing: %s\n", station.Title)
-			if err := client.ResolveAndPlayRadioStation(station); err != nil {
-				errorPrinter.Printf("Failed to play: %v\n", err)
-				os.Exit(1)
-			}
+			err := client.ResolveAndPlayRadioStation(station)
+			exitOnError(err, "Failed to play")
 			taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
 			return
 		}
@@ -765,10 +731,8 @@ an interactive fuzzy-filter picker.`,
 		if len(playableItems) == 1 && saveFavoriteFlag {
 			station := &playableItems[0]
 			headerPrinter.Printf("Saving: %s\n", station.Title)
-			if err := client.AddRadioFavorite(station); err != nil {
-				errorPrinter.Printf("Failed to save favorite: %v\n", err)
-				os.Exit(1)
-			}
+			err := client.AddRadioFavorite(station)
+			exitOnError(err, "Failed to save favorite")
 			taskConpletedPrinter.Printf("Saved to favorites: %s\n", station.Title)
 			return
 		}
@@ -793,13 +757,10 @@ an interactive fuzzy-filter picker.`,
 			Action:      action,
 			Callbacks:   DefaultRadioCallbacks(client),
 		})
-		if err != nil {
-			errorPrinter.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Error")
 
 		if HandlePickerResult(result, action) {
-			os.Exit(1)
+			exitWithError("Operation failed")
 		}
 	},
 }
