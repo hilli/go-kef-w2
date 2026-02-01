@@ -1,5 +1,5 @@
 /*
-Copyright © 2023-2025 Jens Hilligsøe
+Copyright © 2023-2026 Jens Hilligsøe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -54,10 +54,7 @@ Press Ctrl+C to stop.`,
 		eventClient, err := currentSpeaker.NewEventClient(
 			kefw2.WithPollTimeout(timeout),
 		)
-		if err != nil {
-			_, _ = errorPrinter.Printf("Failed to create event client: %v\n", err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to create event client")
 		defer eventClient.Close()
 
 		if !jsonOutput {
@@ -100,8 +97,7 @@ Press Ctrl+C to stop.`,
 		// Start polling (blocks until context canceled or error)
 		if err := eventClient.Start(ctx); err != nil {
 			if !errors.Is(err, context.Canceled) {
-				_, _ = errorPrinter.Printf("Event stream error: %v\n", err)
-				os.Exit(1)
+				exitWithError("Event stream error: %v", err)
 			}
 		}
 	},

@@ -1,6 +1,6 @@
 # go-kef-w2
 
-CLI, library and apps (planed) for controlling KEFs W2 platform based speakers over the network.
+CLI, library and apps (planned) for controlling KEFs W2 platform based speakers over the network.
 
 ![kefw2 demo](https://github.com/hilli/go-kef-w2/assets/11922/a79f17bc-9c27-4b79-9f59-7be626265483)
 
@@ -10,7 +10,7 @@ CLI, library and apps (planed) for controlling KEFs W2 platform based speakers o
 
 #### General
 
-Grap a version for your OS from the [releases](https://github.com/hilli/go-kef-w2/releases) page.
+Grab a version for your OS from the [releases](https://github.com/hilli/go-kef-w2/releases) page.
 
 #### macOS
 
@@ -64,7 +64,7 @@ If you only have one set of speakers, then that will be the default, otherwise c
 kefw2 config speaker default <name or IP>
 ```
 
-If you want to control a speaker that is not the default use the `-s` global flag. Eksample:
+If you want to control a speaker that is not the default use the `-s` global flag. Example:
 
 ```shell
 kefw2 -s 10.0.0.93 status
@@ -137,6 +137,150 @@ kefw2 config maxvol 65
 
 All with tab completion available of the options, where applicable.
 
+### Internet Radio
+
+Play internet radio stations via KEF's Airable integration:
+
+```shell
+# Browse favorite stations
+kefw2 radio favorites
+
+# Play a station (with tab completion)
+kefw2 radio play "BBC Radio 1"
+
+# Browse by category
+kefw2 radio popular
+kefw2 radio local
+kefw2 radio trending
+kefw2 radio hq
+kefw2 radio new
+
+# Search for stations
+kefw2 radio search "jazz"
+
+# Interactive browser
+kefw2 radio browse
+```
+
+### Podcasts
+
+Browse and play podcasts:
+
+```shell
+# Browse favorite podcasts
+kefw2 podcast favorites
+
+# Play an episode (with tab completion - use "Show/Episode" format)
+kefw2 podcast play "The Daily/Latest Episode"
+
+# Browse by category
+kefw2 podcast popular
+kefw2 podcast trending
+kefw2 podcast history
+
+# Search for podcasts
+kefw2 podcast search "technology"
+
+# Interactive browser
+kefw2 podcast browse
+```
+
+### UPnP/DLNA Media Servers
+
+Play music from local network media servers:
+
+```shell
+# Browse a server (with tab completion)
+kefw2 upnp browse "My NAS/Music/Albums"
+
+# Play media from server
+kefw2 upnp play "My NAS/Music/Jazz/Album/Track.flac"
+
+# Configure default UPnP server
+kefw2 config upnp server "My NAS"
+```
+
+### Queue Management
+
+Manage the playback queue:
+
+```shell
+# Show current queue
+kefw2 queue list
+
+# Add items to queue
+kefw2 queue add "Radio Station Name"
+
+# Clear the queue
+kefw2 queue clear
+
+# Save current queue as a preset
+kefw2 queue save "My Playlist"
+
+# Load a saved queue
+kefw2 queue load "My Playlist"
+
+# Set playback mode
+kefw2 queue mode shuffle
+kefw2 queue mode repeat
+```
+
+### Favorites
+
+Add and manage favorites:
+
+```shell
+# Add current playing item to favorites
+kefw2 radio favorites add
+kefw2 podcast favorites add
+
+# Add a specific item to favorites
+kefw2 radio favorites add "BBC Radio 1"
+kefw2 podcast favorites add "The Daily"
+
+# Remove from favorites
+kefw2 radio favorites remove "BBC Radio 1"
+```
+
+### Cache Configuration
+
+Configure caching for faster tab completion:
+
+```shell
+# Show all cache settings
+kefw2 config cache
+
+# Show specific setting
+kefw2 config cache ttl-radio
+
+# Enable/disable caching
+kefw2 config cache enable
+kefw2 config cache disable
+
+# Set TTL per service (in seconds)
+kefw2 config cache ttl-radio 600      # 10 minutes
+kefw2 config cache ttl-podcast 1800   # 30 minutes
+kefw2 config cache ttl-upnp 120       # 2 minutes
+kefw2 config cache ttl-default 300    # 5 minutes (for future services)
+
+# Clear cache
+kefw2 cache clear
+
+# View cache status
+kefw2 cache status
+```
+
+### Event tracking
+
+Track the event from the KEFs
+
+```shell
+kefw2 event
+
+# Or as JSON
+kefw2 events --json
+```
+
 ### Plan
 
 - [x] Set volume
@@ -148,9 +292,12 @@ All with tab completion available of the options, where applicable.
 - [x] Discover speakers automatically
 - [x] Display cover art in ASCII (wifi media)
 - [x] Backup speaker settings/eq profiles to file
-- [ ] Restore speaker settings/eq profiles to file
-- [ ] Play Podcasts/Radio
-- [ ] Play titles from built-in music streaming services (Amazon Music, Deezer, Qobus, Spotify, Tidal)
+- [x] Play Internet Radio
+- [x] Play Podcasts
+- [x] Play from UPnP/DLNA media servers
+- [x] Queue management
+- [ ] Restore speaker settings/eq profiles from file
+- [ ] Play titles from built-in music streaming services (Amazon Music, Deezer, Qobuz, Spotify, Tidal)
 
 ## Library
 
@@ -187,13 +334,15 @@ func main() {
   fmt.Printf("Firmware: %s\n", speaker.FirmwareVersion)
   fmt.Printf("MAC: %s\n", speaker.MacAddress)
 
+  ctx := context.Background()
+
   // Control volume
-  volume, _ := speaker.GetVolume()
+  volume, _ := speaker.GetVolume(ctx)
   fmt.Printf("Volume: %d\n", volume)
-  speaker.SetVolume(30)
+  speaker.SetVolume(ctx, 30)
 
   // Change source
-  speaker.SetSource(kefw2.SourceWiFi)
+  speaker.SetSource(ctx, kefw2.SourceWiFi)
 }
 ```
 
@@ -214,13 +363,13 @@ speaker, err := kefw2.NewSpeaker("10.0.0.93",
 
 ### Context Support
 
-All operations have context-aware variants for cancellation and timeout control:
+All operations have context support for cancellation and timeout control:
 
 ```go
 ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 defer cancel()
 
-volume, err := speaker.GetVolumeContext(ctx)
+volume, err := speaker.GetVolume(ctx)
 if err != nil {
   log.Fatal(err)
 }
@@ -269,36 +418,29 @@ for event := range client.Events() {
 }
 ```
 
-## Player
+### Airable Streaming (Radio, Podcasts, UPnP)
 
-UI for controlling the speakers, show whats playing etc.
+```go
+ctx := context.Background()
 
-The idea is to create a [Fyne](https://fyne.io/) App that will let you select inputs, show whats playing etc.
-My own needs is to have a Raspberry Pi with a touch screen interact with the speakers and not least control the brigtness of the screen.
+// Create Airable client for streaming services
+client := kefw2.NewAirableClient(speaker)
 
-### Plan
+// Get radio favorites
+favorites, err := client.GetRadioFavorites(ctx)
+for _, station := range favorites {
+  fmt.Printf("Station: %s\n", station.Title)
+}
 
-- [ ] Cross compilation of Fyne apps
-- [ ] Input selection buttons
-- [ ] Volume/mute controll
-- [ ] Play/pause button for available targets
-- [ ] Display artwork and track info in wifi mode
-- [ ] ?? Streaming page, playing Tidal, Qobus, podcasts, radio
+// Play a radio station
+err = client.PlayRadioStation(ctx, stationPath)
 
-## Web interface & HomeKit HUB
+// Get podcast episodes
+episodes, err := client.GetPodcastEpisodes(ctx, podcastPath)
 
-Not there yet.
-
-### Plan
-
-- [ ] Turn on/off
-- [ ] Set volume
-- [ ] Mute/unmute
-- [ ] Select source
-- [ ] Status page, refreshing, display artwork and track info in wifi mode (web)
-- [ ] Settings page, editing (web)
-- [ ] Backup/restore settings to file download (web)
-- [ ] ?? Streaming page, playing Tidal, Qobus, podcasts, radio, etc (web)
+// Browse UPnP servers
+servers, err := client.GetMediaServers(ctx)
+```
 
 ## License
 

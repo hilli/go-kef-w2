@@ -1,5 +1,5 @@
 /*
-Copyright © 2023-2025 Jens Hilligsøe
+Copyright © 2023-2026 Jens Hilligsøe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,6 @@ import (
 	"fmt"
 	_ "image/jpeg" // Required for image decoding
 	_ "image/png"  // Required for image decoding
-	"os"
 
 	"github.com/hilli/icat"
 	"github.com/spf13/cobra"
@@ -43,21 +42,12 @@ var statusCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) {
 		ctx := cmd.Context()
 		source, err := currentSpeaker.Source(ctx)
-		if err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Can't get source")
 		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
-		if err != nil {
-			errorPrinter.Printf("Can't show status: %s\n", err.Error())
-			os.Exit(1)
-		}
+		exitOnError(err, "Can't show status")
 		if canControlPlayback {
 			pd, err := currentSpeaker.PlayerData(ctx)
-			if err != nil {
-				errorPrinter.Println(err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Can't get player data")
 			if playstate, err := currentSpeaker.IsPlaying(ctx); err != nil {
 				errorPrinter.Println("error getting playstate:", err)
 			} else {

@@ -1,5 +1,5 @@
 /*
-Copyright © 2023-2025 Jens Hilligsøe
+Copyright © 2023-2026 Jens Hilligsøe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,8 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 )
 
@@ -36,23 +34,16 @@ var playCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) {
 		ctx := cmd.Context()
 		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
-		if err != nil {
-			errorPrinter.Printf("Can't query source: %s\n", err.Error())
-			os.Exit(1)
-		}
+		exitOnError(err, "Can't query source")
 		if !canControlPlayback {
 			headerPrinter.Println("Can only play on WiFi/BT source.")
-			os.Exit(0)
+			return
 		}
-		if isPlaying, err := currentSpeaker.IsPlaying(ctx); err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		} else if !isPlaying {
+		isPlaying, err := currentSpeaker.IsPlaying(ctx)
+		exitOnError(err, "Can't check playback state")
+		if !isPlaying {
 			err = currentSpeaker.PlayPause(ctx)
-			if err != nil {
-				errorPrinter.Println(err)
-				os.Exit(1)
-			}
+			exitOnError(err, "Can't resume playback")
 		}
 	},
 }

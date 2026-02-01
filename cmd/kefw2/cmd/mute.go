@@ -1,5 +1,5 @@
 /*
-Copyright © 2023-2025 Jens Hilligsøe
+Copyright © 2023-2026 Jens Hilligsøe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -48,19 +47,13 @@ var muteCmd = &cobra.Command{
 			return
 		}
 		mute, err := parseMuteArg(args[0])
-		if err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Invalid mute argument")
 		if mute {
 			err = currentSpeaker.Mute(ctx)
 		} else {
 			err = currentSpeaker.Unmute(ctx)
 		}
-		if err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to set mute state")
 	},
 	ValidArgsFunction: MuteCompletion,
 }

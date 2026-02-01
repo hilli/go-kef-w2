@@ -38,13 +38,6 @@ func DiscoverSpeakers(ctx context.Context, timeout time.Duration) ([]*KEFSpeaker
 	return speakers, nil
 }
 
-// DiscoverSpeakersLegacy is the old API that takes timeout in seconds as an int.
-//
-// Deprecated: Use DiscoverSpeakers with context and time.Duration instead.
-func DiscoverSpeakersLegacy(timeout int) ([]*KEFSpeaker, error) {
-	return DiscoverSpeakers(context.Background(), time.Duration(timeout)*time.Second)
-}
-
 func discoverIPs(ctx context.Context, timeout time.Duration) ([]string, error) {
 	// Create a context with timeout if not already set
 	ctx, cancel := context.WithTimeout(ctx, timeout)

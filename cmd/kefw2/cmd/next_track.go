@@ -1,5 +1,5 @@
 /*
-Copyright © 2023-2025 Jens Hilligsøe
+Copyright © 2023-2026 Jens Hilligsøe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,8 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 )
 
@@ -36,19 +34,13 @@ var nextTrackCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) {
 		ctx := cmd.Context()
 		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
-		if err != nil {
-			errorPrinter.Printf("Can't skip track: %s\n", err.Error())
-			os.Exit(1)
-		}
+		exitOnError(err, "Can't skip track")
 		if !canControlPlayback {
-			errorPrinter.Println("Not on WiFi/BT source.")
-			os.Exit(0)
+			headerPrinter.Println("Not on WiFi/BT source.")
+			return
 		}
 		err = currentSpeaker.NextTrack(ctx)
-		if err != nil {
-			errorPrinter.Println(err)
-			os.Exit(1)
-		}
+		exitOnError(err, "Can't skip to next track")
 	},
 }
 

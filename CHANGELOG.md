@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-01
+
+### Added
+
+#### Internet Radio Support
+
+New `kefw2 radio` command for streaming internet radio via KEF's Airable integration:
+
+- `radio play <station>` - Play a radio station with full tab completion
+- `radio favorites` - List and play favorite stations
+- `radio popular`, `local`, `trending`, `hq`, `new` - Browse radio categories
+- `radio search <query>` - Search for stations
+- `radio browse` - Interactive TUI browser
+
+#### Podcast Support
+
+New `kefw2 podcast` command for podcast playback:
+
+- `podcast play <show/episode>` - Play episodes with hierarchical tab completion (`Show Name/Episode`)
+- `podcast favorites` - List and play favorite podcasts
+- `podcast popular`, `trending`, `history` - Browse podcast categories
+- `podcast search <query>` - Search for podcasts
+- `podcast browse` - Interactive TUI browser
+
+#### UPnP/DLNA Media Server Support
+
+New `kefw2 upnp` command for playing from local network media servers:
+
+- `upnp browse [path]` - Browse server contents with tab completion
+- `upnp play <path>` - Play media files
+- `config upnp server <name>` - Set default UPnP server
+
+#### Queue Management
+
+New `kefw2 queue` command for managing playback queue:
+
+- `queue list` - Show current queue contents
+- `queue add <item>` - Add items to queue
+- `queue clear` - Clear the queue
+- `queue save <name>` - Save queue as preset
+- `queue load <name>` - Load saved queue preset
+- `queue mode <mode>` - Set repeat/shuffle mode
+
+#### Cache System
+
+New caching system for faster tab completion with configurable TTL:
+
+- `config cache` - Show all cache settings
+- `config cache enable/disable` - Toggle caching
+- `config cache ttl-default` - TTL for new/unknown services (default: 300s)
+- `config cache ttl-radio` - TTL for radio cache (default: 300s)
+- `config cache ttl-podcast` - TTL for podcast cache (default: 300s)
+- `config cache ttl-upnp` - TTL for UPnP cache (default: 60s)
+- `cache status` - View cache statistics
+- `cache clear` - Clear cached data
+
+#### Library: Airable Client
+
+New `AirableClient` for programmatic access to streaming services:
+
+```go
+client := kefw2.NewAirableClient(speaker)
+
+// Radio
+favorites, _ := client.GetRadioFavorites(ctx)
+client.PlayRadioStation(ctx, stationPath)
+
+// Podcasts
+episodes, _ := client.GetPodcastEpisodes(ctx, podcastPath)
+client.PlayPodcastEpisode(ctx, episodePath)
+
+// UPnP
+servers, _ := client.GetMediaServers(ctx)
+client.BrowseContainer(ctx, serverPath)
+```
+
+#### Tab Completion Enhancements
+
+- Hierarchical path completion for radio, podcasts, and UPnP (`Parent/Child/Item`)
+- Colon escaping for zsh compatibility (`:` → `%3A`)
+- Real-time current value display in completions
+- Pagination support for large result sets (`*All()` methods)
+
+### Changed
+
+- `config cache` command redesigned: shows all settings when called without arguments
+- Moved `cache config` to `config cache` for consistency
+- Improved error messages for missing speaker configuration
+
+### Fixed
+
+- Tab completion now uses `*All()` methods consistently to avoid truncated results
+- Fixed colon characters breaking tab completion in zsh
+
 ## [0.1.0] - 2026-01-30
 
 ### Breaking Changes
@@ -210,5 +304,6 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hilli/go-kef-w2/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hilli/go-kef-w2/releases/tag/v0.1.0
