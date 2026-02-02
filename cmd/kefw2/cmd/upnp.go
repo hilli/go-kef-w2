@@ -312,7 +312,7 @@ func (m upnpModel) loadServers() tea.Cmd {
 
 func (m upnpModel) browseContainer(path string) tea.Cmd {
 	return func() tea.Msg {
-		resp, err := m.client.BrowseContainer(path)
+		resp, err := m.client.BrowseContainerAll(path)
 		if err != nil {
 			return upnpBrowseResultMsg{err: err}
 		}
@@ -438,20 +438,20 @@ You can navigate into folders and play tracks directly from the picker.`,
 			path := args[0]
 			// Check if it's an API path or display path
 			if strings.HasPrefix(path, "upnp:/") || strings.HasPrefix(path, "ui:/") {
-				// API path - use directly
-				resp, err = client.BrowseContainer(path)
+				// API path - use directly, fetch all items for interactive browsing
+				resp, err = client.BrowseContainerAll(path)
 				title = fmt.Sprintf("Browse: %s", path)
 			} else {
-				// Display path - resolve via default server
+				// Display path - resolve via default server, fetch all items
 				serverPath := viper.GetString("upnp.default_server_path")
-				resp, err = client.BrowseUPnPByDisplayPath(path, serverPath)
+				resp, err = client.BrowseUPnPByDisplayPathAll(path, serverPath)
 				title = fmt.Sprintf("Browse: %s", path)
 			}
 		} else {
 			// No args - check for default server or show server list
 			serverPath := viper.GetString("upnp.default_server_path")
 			if serverPath != "" {
-				resp, err = client.BrowseContainer(serverPath)
+				resp, err = client.BrowseContainerAll(serverPath)
 				title = viper.GetString("upnp.default_server")
 			} else {
 				resp, err = client.GetMediaServers()

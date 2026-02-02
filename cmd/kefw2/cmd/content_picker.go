@@ -59,6 +59,11 @@ type ContentPickerCallbacks struct {
 	// AddToQueue is called when a playable item is selected with ActionAddToQueue.
 	AddToQueue func(item *kefw2.ContentItem) error
 
+	// AddContainerToQueue is called when Ctrl+a is pressed on a container.
+	// Should recursively find all tracks and add them to the queue.
+	// Returns the count of tracks added.
+	AddContainerToQueue func(item *kefw2.ContentItem) (int, error)
+
 	// DeleteFromQueue is called when Ctrl+d is pressed to delete an item from the queue.
 	DeleteFromQueue func(item *kefw2.ContentItem) error
 
@@ -291,12 +296,25 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Add selected item to queue without exiting
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 				selected := &m.filtered[m.cursor]
-				if m.isItemPlayable(selected) && m.callbacks.AddToQueue != nil {
-					err := m.callbacks.AddToQueue(selected)
-					if err != nil {
-						m.statusMsg = fmt.Sprintf("Error: %v", err)
-					} else {
-						m.statusMsg = fmt.Sprintf("Added to queue: %s", selected.Title)
+				if m.isItemPlayable(selected) {
+					// Single track
+					if m.callbacks.AddToQueue != nil {
+						err := m.callbacks.AddToQueue(selected)
+						if err != nil {
+							m.statusMsg = fmt.Sprintf("Error: %v", err)
+						} else {
+							m.statusMsg = fmt.Sprintf("Added to queue: %s", selected.Title)
+						}
+					}
+				} else {
+					// Container - add all tracks recursively
+					if m.callbacks.AddContainerToQueue != nil {
+						count, err := m.callbacks.AddContainerToQueue(selected)
+						if err != nil {
+							m.statusMsg = fmt.Sprintf("Error: %v", err)
+						} else {
+							m.statusMsg = fmt.Sprintf("Added %d tracks to queue from: %s", count, selected.Title)
+						}
 					}
 				}
 			}
@@ -583,7 +601,8 @@ func DefaultUPnPCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 	return ContentPickerCallbacks{
 		Navigate: func(item *kefw2.ContentItem, currentPath string) ([]kefw2.ContentItem, string, error) {
 			// For UPnP, navigate using the item's Path directly
-			resp, err := client.BrowseContainer(item.Path)
+			// Use BrowseContainerAll to fetch all items (not just first 100)
+			resp, err := client.BrowseContainerAll(item.Path)
 			if err != nil {
 				return nil, "", err
 			}
@@ -600,8 +619,26 @@ func DefaultUPnPCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 			// UPnP supports adding to queue
 			return client.AddToQueue([]kefw2.ContentItem{*item}, false)
 		},
+		AddContainerToQueue: func(item *kefw2.ContentItem) (int, error) {
+			// Recursively get all tracks from the container
+			tracks, err := client.GetContainerTracksRecursive(item.Path)
+			if err != nil {
+				return 0, err
+			}
+			if len(tracks) == 0 {
+				return 0, fmt.Errorf("no audio tracks found in container")
+			}
+			err = client.AddToQueue(tracks, false)
+			if err != nil {
+				return 0, err
+			}
+			return len(tracks), nil
+		},
 		IsPlayable: func(item *kefw2.ContentItem) bool {
-			return item.Type != "container" || item.ContainerPlayable
+			// For UPnP, only audio tracks are directly playable.
+			// Containers (artists, albums, folders) should always be navigable,
+			// even if ContainerPlayable is true.
+			return item.Type == "audio"
 		},
 	}
 }
