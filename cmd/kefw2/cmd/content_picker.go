@@ -59,6 +59,12 @@ type ContentPickerCallbacks struct {
 	// AddToQueue is called when a playable item is selected with ActionAddToQueue.
 	AddToQueue func(item *kefw2.ContentItem) error
 
+	// DeleteFromQueue is called when Ctrl+d is pressed to delete an item from the queue.
+	DeleteFromQueue func(item *kefw2.ContentItem) error
+
+	// ClearQueue is called when Ctrl+x is pressed to clear the entire queue.
+	ClearQueue func() error
+
 	// IsPlayable determines if an item is playable (not a container to navigate into).
 	IsPlayable func(item *kefw2.ContentItem) bool
 }
@@ -296,6 +302,42 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
+		case "ctrl+d":
+			// Delete selected item from queue
+			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+				selected := &m.filtered[m.cursor]
+				if m.callbacks.DeleteFromQueue != nil {
+					err := m.callbacks.DeleteFromQueue(selected)
+					if err != nil {
+						m.statusMsg = fmt.Sprintf("Error: %v", err)
+					} else {
+						m.statusMsg = fmt.Sprintf("Deleted: %s", selected.Title)
+						// Remove from allItems and filtered
+						m.allItems = removeItem(m.allItems, selected)
+						m.filtered = removeItem(m.filtered, selected)
+						if m.cursor >= len(m.filtered) && m.cursor > 0 {
+							m.cursor--
+						}
+					}
+				}
+			}
+			return m, nil
+
+		case "ctrl+x":
+			// Clear entire queue
+			if m.callbacks.ClearQueue != nil {
+				err := m.callbacks.ClearQueue()
+				if err != nil {
+					m.statusMsg = fmt.Sprintf("Error: %v", err)
+				} else {
+					m.statusMsg = "Queue cleared"
+					m.allItems = nil
+					m.filtered = nil
+					m.cursor = 0
+				}
+			}
+			return m, nil
+
 		default:
 			// Handle text input for filtering
 			var cmd tea.Cmd
@@ -309,6 +351,17 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.filterInput, cmd = m.filterInput.Update(msg)
 	return m, cmd
+}
+
+// removeItem removes an item from a slice by matching Path.
+func removeItem(items []kefw2.ContentItem, target *kefw2.ContentItem) []kefw2.ContentItem {
+	result := make([]kefw2.ContentItem, 0, len(items)-1)
+	for _, item := range items {
+		if item.Path != target.Path {
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 // applyFilter filters the items based on the current filter input.
@@ -432,11 +485,17 @@ func (m ContentPickerModel) View() string {
 	case ActionAddToQueue:
 		actionHint = "add to queue"
 	}
-	queueHint := ""
+	extraHints := ""
 	if m.callbacks.AddToQueue != nil {
-		queueHint = " | Ctrl+a: add to queue"
+		extraHints += " | Ctrl+a: add to queue"
 	}
-	statusText := fmt.Sprintf("↑/↓: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, queueHint)
+	if m.callbacks.DeleteFromQueue != nil {
+		extraHints += " | Ctrl+d: delete"
+	}
+	if m.callbacks.ClearQueue != nil {
+		extraHints += " | Ctrl+x: clear"
+	}
+	statusText := fmt.Sprintf("↑/↓: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, extraHints)
 	b.WriteString(m.styles.Status.Render(statusText))
 
 	return b.String()
