@@ -112,6 +112,7 @@ type ContentPickerConfig struct {
 	CurrentPath string
 	Action      ContentAction
 	Callbacks   ContentPickerCallbacks
+	SearchQuery string // Optional: if set, auto-focus on matching item
 }
 
 // NewContentPickerModel creates a new content picker model.
@@ -122,7 +123,7 @@ func NewContentPickerModel(cfg ContentPickerConfig) ContentPickerModel {
 	ti.CharLimit = 100
 	ti.Width = 40
 
-	return ContentPickerModel{
+	model := ContentPickerModel{
 		serviceType: cfg.ServiceType,
 		callbacks:   cfg.Callbacks,
 		action:      cfg.Action,
@@ -133,6 +134,20 @@ func NewContentPickerModel(cfg ContentPickerConfig) ContentPickerModel {
 		title:       cfg.Title,
 		currentPath: cfg.CurrentPath,
 	}
+
+	// Auto-focus on matching item if search query provided
+	if cfg.SearchQuery != "" {
+		query := strings.TrimSuffix(cfg.SearchQuery, "/")
+		for i, item := range cfg.Items {
+			itemTitle := strings.TrimSuffix(item.Title, "/")
+			if strings.EqualFold(itemTitle, query) {
+				model.cursor = i
+				break
+			}
+		}
+	}
+
+	return model
 }
 
 // Init implements tea.Model.
@@ -266,7 +281,7 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 
-		case "a":
+		case "ctrl+a":
 			// Add selected item to queue without exiting
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 				selected := &m.filtered[m.cursor]
@@ -419,7 +434,7 @@ func (m ContentPickerModel) View() string {
 	}
 	queueHint := ""
 	if m.callbacks.AddToQueue != nil {
-		queueHint = " | a: add to queue"
+		queueHint = " | Ctrl+a: add to queue"
 	}
 	statusText := fmt.Sprintf("↑/↓: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, queueHint)
 	b.WriteString(m.styles.Status.Render(statusText))
@@ -498,8 +513,8 @@ func DefaultPodcastCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks
 			return client.AddToQueue([]kefw2.ContentItem{*item}, false)
 		},
 		IsPlayable: func(item *kefw2.ContentItem) bool {
-			// Podcasts (containers with episodes) are navigable, episodes are playable
-			return item.Type != "container" || item.ContainerPlayable
+			// Only actual audio episodes are playable; all containers should be navigable
+			return item.Type == "audio"
 		},
 	}
 }
