@@ -665,13 +665,15 @@ Examples:
 		if addToQueue {
 			action = ActionAddToQueue
 		}
+		title := fmt.Sprintf("Search results for '%s'", query)
 		result, err := RunContentPicker(ContentPickerConfig{
 			ServiceType: ServicePodcast,
 			Items:       podcasts,
-			Title:       fmt.Sprintf("Multiple matches for '%s' - select one", query),
+			Title:       title,
 			CurrentPath: "",
 			Action:      action,
 			Callbacks:   DefaultPodcastCallbacks(client),
+			SearchQuery: query,
 		})
 		exitOnError(err, "Error")
 

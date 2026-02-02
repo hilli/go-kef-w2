@@ -42,9 +42,9 @@ Without subcommands, shows an interactive picker of queue items.
 
 Keyboard shortcuts in picker:
   Enter     - Play selected track
-  d         - Delete selected track
-  c         - Clear entire queue
-  q         - Quit`,
+  Ctrl+d    - Delete selected track
+  Ctrl+x    - Clear entire queue
+  Esc       - Quit`,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
@@ -95,6 +95,22 @@ func DefaultQueueCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 		Navigate: nil, // Queue items are not navigable
 		IsPlayable: func(item *kefw2.ContentItem) bool {
 			return item.Type == "audio"
+		},
+		DeleteFromQueue: func(item *kefw2.ContentItem) error {
+			// Find the index of this item in the queue and remove it
+			resp, err := client.GetPlayQueue()
+			if err != nil {
+				return err
+			}
+			for i, row := range resp.Rows {
+				if row.Path == item.Path {
+					return client.RemoveFromQueue([]int{i})
+				}
+			}
+			return fmt.Errorf("item not found in queue")
+		},
+		ClearQueue: func() error {
+			return client.ClearPlaylist()
 		},
 	}
 }
@@ -464,106 +480,6 @@ Examples:
 	},
 }
 
-// queueAddCmd adds tracks to the queue
-var queueAddCmd = &cobra.Command{
-	Use:   "add [path]",
-	Short: "Add tracks to the queue",
-	Long: `Add tracks to the play queue from UPnP media servers.
-
-Without arguments, opens an interactive browser to select tracks.
-With a path argument, adds tracks from that UPnP path.
-
-Examples:
-  kefw2 queue add                           # Browse and add interactively
-  kefw2 queue add "Music/Albums/Abbey Road" # Add album by path`,
-	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		client := kefw2.NewAirableClient(currentSpeaker)
-
-		// If path provided, add directly
-		if len(args) == 1 {
-			path := args[0]
-
-			// Try to resolve the path
-			content, err := client.BrowseContainer(path)
-			exitOnError(err, "Failed to get content")
-
-			var tracks []kefw2.ContentItem
-
-			// If it's a container, get all tracks
-			if len(content.Rows) > 0 {
-				for _, item := range content.Rows {
-					if item.Type == "audio" {
-						tracks = append(tracks, item)
-					}
-				}
-			}
-
-			if len(tracks) == 0 {
-				exitWithError("No audio tracks found at the specified path.")
-			}
-
-			err = client.AddToQueue(tracks, true)
-			exitOnError(err, "Failed to add to queue")
-
-			if len(tracks) == 1 {
-				taskConpletedPrinter.Printf("Added '%s' to queue\n", tracks[0].Title)
-			} else {
-				taskConpletedPrinter.Printf("Added %d tracks to queue\n", len(tracks))
-			}
-			return
-		}
-
-		// No path provided, open interactive browser
-		serversResp, err := client.GetMediaServers()
-		exitOnError(err, "Failed to list UPnP servers")
-
-		servers := serversResp.Rows
-		if len(servers) == 0 {
-			exitWithError("No UPnP media servers found on the network.")
-		}
-
-		// Start with server selection if multiple, otherwise go to first server
-		var startPath string
-		if len(servers) == 1 {
-			startPath = servers[0].Path
-		} else {
-			// Show server picker
-			result, err := RunContentPicker(ContentPickerConfig{
-				ServiceType: ServiceUPnP,
-				Items:       servers,
-				Title:       "Select Media Server",
-				CurrentPath: "",
-				Action:      ActionAddToQueue,
-				Callbacks:   DefaultUPnPCallbacks(client),
-			})
-			exitOnError(err, "Error")
-			if result.Selected == nil {
-				return // User cancelled
-			}
-			startPath = result.Selected.Path
-		}
-
-		// Browse and add to queue
-		content, err := client.BrowseContainer(startPath)
-		exitOnError(err, "Failed to get content")
-
-		result, err := RunContentPicker(ContentPickerConfig{
-			ServiceType: ServiceUPnP,
-			Items:       content.Rows,
-			Title:       "Add to Queue (Enter to add, Tab to navigate)",
-			CurrentPath: startPath,
-			Action:      ActionAddToQueue,
-			Callbacks:   DefaultUPnPCallbacks(client),
-		})
-		exitOnError(err, "Error")
-
-		if result.Played && result.Selected != nil {
-			taskConpletedPrinter.Printf("Added '%s' to queue\n", result.Selected.Title)
-		}
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(queueCmd)
 	queueCmd.AddCommand(queueListCmd)
@@ -571,5 +487,4 @@ func init() {
 	queueCmd.AddCommand(queueRemoveCmd)
 	queueCmd.AddCommand(queueMoveCmd)
 	queueCmd.AddCommand(queuePlayCmd)
-	queueCmd.AddCommand(queueAddCmd)
 }

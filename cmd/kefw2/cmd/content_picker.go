@@ -59,6 +59,17 @@ type ContentPickerCallbacks struct {
 	// AddToQueue is called when a playable item is selected with ActionAddToQueue.
 	AddToQueue func(item *kefw2.ContentItem) error
 
+	// AddContainerToQueue is called when Ctrl+a is pressed on a container.
+	// Should recursively find all tracks and add them to the queue.
+	// Returns the count of tracks added.
+	AddContainerToQueue func(item *kefw2.ContentItem) (int, error)
+
+	// DeleteFromQueue is called when Ctrl+d is pressed to delete an item from the queue.
+	DeleteFromQueue func(item *kefw2.ContentItem) error
+
+	// ClearQueue is called when Ctrl+x is pressed to clear the entire queue.
+	ClearQueue func() error
+
 	// IsPlayable determines if an item is playable (not a container to navigate into).
 	IsPlayable func(item *kefw2.ContentItem) bool
 }
@@ -112,6 +123,7 @@ type ContentPickerConfig struct {
 	CurrentPath string
 	Action      ContentAction
 	Callbacks   ContentPickerCallbacks
+	SearchQuery string // Optional: if set, auto-focus on matching item
 }
 
 // NewContentPickerModel creates a new content picker model.
@@ -122,7 +134,7 @@ func NewContentPickerModel(cfg ContentPickerConfig) ContentPickerModel {
 	ti.CharLimit = 100
 	ti.Width = 40
 
-	return ContentPickerModel{
+	model := ContentPickerModel{
 		serviceType: cfg.ServiceType,
 		callbacks:   cfg.Callbacks,
 		action:      cfg.Action,
@@ -133,6 +145,20 @@ func NewContentPickerModel(cfg ContentPickerConfig) ContentPickerModel {
 		title:       cfg.Title,
 		currentPath: cfg.CurrentPath,
 	}
+
+	// Auto-focus on matching item if search query provided
+	if cfg.SearchQuery != "" {
+		query := strings.TrimSuffix(cfg.SearchQuery, "/")
+		for i, item := range cfg.Items {
+			itemTitle := strings.TrimSuffix(item.Title, "/")
+			if strings.EqualFold(itemTitle, query) {
+				model.cursor = i
+				break
+			}
+		}
+	}
+
+	return model
 }
 
 // Init implements tea.Model.
@@ -266,17 +292,66 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 
-		case "a":
+		case "ctrl+a":
 			// Add selected item to queue without exiting
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 				selected := &m.filtered[m.cursor]
-				if m.isItemPlayable(selected) && m.callbacks.AddToQueue != nil {
-					err := m.callbacks.AddToQueue(selected)
+				if m.isItemPlayable(selected) {
+					// Single track
+					if m.callbacks.AddToQueue != nil {
+						err := m.callbacks.AddToQueue(selected)
+						if err != nil {
+							m.statusMsg = fmt.Sprintf("Error: %v", err)
+						} else {
+							m.statusMsg = fmt.Sprintf("Added to queue: %s", selected.Title)
+						}
+					}
+				} else {
+					// Container - add all tracks recursively
+					if m.callbacks.AddContainerToQueue != nil {
+						count, err := m.callbacks.AddContainerToQueue(selected)
+						if err != nil {
+							m.statusMsg = fmt.Sprintf("Error: %v", err)
+						} else {
+							m.statusMsg = fmt.Sprintf("Added %d tracks to queue from: %s", count, selected.Title)
+						}
+					}
+				}
+			}
+			return m, nil
+
+		case "ctrl+d":
+			// Delete selected item from queue
+			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+				selected := &m.filtered[m.cursor]
+				if m.callbacks.DeleteFromQueue != nil {
+					err := m.callbacks.DeleteFromQueue(selected)
 					if err != nil {
 						m.statusMsg = fmt.Sprintf("Error: %v", err)
 					} else {
-						m.statusMsg = fmt.Sprintf("Added to queue: %s", selected.Title)
+						m.statusMsg = fmt.Sprintf("Deleted: %s", selected.Title)
+						// Remove from allItems and filtered
+						m.allItems = removeItem(m.allItems, selected)
+						m.filtered = removeItem(m.filtered, selected)
+						if m.cursor >= len(m.filtered) && m.cursor > 0 {
+							m.cursor--
+						}
 					}
+				}
+			}
+			return m, nil
+
+		case "ctrl+x":
+			// Clear entire queue
+			if m.callbacks.ClearQueue != nil {
+				err := m.callbacks.ClearQueue()
+				if err != nil {
+					m.statusMsg = fmt.Sprintf("Error: %v", err)
+				} else {
+					m.statusMsg = "Queue cleared"
+					m.allItems = nil
+					m.filtered = nil
+					m.cursor = 0
 				}
 			}
 			return m, nil
@@ -294,6 +369,17 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.filterInput, cmd = m.filterInput.Update(msg)
 	return m, cmd
+}
+
+// removeItem removes an item from a slice by matching Path.
+func removeItem(items []kefw2.ContentItem, target *kefw2.ContentItem) []kefw2.ContentItem {
+	result := make([]kefw2.ContentItem, 0, len(items)-1)
+	for _, item := range items {
+		if item.Path != target.Path {
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 // applyFilter filters the items based on the current filter input.
@@ -417,11 +503,17 @@ func (m ContentPickerModel) View() string {
 	case ActionAddToQueue:
 		actionHint = "add to queue"
 	}
-	queueHint := ""
+	extraHints := ""
 	if m.callbacks.AddToQueue != nil {
-		queueHint = " | a: add to queue"
+		extraHints += " | Ctrl+a: add to queue"
 	}
-	statusText := fmt.Sprintf("↑/↓: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, queueHint)
+	if m.callbacks.DeleteFromQueue != nil {
+		extraHints += " | Ctrl+d: delete"
+	}
+	if m.callbacks.ClearQueue != nil {
+		extraHints += " | Ctrl+x: clear"
+	}
+	statusText := fmt.Sprintf("↑/↓: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, extraHints)
 	b.WriteString(m.styles.Status.Render(statusText))
 
 	return b.String()
@@ -498,8 +590,8 @@ func DefaultPodcastCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks
 			return client.AddToQueue([]kefw2.ContentItem{*item}, false)
 		},
 		IsPlayable: func(item *kefw2.ContentItem) bool {
-			// Podcasts (containers with episodes) are navigable, episodes are playable
-			return item.Type != "container" || item.ContainerPlayable
+			// Only actual audio episodes are playable; all containers should be navigable
+			return item.Type == "audio"
 		},
 	}
 }
@@ -509,7 +601,8 @@ func DefaultUPnPCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 	return ContentPickerCallbacks{
 		Navigate: func(item *kefw2.ContentItem, currentPath string) ([]kefw2.ContentItem, string, error) {
 			// For UPnP, navigate using the item's Path directly
-			resp, err := client.BrowseContainer(item.Path)
+			// Use BrowseContainerAll to fetch all items (not just first 100)
+			resp, err := client.BrowseContainerAll(item.Path)
 			if err != nil {
 				return nil, "", err
 			}
@@ -526,8 +619,26 @@ func DefaultUPnPCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 			// UPnP supports adding to queue
 			return client.AddToQueue([]kefw2.ContentItem{*item}, false)
 		},
+		AddContainerToQueue: func(item *kefw2.ContentItem) (int, error) {
+			// Recursively get all tracks from the container
+			tracks, err := client.GetContainerTracksRecursive(item.Path)
+			if err != nil {
+				return 0, err
+			}
+			if len(tracks) == 0 {
+				return 0, fmt.Errorf("no audio tracks found in container")
+			}
+			err = client.AddToQueue(tracks, false)
+			if err != nil {
+				return 0, err
+			}
+			return len(tracks), nil
+		},
 		IsPlayable: func(item *kefw2.ContentItem) bool {
-			return item.Type != "container" || item.ContainerPlayable
+			// For UPnP, only audio tracks are directly playable.
+			// Containers (artists, albums, folders) should always be navigable,
+			// even if ContainerPlayable is true.
+			return item.Type == "audio"
 		},
 	}
 }

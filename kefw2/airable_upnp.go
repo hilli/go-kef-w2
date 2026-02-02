@@ -27,6 +27,12 @@ func (a *AirableClient) BrowseContainer(containerPath string) (*RowsResponse, er
 	return a.GetRows(containerPath, 0, 100)
 }
 
+// BrowseContainerAll browses a container and fetches ALL items with pagination.
+// Use this for interactive browsing where the full list is needed.
+func (a *AirableClient) BrowseContainerAll(containerPath string) (*RowsResponse, error) {
+	return a.GetAllRows(containerPath)
+}
+
 // BrowseContainerPaged browses a container with pagination.
 func (a *AirableClient) BrowseContainerPaged(containerPath string, from, to int) (*RowsResponse, error) {
 	return a.GetRows(containerPath, from, to)
@@ -339,6 +345,79 @@ func (a *AirableClient) BrowseUPnPByDisplayPath(displayPath string, serverPath s
 
 	// Return contents of final path
 	return a.BrowseContainer(currentPath)
+}
+
+// BrowseUPnPByDisplayPathAll is like BrowseUPnPByDisplayPath but fetches ALL items.
+// Use this for interactive browsing where the full list is needed.
+func (a *AirableClient) BrowseUPnPByDisplayPathAll(displayPath string, serverPath string) (*RowsResponse, error) {
+	// If no display path, return contents of serverPath (or server list)
+	if displayPath == "" {
+		if serverPath == "" {
+			return a.GetMediaServers()
+		}
+		return a.BrowseContainerAll(serverPath)
+	}
+
+	// Need a server path to browse display paths
+	if serverPath == "" {
+		return nil, fmt.Errorf("no default server configured; set with: kefw2 config upnp server default <name>")
+	}
+
+	// Parse display path into segments (handle escaped slashes)
+	segments := splitUPnPDisplayPath(displayPath)
+
+	// Start from server root
+	currentPath := serverPath
+
+	// Navigate through each segment (use All for each level to find all items)
+	for _, segment := range segments {
+		resp, err := a.BrowseContainerAll(currentPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to browse %s: %w", currentPath, err)
+		}
+
+		// Find matching item by title
+		found := false
+		for _, item := range resp.Rows {
+			if item.Title == segment {
+				currentPath = item.Path
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return nil, fmt.Errorf("path segment not found: %s", segment)
+		}
+	}
+
+	// Return contents of final path
+	return a.BrowseContainerAll(currentPath)
+}
+
+// GetContainerTracksRecursive returns all audio tracks from a container, recursively.
+// It traverses sub-containers (albums within an artist folder, etc.) to find all tracks.
+func (a *AirableClient) GetContainerTracksRecursive(containerPath string) ([]ContentItem, error) {
+	resp, err := a.BrowseContainerAll(containerPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var tracks []ContentItem
+	for _, item := range resp.Rows {
+		if item.Type == "audio" {
+			tracks = append(tracks, item)
+		} else if item.Type == "container" {
+			// Recurse into sub-containers
+			subTracks, err := a.GetContainerTracksRecursive(item.Path)
+			if err != nil {
+				continue // Skip failed sub-containers
+			}
+			tracks = append(tracks, subTracks...)
+		}
+	}
+
+	return tracks, nil
 }
 
 // splitUPnPDisplayPath splits a display path into segments, handling escaped slashes.

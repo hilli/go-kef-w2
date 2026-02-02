@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-02-02
+
+### Added
+
+- Full UPnP pagination support with `BrowseContainerAll()` for fetching all items in large directories
+- `AddContainerToQueue` callback for recursively adding all tracks from containers
+- `GetContainerTracksRecursive()` for finding all tracks in nested folders
+- `BrowseUPnPByDisplayPathAll()` for full pagination on display paths
+- Enhanced keyboard shortcuts for queue management
+
+### Changed
+
+- Interactive content picker now uses `BrowseContainerAll()` to fetch all items
+- Improved recursive track addition from containers
+- More accurate item filtering and selection in content picker
+- Consistent use of full container browsing across UPnP and podcast features
+
+### Fixed
+
+- Fixed podcast play/search handling
+- Fixed queue picker's delete and clear commands
+- Fixed UPnP `IsPlayable` to treat all containers as navigable (not playable)
+
+### Removed
+
+- Removed `queue add` command (use interactive content picker instead)
+
 ## [0.2.0] - 2026-02-01
 
 ### Added
@@ -304,6 +331,7 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/hilli/go-kef-w2/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/hilli/go-kef-w2/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hilli/go-kef-w2/releases/tag/v0.1.0
