@@ -24,6 +24,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -496,10 +497,13 @@ You can navigate into folders and play tracks directly from the picker.`,
 var upnpPlayCmd = &cobra.Command{
 	Use:   "play <path>",
 	Short: "Play content from a UPnP path",
-	Long: `Play all audio tracks from a UPnP path (album, folder, etc.)
+	Long: `Play all audio tracks from a UPnP path (artist, album, folder, etc.)
 
 Paths can be display paths (e.g., "Music/Albums/Abbey Road") or full API paths.
 Use tab completion to navigate the folder hierarchy.
+
+If the path contains sub-folders (e.g., an artist with multiple albums),
+all tracks from all sub-folders are collected and played.
 
 Flags:
   -q, --queue    Add to queue instead of playing immediately
@@ -507,73 +511,257 @@ Flags:
 
 Examples:
   kefw2 upnp play "Music/Albums/Abbey Road"
-  kefw2 upnp play -q "Music/Albums/Abbey Road"    # Add to queue
-  kefw2 upnp play "upnp:/uuid:xxx/container123?itemType=container"`,
+  kefw2 upnp play "Music/All Artists/Alice in Chains"    # Plays all albums
+  kefw2 upnp play -q "Music/Albums/Abbey Road"           # Add to queue`,
 	Args:              cobra.MinimumNArgs(1),
 	ValidArgsFunction: HierarchicalUPnPCompletion,
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]
-		client := kefw2.NewAirableClient(currentSpeaker)
+		client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithHTTPTimeout(60*time.Second))
 		addToQueue, _ := cmd.Flags().GetBool("queue")
+
+		var containerPath string
 
 		// Check if it's an API path or display path
 		if strings.HasPrefix(path, "upnp:/") || strings.HasPrefix(path, "ui:/") {
-			// API path - we need to browse to get the tracks
-			resp, err := client.BrowseContainer(path)
-			exitOnError(err, "Failed to browse path")
-
-			var tracks []kefw2.ContentItem
-			for _, item := range resp.Rows {
-				if item.Type == "audio" {
-					tracks = append(tracks, item)
-				}
-			}
-
-			if len(tracks) == 0 {
-				exitWithError("No audio tracks found at this path.")
-			}
-
-			if addToQueue {
-				headerPrinter.Printf("Adding to queue: %s\n", path)
-				err := client.AddToQueue(tracks, true)
-				exitOnError(err, "Failed to add to queue")
-				taskConpletedPrinter.Printf("Added %d tracks to queue.\n", len(tracks))
-			} else {
-				headerPrinter.Printf("Playing from: %s\n", path)
-				err := client.PlayUPnPTracks(tracks)
-				exitOnError(err, "Failed to play")
-				taskConpletedPrinter.Println("Playback started!")
-			}
+			containerPath = path
 		} else {
-			// Display path - resolve via default server then play
+			// Display path - resolve via default server
 			serverPath := viper.GetString("upnp.default_server_path")
 			resp, err := client.BrowseUPnPByDisplayPath(path, serverPath)
 			exitOnError(err, "Failed to resolve path")
 
-			// Collect audio tracks from the response
-			var tracks []kefw2.ContentItem
-			for _, item := range resp.Rows {
-				if item.Type == "audio" {
-					tracks = append(tracks, item)
-				}
-			}
-
-			if len(tracks) == 0 {
-				exitWithError("No audio tracks found at this path.")
-			}
-
-			if addToQueue {
-				headerPrinter.Printf("Adding to queue: %s\n", path)
-				err := client.AddToQueue(tracks, true)
-				exitOnError(err, "Failed to add to queue")
-				taskConpletedPrinter.Printf("Added %d tracks to queue.\n", len(tracks))
+			// Get the container path from the response
+			if resp.Roles != nil && resp.Roles.Path != "" {
+				containerPath = resp.Roles.Path
 			} else {
-				headerPrinter.Printf("Playing from: %s\n", path)
-				err := client.PlayUPnPTracks(tracks)
-				exitOnError(err, "Failed to play")
-				taskConpletedPrinter.Println("Playback started!")
+				// Fallback: navigate to get the actual container path
+				containerPath, _, err = findContainerByPath(client, serverPath, path)
+				exitOnError(err, "Failed to find container")
 			}
 		}
+
+		// Get all tracks recursively
+		headerPrinter.Printf("Scanning: %s\n", path)
+		tracks, err := client.GetContainerTracksRecursive(containerPath)
+		exitOnError(err, "Failed to get tracks")
+
+		if len(tracks) == 0 {
+			exitWithError("No audio tracks found at this path.")
+		}
+
+		if addToQueue {
+			headerPrinter.Printf("Adding to queue: %s\n", path)
+			err := client.AddToQueue(tracks, true)
+			exitOnError(err, "Failed to add to queue")
+			taskConpletedPrinter.Printf("Added %d tracks to queue.\n", len(tracks))
+		} else {
+			headerPrinter.Printf("Playing %d tracks from: %s\n", len(tracks), path)
+			err := client.PlayUPnPTracks(tracks)
+			exitOnError(err, "Failed to play")
+			taskConpletedPrinter.Println("Playback started!")
+		}
+	},
+}
+
+// upnpSearchCmd searches the local track index
+var upnpSearchCmd = &cobra.Command{
+	Use:   "search [query...]",
+	Short: "Search or browse tracks in your UPnP music library",
+	Long: `Search for tracks by title, artist, or album in your UPnP music library.
+
+Without a query, opens the full library browser where you can filter interactively.
+With a query, shows pre-filtered results matching your search terms.
+
+Requires a search index. Run 'kefw2 upnp index --rebuild' to create or update it.
+
+Examples:
+  kefw2 upnp search                    # Browse full library with filter
+  kefw2 upnp search beatles            # Search for "beatles"
+  kefw2 upnp search abbey road         # Search for "abbey road"
+  kefw2 upnp search public enemy uzi   # Search across title/artist/album
+  kefw2 upnp search -q bohemian        # Add to queue instead of playing`,
+	Args: cobra.ArbitraryArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		query := ""
+		if len(args) > 0 {
+			query = strings.Join(args, " ")
+		}
+		addToQueue, _ := cmd.Flags().GetBool("queue")
+		client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithHTTPTimeout(60*time.Second))
+
+		// Load index
+		index, err := LoadTrackIndex()
+		if err != nil {
+			exitWithError("Could not load search index: %v\nRun 'kefw2 upnp index --rebuild' to create one.", err)
+		}
+		if index == nil {
+			exitWithError("No search index found. Run 'kefw2 upnp index --rebuild' to create one.")
+		}
+
+		// Check if index is stale
+		if !IsTrackIndexFresh(index, defaultIndexMaxAge) {
+			headerPrinter.Printf("Note: Search index is %s old. Run 'kefw2 upnp index --rebuild' to refresh.\n\n",
+				time.Since(index.IndexedAt).Round(time.Hour))
+		}
+
+		// Search or browse all tracks
+		var results []IndexedTrack
+		var title string
+		if query != "" {
+			results = SearchTracks(index, query, 100)
+			if len(results) == 0 {
+				contentPrinter.Printf("No tracks found for '%s'\n", query)
+				return
+			}
+			title = fmt.Sprintf("Search results for '%s' (%d tracks)", query, len(results))
+		} else {
+			// No query - show all tracks for browsing
+			results = index.Tracks
+			title = fmt.Sprintf("UPnP Library (%d tracks)", len(results))
+		}
+
+		// Convert to ContentItems for the picker
+		items := make([]kefw2.ContentItem, len(results))
+		for i, track := range results {
+			items[i] = IndexedTrackToContentItem(&track)
+			// Add duration and details to description for display
+			desc := track.Artist
+			if track.Album != "" {
+				if desc != "" {
+					desc += " - "
+				}
+				desc += track.Album
+			}
+			if track.Duration > 0 {
+				if desc != "" {
+					desc += " "
+				}
+				desc += fmt.Sprintf("(%s)", FormatDuration(track.Duration))
+			}
+			items[i].LongDescription = desc
+		}
+
+		// Show interactive picker
+		action := ActionPlay
+		if addToQueue {
+			action = ActionAddToQueue
+			title = title + " (queue mode)"
+		}
+
+		result, err := RunContentPicker(ContentPickerConfig{
+			ServiceType: ServiceUPnP,
+			Items:       items,
+			Title:       title,
+			Action:      action,
+			Callbacks:   DefaultUPnPCallbacks(client),
+		})
+		exitOnError(err, "Error")
+
+		if result.Queued && result.Selected != nil {
+			taskConpletedPrinter.Printf("Added to queue: %s\n", result.Selected.Title)
+		} else if result.Played && result.Selected != nil {
+			taskConpletedPrinter.Printf("Now playing: %s\n", result.Selected.Title)
+		} else if result.Error != nil {
+			exitWithError("Failed: %v", result.Error)
+		}
+	},
+}
+
+// upnpIndexCmd builds or shows the track index
+var upnpIndexCmd = &cobra.Command{
+	Use:   "index",
+	Short: "Build or show the search index for your UPnP library",
+	Long: `Build or show the search index for your UPnP music library.
+
+Without flags, shows the current index status.
+Use --rebuild to force a fresh index.
+Use --container to start indexing from a specific folder path (e.g., "Music/Hilli's Music/By Folder").
+
+The container path can be saved in config with:
+  kefw2 config upnp index container "Music/Hilli's Music/By Folder"
+
+The index is stored locally and used by 'kefw2 upnp search' for instant results.
+
+Examples:
+  kefw2 upnp index                                                       # Show index status
+  kefw2 upnp index --rebuild                                             # Rebuild using configured container
+  kefw2 upnp index --rebuild --container "Music/Hilli's Music/By Folder" # Index specific folder`,
+	Run: func(cmd *cobra.Command, args []string) {
+		rebuild, _ := cmd.Flags().GetBool("rebuild")
+		containerPath, _ := cmd.Flags().GetString("container")
+		// Use longer timeout for indexing (60s per request, large libraries need more time)
+		client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithHTTPTimeout(60*time.Second))
+
+		// Check for default server
+		serverPath := viper.GetString("upnp.default_server_path")
+		serverName := viper.GetString("upnp.default_server")
+		if serverPath == "" {
+			exitWithError("No default UPnP server configured. Set one with: kefw2 config upnp server default <name>")
+		}
+
+		// Use configured container if --container not specified
+		configuredContainer := viper.GetString("upnp.index_container")
+		if containerPath == "" && configuredContainer != "" {
+			containerPath = configuredContainer
+		}
+
+		if !rebuild {
+			// Show status
+			index, _ := LoadTrackIndex()
+			headerPrinter.Println("UPnP Track Index Status:")
+			if index != nil {
+				contentPrinter.Printf("  Server:      %s\n", index.ServerName)
+				if index.ContainerName != "" {
+					contentPrinter.Printf("  Container:   %s\n", index.ContainerName)
+				}
+				contentPrinter.Printf("  Tracks:      %d\n", index.TrackCount)
+				age := time.Since(index.IndexedAt)
+				contentPrinter.Printf("  Age:         %v\n", age.Round(time.Second))
+				contentPrinter.Printf("  Location:    %s\n", getTrackIndexPath())
+
+				if index.ServerName != serverName {
+					headerPrinter.Printf("\n  Note: Index is for different server (%s vs %s)\n", index.ServerName, serverName)
+					headerPrinter.Println("  Run 'kefw2 upnp index --rebuild' to reindex")
+				} else if age > defaultIndexMaxAge {
+					headerPrinter.Println("\n  Note: Index is older than 24 hours")
+					headerPrinter.Println("  Run 'kefw2 upnp index --rebuild' to refresh")
+				}
+			} else {
+				contentPrinter.Println("  No index found")
+			}
+
+			// Show configured container for next rebuild
+			if configuredContainer != "" {
+				headerPrinter.Printf("\n  Configured container: %s\n", configuredContainer)
+			}
+			if index == nil || configuredContainer != "" {
+				contentPrinter.Println("  Run 'kefw2 upnp index --rebuild' to create/update index")
+			}
+			return
+		}
+
+		// Rebuild index
+		if containerPath != "" {
+			headerPrinter.Printf("Building search index for %s (starting from %s)...\n", serverName, containerPath)
+		} else {
+			headerPrinter.Printf("Building search index for %s...\n", serverName)
+		}
+
+		startTime := time.Now()
+		index, err := BuildTrackIndex(client, serverPath, serverName, containerPath, func(containers, tracks int, current string) {
+			fmt.Printf("\r  Scanning... %d containers, %d tracks found", containers, tracks)
+		})
+		fmt.Println() // Newline after progress
+		exitOnError(err, "Failed to build index")
+
+		if err := SaveTrackIndex(index); err != nil {
+			exitWithError("Failed to save index: %v", err)
+		}
+
+		duration := time.Since(startTime).Round(time.Millisecond)
+		taskConpletedPrinter.Printf("Indexed %d tracks in %v\n", index.TrackCount, duration)
+		contentPrinter.Printf("Index saved to: %s\n", getTrackIndexPath())
 	},
 }
 
@@ -581,8 +769,16 @@ func init() {
 	rootCmd.AddCommand(upnpCmd)
 	upnpCmd.AddCommand(upnpBrowseCmd)
 	upnpCmd.AddCommand(upnpPlayCmd)
+	upnpCmd.AddCommand(upnpSearchCmd)
+	upnpCmd.AddCommand(upnpIndexCmd)
 
 	// Add -q flag for queue mode
 	upnpBrowseCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing when selecting a track")
 	upnpPlayCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
+	upnpSearchCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing")
+	upnpIndexCmd.Flags().Bool("rebuild", false, "Force rebuild the index")
+	upnpIndexCmd.Flags().String("container", "", "Container path to index (e.g., 'Music/Hilli's Music/By Folder')")
+
+	// Register tab completion for --container flag
+	_ = upnpIndexCmd.RegisterFlagCompletionFunc("container", UPnPContainerCompletion)
 }

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-02-03
+
+### Added
+
+- **UPnP Library Search**: New local search index for instant track searching
+  - `upnp search [query]` - Search by title, artist, or album
+  - `upnp search` (no query) - Browse full library with interactive filter
+  - `upnp index` - View index status
+  - `upnp index --rebuild` - Rebuild the search index
+  - `upnp index --container "path"` - Index from specific folder
+  - `config upnp index container` - Set default container for indexing
+  - Ranked search results with exact matches first
+  - Multi-word queries work across fields (e.g., `public enemy uzi`)
+
+- **Content Picker Improvements**
+  - Page Up/Page Down navigation for faster scrolling
+  - Filter now matches on artist/album in addition to title
+
+### Changed
+
+- `upnp play` now recursively scans sub-containers (plays all albums under an artist)
+- `upnp search` accepts multiple arguments without quotes
+
+### Fixed
+
+- Fixed `cache status` to show correct cache file and entry count
+
 ## [0.2.1] - 2026-02-02
 
 ### Added
@@ -331,7 +358,8 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/hilli/go-kef-w2/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/hilli/go-kef-w2/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/hilli/go-kef-w2/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hilli/go-kef-w2/releases/tag/v0.1.0

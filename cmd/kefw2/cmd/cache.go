@@ -350,26 +350,90 @@ var cacheStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show cache statistics",
 	Run: func(cmd *cobra.Command, args []string) {
-		if browseCache == nil {
-			errorPrinter.Println("Cache not initialized")
-			return
+		// Get cache directory
+		cacheDir, err := os.UserCacheDir()
+		if err != nil {
+			cacheDir = os.TempDir()
+		}
+		cacheDir = filepath.Join(cacheDir, "kefw2")
+
+		headerPrinter.Println("API Response Cache:")
+		rowsCachePath := filepath.Join(cacheDir, "rows_cache.json")
+		if info, err := os.Stat(rowsCachePath); err == nil {
+			// Read and parse the cache file to count entries
+			data, readErr := os.ReadFile(rowsCachePath)
+			var entryCount int
+			var oldestAge time.Duration
+			if readErr == nil {
+				var entries map[string]json.RawMessage
+				if json.Unmarshal(data, &entries) == nil {
+					entryCount = len(entries)
+					// Try to find oldest entry
+					type entryWithTime struct {
+						FetchedAt time.Time `json:"fetched_at"`
+					}
+					var oldest time.Time
+					for _, raw := range entries {
+						var e entryWithTime
+						if json.Unmarshal(raw, &e) == nil && !e.FetchedAt.IsZero() {
+							if oldest.IsZero() || e.FetchedAt.Before(oldest) {
+								oldest = e.FetchedAt
+							}
+						}
+					}
+					if !oldest.IsZero() {
+						oldestAge = time.Since(oldest)
+					}
+				}
+			}
+			contentPrinter.Printf("  Location: %s\n", rowsCachePath)
+			contentPrinter.Printf("  Entries: %d\n", entryCount)
+			contentPrinter.Printf("  Size: %s\n", formatBytes(info.Size()))
+			if oldestAge > 0 {
+				contentPrinter.Printf("  Oldest: %v ago\n", oldestAge.Round(time.Second))
+			}
+		} else {
+			contentPrinter.Println("  No cache file found")
 		}
 
-		entries, size, oldest := browseCache.Status()
-
-		headerPrinter.Println("Cache Status:")
-		contentPrinter.Printf("  Enabled: %v\n", browseCache.IsEnabled())
-		contentPrinter.Printf("  Location: %s\n", browseCache.CacheDir())
-		contentPrinter.Printf("  Entries: %d\n", entries)
-		contentPrinter.Printf("  Size: %d bytes\n", size)
-		if entries > 0 {
-			contentPrinter.Printf("  Oldest: %v ago\n", oldest.Round(time.Second))
+		// Show TTL settings from config
+		if browseCache != nil {
+			contentPrinter.Println("\n  TTL Settings:")
+			contentPrinter.Printf("    Radio: %v\n", browseCache.GetTTL("radio"))
+			contentPrinter.Printf("    Podcast: %v\n", browseCache.GetTTL("podcast"))
+			contentPrinter.Printf("    UPnP: %v\n", browseCache.GetTTL("upnp"))
 		}
-		contentPrinter.Println("\nTTL Settings:")
-		contentPrinter.Printf("  Radio: %v\n", browseCache.GetTTL("radio"))
-		contentPrinter.Printf("  Podcast: %v\n", browseCache.GetTTL("podcast"))
-		contentPrinter.Printf("  UPnP: %v\n", browseCache.GetTTL("upnp"))
+
+		// Show UPnP track index status
+		headerPrinter.Println("\nUPnP Track Index:")
+		index, err := LoadTrackIndex()
+		if err != nil || index == nil {
+			contentPrinter.Println("  No index found")
+			contentPrinter.Println("  Run 'kefw2 upnp index --rebuild' to create one")
+		} else {
+			contentPrinter.Printf("  Server: %s\n", index.ServerName)
+			if index.ContainerName != "" {
+				contentPrinter.Printf("  Container: %s\n", index.ContainerName)
+			}
+			contentPrinter.Printf("  Tracks: %d\n", index.TrackCount)
+			contentPrinter.Printf("  Age: %v\n", time.Since(index.IndexedAt).Round(time.Second))
+			contentPrinter.Printf("  Location: %s\n", getTrackIndexPath())
+		}
 	},
+}
+
+// formatBytes formats bytes as human-readable string
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d bytes", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 func init() {
