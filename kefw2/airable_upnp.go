@@ -442,3 +442,63 @@ func splitUPnPDisplayPath(path string) []string {
 	}
 	return segments
 }
+
+// IndexProgress is a callback for reporting indexing progress.
+type IndexProgress func(containersScanned, tracksFound int, currentContainer string)
+
+// indexState holds mutable state during recursive indexing.
+type indexState struct {
+	containersScanned int
+	tracksFound       int
+}
+
+// GetAllServerTracks returns ALL audio tracks from a server, recursively scanning all containers.
+// The optional progress callback is called periodically to report progress.
+func (a *AirableClient) GetAllServerTracks(serverPath string, progress IndexProgress) ([]ContentItem, error) {
+	state := &indexState{}
+	return a.getAllTracksRecursive(serverPath, progress, state)
+}
+
+// getAllTracksRecursive is the internal recursive function for getting all tracks.
+func (a *AirableClient) getAllTracksRecursive(containerPath string, progress IndexProgress, state *indexState) ([]ContentItem, error) {
+	resp, err := a.BrowseContainerAll(containerPath)
+	if err != nil {
+		return nil, err
+	}
+
+	state.containersScanned++
+	var tracks []ContentItem
+	var subContainers []ContentItem
+
+	// Get container title for progress reporting
+	containerTitle := ""
+	if resp.Roles != nil {
+		containerTitle = resp.Roles.Title
+	}
+
+	for _, item := range resp.Rows {
+		if item.Type == "audio" {
+			tracks = append(tracks, item)
+		} else if item.Type == "container" {
+			subContainers = append(subContainers, item)
+		}
+	}
+
+	// Update track count and report progress
+	state.tracksFound += len(tracks)
+	if progress != nil {
+		progress(state.containersScanned, state.tracksFound, containerTitle)
+	}
+
+	// Recurse into sub-containers
+	for _, container := range subContainers {
+		subTracks, err := a.getAllTracksRecursive(container.Path, progress, state)
+		if err != nil {
+			// Log but continue with other containers
+			continue
+		}
+		tracks = append(tracks, subTracks...)
+	}
+
+	return tracks, nil
+}

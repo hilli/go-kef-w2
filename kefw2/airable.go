@@ -49,6 +49,14 @@ func WithDiskCache() AirableClientOption {
 	}
 }
 
+// WithHTTPTimeout sets the HTTP client timeout for the Airable client.
+// Default is 10 seconds. Use longer timeouts for operations like indexing large libraries.
+func WithHTTPTimeout(timeout time.Duration) AirableClientOption {
+	return func(a *AirableClient) {
+		a.HTTPClient.Timeout = timeout
+	}
+}
+
 // ContentItem represents a content item from the Airable API.
 // Used across all services (radio, podcast, UPnP, Tidal).
 type ContentItem struct {

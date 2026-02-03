@@ -190,15 +190,59 @@ kefw2 podcast browse
 Play music from local network media servers:
 
 ```shell
-# Browse a server (with tab completion)
-kefw2 upnp browse "My NAS/Music/Albums"
+# Configure default UPnP server
+kefw2 config upnp server default "Plex Media Server: homesrv"
+
+# Browse a server interactively
+kefw2 upnp browse
+
+# Browse a specific path (with tab completion)
+kefw2 upnp browse "Music/Albums"
 
 # Play media from server
-kefw2 upnp play "My NAS/Music/Jazz/Album/Track.flac"
-
-# Configure default UPnP server
-kefw2 config upnp server "My NAS"
+kefw2 upnp play "Music/Jazz/Album/Track.flac"
 ```
+
+#### UPnP Search
+
+Search your entire music library instantly with a local index:
+
+```shell
+# Search for tracks by title, artist, or album
+kefw2 upnp search "beatles"
+kefw2 upnp search "abbey road"
+kefw2 upnp search "come together beatles"
+
+# Add search result to queue instead of playing
+kefw2 upnp search -q "bohemian"
+```
+
+The search feature builds a local index of your UPnP music library for instant results.
+The index is cached and automatically refreshes after 24 hours.
+
+#### Index Configuration
+
+For large libraries (like Plex), you can configure which folder to index to avoid
+scanning duplicate views (By Genre, By Album, etc. contain the same tracks):
+
+```shell
+# Set the container path to index (with tab completion)
+kefw2 config upnp index container "Music/Hilli's Music/All Artists"
+
+# Show current index status
+kefw2 upnp index
+
+# Rebuild the index (uses configured container automatically)
+kefw2 upnp index --rebuild
+
+# Override container for a one-time rebuild
+kefw2 upnp index --rebuild --container "Music/My Library/By Album"
+
+# Clear the container setting (index entire server)
+kefw2 config upnp index container ""
+```
+
+The container path uses `/` as separator and supports tab completion at each level.
 
 ### Queue Management
 
@@ -296,6 +340,7 @@ kefw2 events --json
 - [x] Play Podcasts
 - [x] Play from UPnP/DLNA media servers
 - [x] Queue management
+- [x] UPnP library search with local indexing
 - [ ] Restore speaker settings/eq profiles from file
 - [ ] Play titles from built-in music streaming services (Amazon Music, Deezer, Qobuz, Spotify, Tidal)
 
