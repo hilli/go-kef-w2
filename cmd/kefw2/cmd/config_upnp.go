@@ -177,7 +177,7 @@ With a path, sets that as the default container to index.
 Examples:
   kefw2 config upnp index container                                  # Show current
   kefw2 config upnp index container "Music"                          # Index Music folder
-  kefw2 config upnp index container "Music/Hilli's Music/All Artists"  # Index specific folder
+  kefw2 config upnp index container "Music/Hilli's Music/By Folder"  # Index specific folder
   kefw2 config upnp index container ""                               # Clear (index entire server)`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {

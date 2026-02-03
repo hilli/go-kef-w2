@@ -227,7 +227,7 @@ scanning duplicate views (By Genre, By Album, etc. contain the same tracks):
 
 ```shell
 # Set the container path to index (with tab completion)
-kefw2 config upnp index container "Music/Hilli's Music/All Artists"
+kefw2 config upnp index container "Music/Hilli's Music/By Folder"
 
 # Show current index status
 kefw2 upnp index

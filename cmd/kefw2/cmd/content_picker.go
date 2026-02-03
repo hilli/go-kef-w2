@@ -237,6 +237,21 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 
+		case "pgup":
+			m.cursor -= maxVisibleItems
+			if m.cursor < 0 {
+				m.cursor = 0
+			}
+
+		case "pgdown":
+			m.cursor += maxVisibleItems
+			if m.cursor >= len(m.filtered) {
+				m.cursor = len(m.filtered) - 1
+			}
+			if m.cursor < 0 {
+				m.cursor = 0
+			}
+
 		case "enter":
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 				selected := &m.filtered[m.cursor]
@@ -393,7 +408,8 @@ func (m *ContentPickerModel) applyFilter() {
 
 	m.filtered = nil
 	for _, item := range m.allItems {
-		if FuzzyMatch(item.Title, query) {
+		// Match on title, or on description (which contains artist/album for tracks)
+		if FuzzyMatch(item.Title, query) || FuzzyMatch(item.LongDescription, query) {
 			m.filtered = append(m.filtered, item)
 		}
 	}
@@ -513,7 +529,7 @@ func (m ContentPickerModel) View() string {
 	if m.callbacks.ClearQueue != nil {
 		extraHints += " | Ctrl+x: clear"
 	}
-	statusText := fmt.Sprintf("↑/↓: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, extraHints)
+	statusText := fmt.Sprintf("↑/↓/PgUp/PgDn: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, extraHints)
 	b.WriteString(m.styles.Status.Render(statusText))
 
 	return b.String()

@@ -131,7 +131,7 @@ func IsTrackIndexFresh(index *TrackIndex, maxAge time.Duration) bool {
 }
 
 // BuildTrackIndex scans a UPnP server and builds a searchable track index.
-// If containerPath is provided (e.g., "Music/Hilli's Music/All Artists"), it will navigate to that container.
+// If containerPath is provided (e.g., "Music/Hilli's Music/By Folder"), it will navigate to that container.
 func BuildTrackIndex(client *kefw2.AirableClient, serverPath, serverName, containerPath string, progress kefw2.IndexProgress) (*TrackIndex, error) {
 	// Determine the starting path
 	startPath := serverPath
@@ -196,7 +196,7 @@ func BuildTrackIndex(client *kefw2.AirableClient, serverPath, serverName, contai
 	return index, nil
 }
 
-// findContainerByPath navigates to a container by path like "Music/Hilli's Music/All Artists".
+// findContainerByPath navigates to a container by path like "Music/Hilli's Music/By Folder".
 // Each path component is matched case-insensitively.
 // If a component doesn't match exactly, it shows available options.
 func findContainerByPath(client *kefw2.AirableClient, serverPath, containerPath string) (string, string, error) {
@@ -288,8 +288,22 @@ func listContainersAtPath(client *kefw2.AirableClient, serverPath, containerPath
 	return containers, nil
 }
 
-// SearchTracks searches the track index with fuzzy matching.
-// Returns tracks where title, artist, or album matches the query.
+// scoredTrack holds a track with its search relevance score.
+type scoredTrack struct {
+	track IndexedTrack
+	score int
+}
+
+// SearchTracks searches the track index with ranked results.
+// Results are sorted by relevance:
+//   - Exact matches on artist/title/album score highest
+//   - Word-boundary matches (query at start of word) score medium
+//   - Substring matches score lowest
+//
+// For example, searching "earth" will rank:
+//  1. Artist "Earth" (exact match)
+//  2. Album "Earthlings" (word starts with query)
+//  3. Title "Down to Earth" (word boundary match)
 func SearchTracks(index *TrackIndex, query string, maxResults int) []IndexedTrack {
 	if index == nil || query == "" {
 		return nil
@@ -298,29 +312,162 @@ func SearchTracks(index *TrackIndex, query string, maxResults int) []IndexedTrac
 	query = strings.ToLower(query)
 	queryParts := strings.Fields(query)
 
-	var results []IndexedTrack
+	var scored []scoredTrack
 	for _, track := range index.Tracks {
-		// Check if all query parts match (AND logic)
-		allMatch := true
-		for _, part := range queryParts {
-			if !strings.Contains(track.SearchField, part) {
-				// Try fuzzy match as fallback
-				if !FuzzyMatch(track.SearchField, part) {
-					allMatch = false
-					break
-				}
-			}
-		}
-
-		if allMatch {
-			results = append(results, track)
-			if maxResults > 0 && len(results) >= maxResults {
-				break
-			}
+		score := scoreTrack(&track, queryParts)
+		if score > 0 {
+			scored = append(scored, scoredTrack{track: track, score: score})
 		}
 	}
 
+	// Sort by score descending
+	sortScoredTracks(scored)
+
+	// Extract results up to maxResults
+	results := make([]IndexedTrack, 0, min(len(scored), maxResults))
+	for i := 0; i < len(scored) && (maxResults <= 0 || i < maxResults); i++ {
+		results = append(results, scored[i].track)
+	}
+
 	return results
+}
+
+// scoreTrack calculates a relevance score for a track.
+// Returns 0 if the track doesn't match all query parts.
+// Higher scores indicate better matches.
+func scoreTrack(track *IndexedTrack, queryParts []string) int {
+	totalScore := 0
+
+	for _, part := range queryParts {
+		partScore := scoreQueryPart(track, part)
+		if partScore == 0 {
+			return 0 // All parts must match
+		}
+		totalScore += partScore
+	}
+
+	return totalScore
+}
+
+// Score constants for ranking
+const (
+	scoreExactField   = 100 // Exact match on entire field (artist="earth")
+	scoreExactWord    = 50  // Exact word match (title="Down to Earth")
+	scoreWordPrefix   = 20  // Word starts with query (album="Earthlings")
+	scoreWordBoundary = 10  // Query at word boundary
+	scoreArtistBonus  = 5   // Bonus for matching artist
+	scoreAlbumBonus   = 3   // Bonus for matching album
+	scoreTitleBonus   = 2   // Bonus for matching title
+)
+
+// scoreQueryPart scores how well a single query part matches the track.
+func scoreQueryPart(track *IndexedTrack, part string) int {
+	bestScore := 0
+
+	// Check each field separately for better scoring
+	artistLower := strings.ToLower(track.Artist)
+	albumLower := strings.ToLower(track.Album)
+	titleLower := strings.ToLower(track.Title)
+
+	// Artist matching (highest priority)
+	if artistLower != "" {
+		if artistLower == part {
+			bestScore = max(bestScore, scoreExactField+scoreArtistBonus)
+		} else if score := scoreFieldMatch(artistLower, part); score > 0 {
+			bestScore = max(bestScore, score+scoreArtistBonus)
+		}
+	}
+
+	// Album matching
+	if albumLower != "" {
+		if albumLower == part {
+			bestScore = max(bestScore, scoreExactField+scoreAlbumBonus)
+		} else if score := scoreFieldMatch(albumLower, part); score > 0 {
+			bestScore = max(bestScore, score+scoreAlbumBonus)
+		}
+	}
+
+	// Title matching
+	if titleLower != "" {
+		if titleLower == part {
+			bestScore = max(bestScore, scoreExactField+scoreTitleBonus)
+		} else if score := scoreFieldMatch(titleLower, part); score > 0 {
+			bestScore = max(bestScore, score+scoreTitleBonus)
+		}
+	}
+
+	return bestScore
+}
+
+// scoreFieldMatch scores how well a query matches within a field.
+func scoreFieldMatch(field, query string) int {
+	// Split field into words
+	words := strings.Fields(field)
+
+	bestScore := 0
+	for _, word := range words {
+		// Clean word of punctuation for matching
+		cleanWord := strings.Trim(word, ".,!?\"'()[]{}:;")
+
+		if cleanWord == query {
+			// Exact word match: "Earth" in "Down to Earth"
+			bestScore = max(bestScore, scoreExactWord)
+		} else if strings.HasPrefix(cleanWord, query) {
+			// Word starts with query: "earth" matches "Earthlings"
+			bestScore = max(bestScore, scoreWordPrefix)
+		}
+	}
+
+	// If no word-level match, check for word-boundary match anywhere
+	if bestScore == 0 && wordBoundaryMatch(field, query) {
+		bestScore = scoreWordBoundary
+	}
+
+	return bestScore
+}
+
+// wordBoundaryMatch checks if the query appears at a word boundary in the text.
+func wordBoundaryMatch(text, query string) bool {
+	idx := 0
+	for {
+		pos := strings.Index(text[idx:], query)
+		if pos == -1 {
+			return false
+		}
+		absPos := idx + pos
+
+		// Check if this is at a word boundary
+		if absPos == 0 {
+			return true // Start of text
+		}
+
+		// Check if previous character is non-alphanumeric (word boundary)
+		prevChar := text[absPos-1]
+		if !isAlphanumeric(prevChar) {
+			return true
+		}
+
+		// Continue searching after this position
+		idx = absPos + 1
+		if idx >= len(text) {
+			return false
+		}
+	}
+}
+
+// isAlphanumeric returns true if the byte is a letter or digit.
+func isAlphanumeric(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+}
+
+// sortScoredTracks sorts tracks by score descending (highest first).
+func sortScoredTracks(tracks []scoredTrack) {
+	// Simple insertion sort - good enough for search results
+	for i := 1; i < len(tracks); i++ {
+		for j := i; j > 0 && tracks[j].score > tracks[j-1].score; j-- {
+			tracks[j], tracks[j-1] = tracks[j-1], tracks[j]
+		}
+	}
 }
 
 // IndexedTrackToContentItem converts an IndexedTrack back to a ContentItem for playback.
