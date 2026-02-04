@@ -83,7 +83,7 @@ func LoadTrackIndex() (*TrackIndex, error) {
 	defer trackIndexMu.RUnlock()
 
 	indexPath := getTrackIndexPath()
-	data, err := os.ReadFile(indexPath)
+	data, err := os.ReadFile(indexPath) //nolint:gosec // Path is constructed from user's cache dir
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil // No index yet
@@ -112,7 +112,7 @@ func SaveTrackIndex(index *TrackIndex) error {
 	indexPath := getTrackIndexPath()
 
 	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(indexPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(indexPath), 0750); err != nil {
 		return err
 	}
 
@@ -121,7 +121,7 @@ func SaveTrackIndex(index *TrackIndex) error {
 		return err
 	}
 
-	return os.WriteFile(indexPath, data, 0644)
+	return os.WriteFile(indexPath, data, 0600)
 }
 
 // IsTrackIndexFresh checks if the track index is fresh enough to use.
@@ -233,7 +233,7 @@ func findContainerByPath(client *kefw2.AirableClient, serverPath, containerPath 
 		var availableContainers []string
 
 		for _, item := range resp.Rows {
-			if item.Type == "container" {
+			if item.Type == TypeContainer {
 				availableContainers = append(availableContainers, item.Title)
 				if strings.ToLower(item.Title) == partLower {
 					currentPath = item.Path
@@ -353,7 +353,7 @@ func scoreTrack(track *IndexedTrack, queryParts []string) int {
 	return totalScore
 }
 
-// Score constants for ranking
+// Score constants for ranking.
 const (
 	scoreExactField   = 100 // Exact match on entire field (artist="earth")
 	scoreExactWord    = 50  // Exact word match (title="Down to Earth")

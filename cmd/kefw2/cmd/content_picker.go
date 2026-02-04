@@ -31,7 +31,7 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// ContentAction represents the action to take on a selected item
+// ContentAction represents the action to take on a selected item.
 type ContentAction int
 
 const (
@@ -76,14 +76,14 @@ type ContentPickerCallbacks struct {
 
 // ContentPickerResult represents the outcome of running the content picker.
 type ContentPickerResult struct {
-	Selected  *kefw2.ContentItem
-	Action    ContentAction
-	Played    bool
-	Saved     bool
-	Removed   bool
-	Queued    bool
-	Cancelled bool
-	Error     error
+	Selected *kefw2.ContentItem
+	Action   ContentAction
+	Played   bool
+	Saved    bool
+	Removed  bool
+	Queued   bool
+	Canceled bool
+	Error    error
 }
 
 // ContentPickerModel is a unified picker for browsing content from any service.
@@ -200,7 +200,7 @@ func (m ContentPickerModel) isItemPlayable(item *kefw2.ContentItem) bool {
 		return m.callbacks.IsPlayable(item)
 	}
 	// Default: containers that aren't playable are navigable
-	return item.Type != "container" || item.ContainerPlayable
+	return item.Type != TypeContainer || item.ContainerPlayable
 }
 
 // Update implements tea.Model.
@@ -538,14 +538,14 @@ func (m ContentPickerModel) View() string {
 // Result returns the picker result after the program has exited.
 func (m ContentPickerModel) Result() ContentPickerResult {
 	return ContentPickerResult{
-		Selected:  m.selected,
-		Action:    m.action,
-		Played:    m.played,
-		Saved:     m.saved,
-		Removed:   m.removed,
-		Queued:    m.queued,
-		Cancelled: m.quitting && m.selected == nil,
-		Error:     m.err,
+		Selected: m.selected,
+		Action:   m.action,
+		Played:   m.played,
+		Saved:    m.saved,
+		Removed:  m.removed,
+		Queued:   m.queued,
+		Canceled: m.quitting && m.selected == nil,
+		Error:    m.err,
 	}
 }
 
@@ -573,7 +573,7 @@ func DefaultRadioCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 			return client.RemoveRadioFavorite(item)
 		},
 		IsPlayable: func(item *kefw2.ContentItem) bool {
-			return item.Type != "container" || item.ContainerPlayable
+			return item.Type != TypeContainer || item.ContainerPlayable
 		},
 	}
 }
@@ -607,7 +607,7 @@ func DefaultPodcastCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks
 		},
 		IsPlayable: func(item *kefw2.ContentItem) bool {
 			// Only actual audio episodes are playable; all containers should be navigable
-			return item.Type == "audio"
+			return item.Type == TypeAudio
 		},
 	}
 }
@@ -654,7 +654,7 @@ func DefaultUPnPCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 			// For UPnP, only audio tracks are directly playable.
 			// Containers (artists, albums, folders) should always be navigable,
 			// even if ContainerPlayable is true.
-			return item.Type == "audio"
+			return item.Type == TypeAudio
 		},
 	}
 }

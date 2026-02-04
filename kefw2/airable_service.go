@@ -9,13 +9,13 @@ import (
 type AirableServiceType string
 
 const (
-	// ServiceRadio represents the internet radio service
+	// ServiceRadio represents the internet radio service.
 	ServiceRadio AirableServiceType = "radios"
-	// ServicePodcast represents the podcast/feeds service
+	// ServicePodcast represents the podcast/feeds service.
 	ServicePodcast AirableServiceType = "feeds"
 )
 
-// serviceConfig holds configuration for each service type
+// serviceConfig holds configuration for each service type.
 type serviceConfig struct {
 	entryPoint  string // Initial path to discover the service
 	urlPath     string // Path segment in the base URL (e.g., "/airable/radios")
@@ -23,7 +23,7 @@ type serviceConfig struct {
 	serviceName string // Human-readable name for error messages
 }
 
-// serviceConfigs maps service types to their configurations
+// serviceConfigs maps service types to their configurations.
 var serviceConfigs = map[AirableServiceType]serviceConfig{
 	ServiceRadio: {
 		entryPoint:  "ui:/airableradios",
@@ -200,7 +200,7 @@ func (a *AirableClient) modifyFavorite(service AirableServiceType, item *Content
 //   - "airable://airable.feeds/podcast/12345"
 //   - "airable://airable/feeds/12345"
 //
-// Output: the last non-keyword segment (e.g., "1022963300812989" or "12345")
+// Output: the last non-keyword segment (e.g., "1022963300812989" or "12345").
 func extractItemID(id string) string {
 	// Split by "/" and find the last meaningful segment
 	parts := strings.Split(id, "/")

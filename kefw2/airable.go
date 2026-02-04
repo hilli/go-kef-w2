@@ -2,6 +2,7 @@ package kefw2
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -175,7 +176,7 @@ func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error
 	requestURL := fmt.Sprintf("http://%s/api/getRows?path=%s&roles=@all&from=%d&to=%d",
 		a.Speaker.IPAddress, url.QueryEscape(path), from, to)
 
-	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -265,7 +266,7 @@ func (a *AirableClient) SetData(payload interface{}) (*SetDataResponse, error) {
 	}
 
 	requestURL := fmt.Sprintf("http://%s/api/setData", a.Speaker.IPAddress)
-	req, err := http.NewRequest(http.MethodPost, requestURL, bytes.NewBuffer(payloadJSON))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, requestURL, bytes.NewBuffer(payloadJSON))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -297,7 +298,7 @@ func (a *AirableClient) GetData(path string) ([]byte, error) {
 	requestURL := fmt.Sprintf("http://%s/api/getData?path=%s&roles=value",
 		a.Speaker.IPAddress, url.QueryEscape(path))
 
-	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -334,7 +335,7 @@ func (a *AirableClient) PollEvents(timeout int) ([]interface{}, error) {
 	requestURL := fmt.Sprintf("http://%s/api/event/pollQueue?queueId=%s&timeout=%d",
 		a.Speaker.IPAddress, url.QueryEscape(a.QueueID), timeout)
 
-	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

@@ -30,27 +30,27 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// upnpConfigCmd is the parent for UPnP config subcommands
+// upnpConfigCmd is the parent for UPnP config subcommands.
 var upnpConfigCmd = &cobra.Command{
 	Use:   "upnp",
 	Short: "Configure UPnP/DLNA settings",
 	Long:  `Configure UPnP/DLNA media server settings.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		_ = cmd.Help()
 	},
 }
 
-// upnpServerConfigCmd is the parent for server config subcommands
+// upnpServerConfigCmd is the parent for server config subcommands.
 var upnpServerConfigCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Configure default UPnP media server",
 	Long:  `Configure the default UPnP media server for browsing and playback.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		_ = cmd.Help()
 	},
 }
 
-// upnpServerDefaultCmd shows or sets the default server
+// upnpServerDefaultCmd shows or sets the default server.
 var upnpServerDefaultCmd = &cobra.Command{
 	Use:   "default [server-name]",
 	Short: "Show or set the default UPnP media server",
@@ -62,7 +62,7 @@ With a server name, sets that server as the default.
 Examples:
   kefw2 config upnp server default                           # Show current
   kefw2 config upnp server default "Plex Media Server: srv"  # Set default`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		if len(args) == 0 {
 			// Show current default
 			serverName := viper.GetString("upnp.default_server")
@@ -95,12 +95,12 @@ Examples:
 	ValidArgsFunction: UPnPServerCompletion,
 }
 
-// upnpServerListCmd lists available servers
+// upnpServerListCmd lists available servers.
 var upnpServerListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List available UPnP media servers",
 	Long:  `List all UPnP/DLNA media servers available on the network.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetMediaServers()
@@ -110,7 +110,7 @@ var upnpServerListCmd = &cobra.Command{
 
 		headerPrinter.Println("Available UPnP servers:")
 		for _, item := range resp.Rows {
-			if item.Type == "query" {
+			if item.Type == TypeQuery {
 				continue // Skip "Search" entry
 			}
 			if item.Title == defaultServer {
@@ -123,8 +123,8 @@ var upnpServerListCmd = &cobra.Command{
 	ValidArgsFunction: cobra.NoFileCompletions,
 }
 
-// UPnPServerCompletion provides tab completion for UPnP server names
-func UPnPServerCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// UPnPServerCompletion provides tab completion for UPnP server names.
+func UPnPServerCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -152,17 +152,17 @@ func UPnPServerCompletion(cmd *cobra.Command, args []string, toComplete string) 
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
-// upnpIndexConfigCmd is the parent for index config subcommands
+// upnpIndexConfigCmd is the parent for index config subcommands.
 var upnpIndexConfigCmd = &cobra.Command{
 	Use:   "index",
 	Short: "Configure UPnP search index settings",
 	Long:  `Configure settings for the UPnP search index, including the container path to index.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		_ = cmd.Help()
 	},
 }
 
-// upnpIndexContainerCmd shows or sets the index container path
+// upnpIndexContainerCmd shows or sets the index container path.
 var upnpIndexContainerCmd = &cobra.Command{
 	Use:   "container [path]",
 	Short: "Show or set the container path for indexing",
@@ -179,7 +179,7 @@ Examples:
   kefw2 config upnp index container "Music"                          # Index Music folder
   kefw2 config upnp index container "Music/Hilli's Music/By Folder"  # Index specific folder
   kefw2 config upnp index container ""                               # Clear (index entire server)`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		if len(args) == 0 {
 			// Show current setting
 			containerPath := viper.GetString("upnp.index_container")
@@ -227,8 +227,8 @@ Examples:
 	ValidArgsFunction: UPnPContainerCompletion,
 }
 
-// UPnPContainerCompletion provides tab completion for container paths
-func UPnPContainerCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// UPnPContainerCompletion provides tab completion for container paths.
+func UPnPContainerCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

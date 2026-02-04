@@ -29,7 +29,7 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// queueShuffleCmd controls shuffle mode
+// queueShuffleCmd controls shuffle mode.
 var queueShuffleCmd = &cobra.Command{
 	Use:   "shuffle [on|off]",
 	Short: "Get or set shuffle mode",
@@ -43,7 +43,7 @@ Examples:
   kefw2 queue shuffle off      # Disable shuffle`,
 	Args:      cobra.MaximumNArgs(1),
 	ValidArgs: []string{"on", "off"},
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		if len(args) == 0 {
@@ -66,7 +66,7 @@ Examples:
 		switch arg {
 		case "on", "true", "1", "yes":
 			enable = true
-		case "off", "false", "0", "no":
+		case PlayModeOff, "false", "0", "no":
 			enable = false
 		default:
 			exitWithError("Invalid value: %s (use 'on' or 'off')", args[0])
@@ -83,7 +83,7 @@ Examples:
 	},
 }
 
-// queueRepeatCmd controls repeat mode
+// queueRepeatCmd controls repeat mode.
 var queueRepeatCmd = &cobra.Command{
 	Use:   "repeat [off|one|all]",
 	Short: "Get or set repeat mode",
@@ -103,7 +103,7 @@ Examples:
   kefw2 queue repeat all      # Repeat entire queue`,
 	Args:      cobra.MaximumNArgs(1),
 	ValidArgs: []string{"off", "one", "all"},
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		if len(args) == 0 {
@@ -138,13 +138,13 @@ Examples:
 	},
 }
 
-// queueModeCmd shows the current play mode
+// queueModeCmd shows the current play mode.
 var queueModeCmd = &cobra.Command{
 	Use:     "mode",
 	Aliases: []string{"status"},
 	Short:   "Show current play mode (shuffle/repeat)",
 	Long:    `Show the current shuffle and repeat settings for queue playback.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		shuffleEnabled, err := client.IsShuffleEnabled()

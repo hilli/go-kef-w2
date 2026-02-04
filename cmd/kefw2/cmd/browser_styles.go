@@ -23,7 +23,7 @@ package cmd
 
 import "github.com/charmbracelet/lipgloss"
 
-// ServiceType represents the type of content service (radio, podcast, upnp)
+// ServiceType represents the type of content service (radio, podcast, upnp).
 type ServiceType string
 
 const (
@@ -32,14 +32,14 @@ const (
 	ServiceUPnP    ServiceType = "upnp"
 )
 
-// ServiceColors defines the color scheme for each service type
+// ServiceColors defines the color scheme for each service type.
 var ServiceColors = map[ServiceType]lipgloss.Color{
 	ServiceRadio:   lipgloss.Color("39"),  // Blue for radio
 	ServicePodcast: lipgloss.Color("207"), // Pink/magenta for podcast
 	ServiceUPnP:    lipgloss.Color("214"), // Orange for UPnP
 }
 
-// BrowserStyles holds styled renderers for the content browser TUI
+// BrowserStyles holds styled renderers for the content browser TUI.
 type BrowserStyles struct {
 	Title    lipgloss.Style
 	Search   lipgloss.Style
@@ -50,7 +50,7 @@ type BrowserStyles struct {
 	Dimmed   lipgloss.Style
 }
 
-// NewBrowserStyles creates a new set of browser styles for the given service type
+// NewBrowserStyles creates a new set of browser styles for the given service type.
 func NewBrowserStyles(service ServiceType) BrowserStyles {
 	color := ServiceColors[service]
 	if color == "" {
@@ -87,11 +87,11 @@ func NewBrowserStyles(service ServiceType) BrowserStyles {
 	}
 }
 
-// Common styles used across all services
+// Common styles used across all services.
 var (
-	// containerSuffix is shown after container names
+	// containerSuffix is shown after container names.
 	containerSuffix = "/"
 
-	// maxVisibleItems is the number of items visible in the picker at once
+	// maxVisibleItems is the number of items visible in the picker at once.
 	maxVisibleItems = 15
 )
