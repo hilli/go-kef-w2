@@ -40,8 +40,10 @@ type IndexedTrack struct {
 	Album       string `json:"album"`
 	Path        string `json:"path"`
 	Icon        string `json:"icon,omitempty"`
-	Duration    int    `json:"duration,omitempty"` // milliseconds
-	SearchField string `json:"search_field"`       // Pre-computed lowercase "title artist album"
+	Duration    int    `json:"duration,omitempty"`  // milliseconds
+	URI         string `json:"uri,omitempty"`       // Audio file URL (required for playback)
+	MimeType    string `json:"mime_type,omitempty"` // e.g., "audio/flac"
+	SearchField string `json:"search_field"`        // Pre-computed lowercase "title artist album"
 }
 
 // TrackIndex represents the cached track index for a UPnP server.
@@ -57,7 +59,7 @@ type TrackIndex struct {
 }
 
 const (
-	trackIndexVersion  = 1
+	trackIndexVersion  = 2 // Bumped: added URI and MimeType fields for playback
 	trackIndexFilename = "upnp_track_index.json"
 	defaultIndexMaxAge = 24 * time.Hour // Default: re-index if older than 24 hours
 )
@@ -166,6 +168,8 @@ func BuildTrackIndex(client *kefw2.AirableClient, serverPath, serverName, contai
 			it.Album = track.MediaData.MetaData.Album
 			if len(track.MediaData.Resources) > 0 {
 				it.Duration = track.MediaData.Resources[0].Duration
+				it.URI = track.MediaData.Resources[0].URI
+				it.MimeType = track.MediaData.Resources[0].MimeType
 			}
 		}
 
@@ -479,7 +483,7 @@ func IndexedTrackToContentItem(track *IndexedTrack) kefw2.ContentItem {
 		Icon:  track.Icon,
 	}
 
-	if track.Artist != "" || track.Album != "" || track.Duration > 0 {
+	if track.Artist != "" || track.Album != "" || track.Duration > 0 || track.URI != "" {
 		item.MediaData = &kefw2.MediaData{
 			MetaData: kefw2.MediaMetaData{
 				Artist:    track.Artist,
@@ -487,9 +491,13 @@ func IndexedTrackToContentItem(track *IndexedTrack) kefw2.ContentItem {
 				ServiceID: "UPnP",
 			},
 		}
-		if track.Duration > 0 {
+		if track.Duration > 0 || track.URI != "" {
 			item.MediaData.Resources = []kefw2.MediaResource{
-				{Duration: track.Duration},
+				{
+					Duration: track.Duration,
+					URI:      track.URI,
+					MimeType: track.MimeType,
+				},
 			}
 		}
 	}
