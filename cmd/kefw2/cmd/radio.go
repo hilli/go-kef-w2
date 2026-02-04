@@ -731,8 +731,9 @@ an interactive fuzzy-filter picker.`,
 			}
 		}
 
-		// If there's exactly 1 playable item, play/save it directly (no picker)
-		if len(playableItems) == 1 && !saveFavoriteFlag {
+		// If there's exactly 1 playable item AND a path was specified, play/save it directly (no picker)
+		// When browsePath is empty (no args), always show the interactive picker
+		if len(playableItems) == 1 && !saveFavoriteFlag && browsePath != "" {
 			station := &playableItems[0]
 			headerPrinter.Printf("Playing: %s\n", station.Title)
 			err := client.ResolveAndPlayRadioStation(station)
@@ -741,7 +742,7 @@ an interactive fuzzy-filter picker.`,
 			return
 		}
 
-		if len(playableItems) == 1 && saveFavoriteFlag {
+		if len(playableItems) == 1 && saveFavoriteFlag && browsePath != "" {
 			station := &playableItems[0]
 			headerPrinter.Printf("Saving: %s\n", station.Title)
 			err := client.AddRadioFavorite(station)
