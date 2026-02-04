@@ -12,6 +12,12 @@ CLI, library and apps (planned) for controlling KEFs W2 platform based speakers 
 
 Grab a version for your OS from the [releases](https://github.com/hilli/go-kef-w2/releases) page.
 
+If you are a developer and already have [Go](https://go.dev/) installed you can install the latest version directly:
+
+```shell
+go install github.com/hilli/go-kef-w2/cmd/kefw2@latest
+````
+
 #### macOS
 
 Install with Homebrew:
@@ -45,7 +51,7 @@ scoop bucket add hilli https://github.com/hilli/scoop-bucket.git
 scoop install hilli/go-kef-w2
 ```
 
-Note that speaker discovery might not work in Windows. 
+Note that speaker discovery might not work in Windows.
 
 ### Usage
 
