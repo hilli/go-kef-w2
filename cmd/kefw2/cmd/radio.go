@@ -564,11 +564,23 @@ var radioPlayCmd = &cobra.Command{
 			exitWithError("No playable stations found.")
 		}
 
-		// If only one result, play it directly
+		var station *kefw2.ContentItem
+
 		if len(stations) == 1 {
-			station := stations[0]
+			station = &stations[0]
+		} else {
+			for _, s := range stations {
+				if strings.EqualFold(s.Title, query) {
+					station = &s
+					break
+				}
+			}
+		}
+
+		// Single result or exact match - play directly
+		if station != nil {
 			headerPrinter.Printf("Playing: %s\n", station.Title)
-			err := client.PlayRadioStation(&station)
+			err := client.PlayRadioStation(station)
 			exitOnError(err, "Failed to play")
 			taskConpletedPrinter.Printf("Now playing: %s\n", station.Title)
 			return
