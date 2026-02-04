@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-02-04
+
+### Fixed
+
+- `radio browse` with no arguments now shows the interactive picker instead of attempting to auto-play
+
 ## [0.2.3] - 2025-02-04
 
 ### Fixed
@@ -366,7 +372,8 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/hilli/go-kef-w2/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/hilli/go-kef-w2/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/hilli/go-kef-w2/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/hilli/go-kef-w2/compare/v0.2.0...v0.2.1
