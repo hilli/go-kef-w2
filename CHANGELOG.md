@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `radio browse` with no arguments now shows the interactive picker instead of attempting to auto-play
+- Improve station selection logic for radio playback
+- `radio browse` with no arguments now shows the interactive picker instead of attempting to auto
 
 ## [0.2.3] - 2025-02-04
 
