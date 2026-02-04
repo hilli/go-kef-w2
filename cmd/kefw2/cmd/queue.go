@@ -31,7 +31,7 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// queueCmd represents the queue command
+// queueCmd represents the queue command.
 var queueCmd = &cobra.Command{
 	Use:     "queue",
 	Aliases: []string{"q"},
@@ -43,9 +43,9 @@ Without subcommands, shows an interactive picker of queue items.
 Keyboard shortcuts in picker:
   Enter     - Play selected track
   Ctrl+d    - Delete selected track
-  Ctrl+x    - Clear entire queue
-  Esc       - Quit`,
-	Run: func(cmd *cobra.Command, args []string) {
+   Ctrl+x    - Clear entire queue
+   Esc       - Quit`,
+	Run: func(_ *cobra.Command, _ []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPlayQueue()
@@ -75,7 +75,7 @@ Keyboard shortcuts in picker:
 	},
 }
 
-// DefaultQueueCallbacks returns callbacks for queue playback
+// DefaultQueueCallbacks returns callbacks for queue playback.
 func DefaultQueueCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 	return ContentPickerCallbacks{
 		Play: func(item *kefw2.ContentItem) error {
@@ -94,7 +94,7 @@ func DefaultQueueCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 		},
 		Navigate: nil, // Queue items are not navigable
 		IsPlayable: func(item *kefw2.ContentItem) bool {
-			return item.Type == "audio"
+			return item.Type == TypeAudio
 		},
 		DeleteFromQueue: func(item *kefw2.ContentItem) error {
 			// Find the index of this item in the queue and remove it
@@ -115,13 +115,13 @@ func DefaultQueueCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 	}
 }
 
-// queueListCmd lists queue items non-interactively
+// queueListCmd lists queue items non-interactively.
 var queueListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls", "show"},
 	Short:   "List queue items",
 	Long:    `List all tracks in the current play queue without an interactive picker.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPlayQueue()
@@ -143,12 +143,12 @@ var queueListCmd = &cobra.Command{
 	},
 }
 
-// queueClearCmd clears the queue
+// queueClearCmd clears the queue.
 var queueClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Clear the play queue",
 	Long:  `Remove all tracks from the play queue.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		err := client.ClearPlaylist()
@@ -158,7 +158,7 @@ var queueClearCmd = &cobra.Command{
 	},
 }
 
-// queueRemoveCmd removes item(s) from the queue
+// queueRemoveCmd removes item(s) from the queue.
 var queueRemoveCmd = &cobra.Command{
 	Use:   "remove <track>",
 	Short: "Remove a track from the queue",
@@ -170,7 +170,7 @@ Examples:
   kefw2 queue remove "Yesterday - The Beatles"  # Remove by title - artist`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: QueueItemCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPlayQueue()
@@ -210,8 +210,8 @@ Examples:
 	},
 }
 
-// findQueueItemByLabel finds a queue item by "Title - Artist" label or just title
-// Returns the index (0-based) or -1 if not found
+// findQueueItemByLabel finds a queue item by "Title - Artist" label or just title.
+// Returns the index (0-based) or -1 if not found.
 func findQueueItemByLabel(items []kefw2.ContentItem, label string) int {
 	// Build labels with duplicate handling
 	labelMap := buildQueueLabelMap(items)
@@ -234,14 +234,14 @@ func findQueueItemByLabel(items []kefw2.ContentItem, label string) int {
 	return -1
 }
 
-// queueLabelEntry represents a queue item with its display label
+// queueLabelEntry represents a queue item with its display label.
 type queueLabelEntry struct {
 	Label string
 	Index int
 }
 
-// buildQueueLabelMap builds unique labels for queue items
-// Format: "Title - Artist" with "(2)", "(3)" etc. for duplicates
+// buildQueueLabelMap builds unique labels for queue items.
+// Format: "Title - Artist" with "(2)", "(3)" etc. for duplicates.
 func buildQueueLabelMap(items []kefw2.ContentItem) []queueLabelEntry {
 	entries := make([]queueLabelEntry, len(items))
 	labelCounts := make(map[string]int)
@@ -267,7 +267,7 @@ func buildQueueLabelMap(items []kefw2.ContentItem) []queueLabelEntry {
 	return entries
 }
 
-// queueMoveCmd moves an item in the queue
+// queueMoveCmd moves an item in the queue.
 var queueMoveCmd = &cobra.Command{
 	Use:   "move <track> <destination> [target-track]",
 	Short: "Move a track within the queue",
@@ -298,7 +298,7 @@ Examples:
   kefw2 queue move "Yesterday" after "Help"   # Move after another track`,
 	Args:              cobra.RangeArgs(2, 3),
 	ValidArgsFunction: QueueMoveCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		// Get queue first
@@ -318,7 +318,7 @@ Examples:
 		}
 
 		// Parse the destination (second argument, and optionally third)
-		toIndex := -1
+		var toIndex int
 		destination := strings.ToLower(args[1])
 
 		switch destination {
@@ -358,7 +358,6 @@ Examples:
 			if err != nil {
 				exitWithError("Target track: %v", err)
 			}
-			toIndex = targetIdx
 			// If moving from after target to before, adjust index
 			if fromIndex > targetIdx {
 				toIndex = targetIdx
@@ -431,7 +430,7 @@ func parseQueueTrackArg(arg string, items []kefw2.ContentItem) (int, error) {
 	return index, nil
 }
 
-// queuePlayCmd plays a specific track from the queue
+// queuePlayCmd plays a specific track from the queue.
 var queuePlayCmd = &cobra.Command{
 	Use:   "play <track>",
 	Short: "Play a track from the queue",
@@ -442,7 +441,7 @@ Examples:
   kefw2 queue play "Yesterday"          # Play track by title`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: QueueItemCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		resp, err := client.GetPlayQueue()
@@ -454,6 +453,7 @@ Examples:
 		}
 
 		arg := args[0]
+
 		var index int
 		var track *kefw2.ContentItem
 

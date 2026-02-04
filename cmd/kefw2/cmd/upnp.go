@@ -35,7 +35,7 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// Styles for the UPnP TUI
+// Styles for the UPnP TUI.
 var (
 	upnpTitleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -54,7 +54,7 @@ var (
 				Foreground(lipgloss.Color("82"))
 )
 
-// upnpItem represents a media server, container, or track in the list
+// upnpItem represents a media server, container, or track in the list.
 type upnpItem struct {
 	item kefw2.ContentItem
 }
@@ -62,9 +62,9 @@ type upnpItem struct {
 func (i upnpItem) Title() string {
 	prefix := ""
 	switch i.item.Type {
-	case "container":
+	case TypeContainer:
 		prefix = "[Folder] "
-	case "audio":
+	case TypeAudio:
 		prefix = "[Track] "
 	}
 	return prefix + i.item.Title
@@ -79,7 +79,7 @@ func (i upnpItem) Description() string {
 
 func (i upnpItem) FilterValue() string { return i.item.Title }
 
-// upnpModel is the Bubbletea model for the UPnP browser
+// upnpModel is the Bubbletea model for the UPnP browser.
 type upnpModel struct {
 	client      *kefw2.AirableClient
 	list        list.Model
@@ -98,7 +98,7 @@ type breadcrumb struct {
 	path  string
 }
 
-// Messages for async operations
+// Messages for async operations.
 type upnpBrowseResultMsg struct {
 	items []kefw2.ContentItem
 	err   error
@@ -138,7 +138,7 @@ func (m upnpModel) Init() tea.Cmd {
 }
 
 func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
+	cmds := make([]tea.Cmd, 0, 2)
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -156,7 +156,7 @@ func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if item, ok := m.list.SelectedItem().(upnpItem); ok {
 				switch item.item.Type {
-				case "container":
+				case TypeContainer:
 					// Navigate into container
 					m.breadcrumbs = append(m.breadcrumbs, breadcrumb{
 						title: item.item.Title,
@@ -164,7 +164,7 @@ func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					})
 					m.loading = true
 					return m, m.browseContainer(item.item.Path)
-				case "audio":
+				case TypeAudio:
 					// Play the track
 					return m, m.playTrack(&item.item)
 				default:
@@ -200,7 +200,7 @@ func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "a":
 			// Add selected track to queue
 			if i, ok := m.list.SelectedItem().(upnpItem); ok {
-				if i.item.Type == "audio" {
+				if i.item.Type == TypeAudio {
 					return m, m.addToQueue(&i.item)
 				}
 			}
@@ -244,11 +244,12 @@ func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case upnpQueueResultMsg:
-		if msg.err != nil {
+		switch {
+		case msg.err != nil:
 			m.err = msg.err
-		} else if msg.count == 1 {
+		case msg.count == 1:
 			m.playing = fmt.Sprintf("Added to queue: %s", msg.trackName)
-		} else {
+		default:
 			m.playing = fmt.Sprintf("Added %d tracks to queue", msg.count)
 		}
 	}
@@ -287,11 +288,12 @@ func (m upnpModel) View() string {
 
 	// Status bar
 	var status string
-	if m.err != nil {
+	switch {
+	case m.err != nil:
 		status = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(fmt.Sprintf("Error: %v", m.err))
-	} else if m.playing != "" {
+	case m.playing != "":
 		status = upnpPlayingStyle.Render(fmt.Sprintf("Now playing: %s", m.playing))
-	} else {
+	default:
 		status = "Enter: play | a: add to queue | A: add all | p: play all | Backspace: back | q: quit"
 	}
 	b.WriteString("\n")
@@ -300,7 +302,7 @@ func (m upnpModel) View() string {
 	return b.String()
 }
 
-// Command functions
+// Command functions.
 func (m upnpModel) loadServers() tea.Cmd {
 	return func() tea.Msg {
 		resp, err := m.client.GetMediaServers()
@@ -336,7 +338,7 @@ func (m upnpModel) playAll() tea.Cmd {
 		// Filter for audio tracks
 		var tracks []kefw2.ContentItem
 		for _, item := range m.items {
-			if item.Type == "audio" {
+			if item.Type == TypeAudio {
 				tracks = append(tracks, item)
 			}
 		}
@@ -367,7 +369,7 @@ func (m upnpModel) addAllToQueue() tea.Cmd {
 	return func() tea.Msg {
 		var tracks []kefw2.ContentItem
 		for _, item := range m.items {
-			if item.Type == "audio" {
+			if item.Type == TypeAudio {
 				tracks = append(tracks, item)
 			}
 		}
@@ -382,7 +384,7 @@ func (m upnpModel) addAllToQueue() tea.Cmd {
 	}
 }
 
-// upnpCmd represents the upnp command
+// upnpCmd represents the upnp command.
 var upnpCmd = &cobra.Command{
 	Use:     "upnp",
 	Aliases: []string{"media", "dlna"},
@@ -401,7 +403,7 @@ Keyboard shortcuts:
   r         - Refresh current view
   /         - Filter items
   q         - Quit`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 		model := initialUpnpModel(client)
 
@@ -411,7 +413,7 @@ Keyboard shortcuts:
 	},
 }
 
-// upnpBrowseCmd browses a specific path
+// upnpBrowseCmd browses a specific path.
 var upnpBrowseCmd = &cobra.Command{
 	Use:   "browse [path]",
 	Short: "Browse a media server path with interactive picker",
@@ -471,7 +473,7 @@ You can navigate into folders and play tracks directly from the picker.`,
 		action := ActionPlay
 		if addToQueue {
 			action = ActionAddToQueue
-			title = title + " (queue mode)"
+			title += SuffixQueueMode
 		}
 		result, err := RunContentPicker(ContentPickerConfig{
 			ServiceType: ServiceUPnP,
@@ -493,7 +495,7 @@ You can navigate into folders and play tracks directly from the picker.`,
 	},
 }
 
-// upnpPlayCmd plays content from a path
+// upnpPlayCmd plays content from a path.
 var upnpPlayCmd = &cobra.Command{
 	Use:   "play <path>",
 	Short: "Play content from a UPnP path",
@@ -564,7 +566,7 @@ Examples:
 	},
 }
 
-// upnpSearchCmd searches the local track index
+// upnpSearchCmd searches the local track index.
 var upnpSearchCmd = &cobra.Command{
 	Use:   "search [query...]",
 	Short: "Search or browse tracks in your UPnP music library",
@@ -646,7 +648,7 @@ Examples:
 		action := ActionPlay
 		if addToQueue {
 			action = ActionAddToQueue
-			title = title + " (queue mode)"
+			title += SuffixQueueMode
 		}
 
 		result, err := RunContentPicker(ContentPickerConfig{
@@ -668,7 +670,7 @@ Examples:
 	},
 }
 
-// upnpIndexCmd builds or shows the track index
+// upnpIndexCmd builds or shows the track index.
 var upnpIndexCmd = &cobra.Command{
 	Use:   "index",
 	Short: "Build or show the search index for your UPnP library",
@@ -687,7 +689,7 @@ Examples:
   kefw2 upnp index                                                       # Show index status
   kefw2 upnp index --rebuild                                             # Rebuild using configured container
   kefw2 upnp index --rebuild --container "Music/Hilli's Music/By Folder" # Index specific folder`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		rebuild, _ := cmd.Flags().GetBool("rebuild")
 		containerPath, _ := cmd.Flags().GetString("container")
 		// Use longer timeout for indexing (60s per request, large libraries need more time)
@@ -749,7 +751,7 @@ Examples:
 		}
 
 		startTime := time.Now()
-		index, err := BuildTrackIndex(client, serverPath, serverName, containerPath, func(containers, tracks int, current string) {
+		index, err := BuildTrackIndex(client, serverPath, serverName, containerPath, func(containers, tracks int, _ string) {
 			fmt.Printf("\r  Scanning... %d containers, %d tracks found", containers, tracks)
 		})
 		fmt.Println() // Newline after progress

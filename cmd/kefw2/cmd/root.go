@@ -56,13 +56,13 @@ var rootCmd = &cobra.Command{
 	Long:  ``,
 }
 
-// noFileCompletion is a ValidArgsFunction that disables file completion
-func noFileCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// noFileCompletion is a ValidArgsFunction that disables file completion.
+func noFileCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
 // disableFileCompletionRecursive disables file completion on all commands
-// that don't have a custom ValidArgsFunction set
+// that don't have a custom ValidArgsFunction set.
 func disableFileCompletionRecursive(cmd *cobra.Command) {
 	if cmd.ValidArgsFunction == nil {
 		cmd.ValidArgsFunction = noFileCompletion

@@ -34,7 +34,7 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// Styles for the podcast TUI
+// Styles for the podcast TUI.
 var (
 	podcastTitleStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -58,7 +58,7 @@ var (
 				Foreground(lipgloss.Color("82"))
 )
 
-// podcastItem represents a podcast or episode in the list
+// podcastItem represents a podcast or episode in the list.
 type podcastItem struct {
 	item kefw2.ContentItem
 }
@@ -67,7 +67,7 @@ func (i podcastItem) Title() string       { return i.item.Title }
 func (i podcastItem) Description() string { return i.item.LongDescription }
 func (i podcastItem) FilterValue() string { return i.item.Title }
 
-// podcastModel is the Bubbletea model for the podcast browser
+// podcastModel is the Bubbletea model for the podcast browser.
 type podcastModel struct {
 	client         *kefw2.AirableClient
 	searchInput    textinput.Model
@@ -83,7 +83,7 @@ type podcastModel struct {
 	quitting       bool
 }
 
-// Messages for async operations
+// Messages for async operations.
 type podcastSearchResultMsg struct {
 	items []kefw2.ContentItem
 	err   error
@@ -130,25 +130,26 @@ func (m podcastModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
-			if !m.searchInput.Focused() || msg.String() == "ctrl+c" {
+		case KeyCtrlC, "q":
+			if !m.searchInput.Focused() || msg.String() == KeyCtrlC {
 				m.quitting = true
 				return m, tea.Quit
 			}
-		case "enter":
+		case KeyEnter:
 			if m.searchInput.Focused() && m.searchInput.Value() != "" {
 				m.loading = true
 				query := m.searchInput.Value()
 				return m, m.searchPodcasts(query)
 			} else if !m.searchInput.Focused() {
 				if item, ok := m.list.SelectedItem().(podcastItem); ok {
-					if item.item.Type == "container" {
+					switch item.item.Type {
+					case TypeContainer:
 						// It's a podcast, load episodes
 						m.currentPodcast = &item.item
-						m.mode = "episodes"
+						m.mode = TypeEpisodes
 						m.loading = true
 						return m, m.loadEpisodes(item.item.Path)
-					} else if item.item.Type == "audio" {
+					case TypeAudio:
 						// It's an episode, play it
 						return m, m.playEpisode(&item.item)
 					}
@@ -160,38 +161,39 @@ func (m podcastModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.searchInput.Focus()
 			}
-		case "esc":
-			if m.mode == "episodes" {
+		case KeyEsc:
+			switch {
+			case m.mode == TypeEpisodes:
 				// Go back to search/browse mode
 				m.mode = "search"
 				m.currentPodcast = nil
 				m.list.SetItems([]list.Item{})
-			} else if m.searchInput.Focused() {
+			case m.searchInput.Focused():
 				m.searchInput.Blur()
-			} else {
+			default:
 				m.searchInput.Focus()
 			}
 		case "backspace":
-			if !m.searchInput.Focused() && m.mode == "episodes" {
+			if !m.searchInput.Focused() && m.mode == TypeEpisodes {
 				m.mode = "search"
 				m.currentPodcast = nil
 				m.list.SetItems([]list.Item{})
 			}
 		case "f":
 			if !m.searchInput.Focused() {
-				m.mode = "favorites"
+				m.mode = ModeFavorites
 				m.loading = true
 				return m, m.loadFavorites()
 			}
 		case "p":
 			if !m.searchInput.Focused() {
-				m.mode = "popular"
+				m.mode = ModePopular
 				m.loading = true
 				return m, m.loadPopular()
 			}
 		case "t":
 			if !m.searchInput.Focused() {
-				m.mode = "trending"
+				m.mode = ModeTrending
 				m.loading = true
 				return m, m.loadTrending()
 			}
@@ -287,13 +289,14 @@ func (m podcastModel) View() string {
 
 	// Status bar
 	var status string
-	if m.err != nil {
+	switch {
+	case m.err != nil:
 		status = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(fmt.Sprintf("Error: %v", m.err))
-	} else if m.playing != "" {
+	case m.playing != "":
 		status = podcastPlayingStyle.Render(fmt.Sprintf("Now playing: %s", m.playing))
-	} else if m.mode == "episodes" {
+	case m.mode == "episodes":
 		status = "Enter: play | Esc/Backspace: back | q: quit"
-	} else {
+	default:
 		status = fmt.Sprintf("Mode: %s | Tab: toggle focus | f: favorites | p: popular | t: trending | h: history | Enter: select | q: quit", m.mode)
 	}
 	b.WriteString("\n")
@@ -302,7 +305,7 @@ func (m podcastModel) View() string {
 	return b.String()
 }
 
-// Command functions for async operations
+// Command functions for async operations.
 func (m podcastModel) searchPodcasts(query string) tea.Cmd {
 	return func() tea.Msg {
 		resp, err := m.client.SearchPodcasts(query)
@@ -332,7 +335,7 @@ func (m podcastModel) loadEpisodes(podcastPath string) tea.Cmd {
 		// Filter for audio episodes
 		var episodes []kefw2.ContentItem
 		for _, row := range resp.Rows {
-			if row.Type == "audio" {
+			if row.Type == TypeAudio {
 				episodes = append(episodes, row)
 			}
 		}
@@ -380,7 +383,7 @@ func (m podcastModel) loadHistory() tea.Cmd {
 	}
 }
 
-// podcastCmd represents the podcast command
+// podcastCmd represents the podcast command.
 var podcastCmd = &cobra.Command{
 	Use:     "podcast",
 	Aliases: []string{"pod"},
@@ -401,7 +404,7 @@ Keyboard shortcuts:
   t         - Load trending podcasts
   h         - Load podcast history
   q         - Quit`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 		model := initialPodcastModel(client)
 
@@ -411,7 +414,7 @@ Keyboard shortcuts:
 	},
 }
 
-// podcastSearchCmd handles direct search from command line
+// podcastSearchCmd handles direct search from command line.
 var podcastSearchCmd = &cobra.Command{
 	Use:               "search [query]",
 	Short:             "Search for podcasts",
@@ -441,10 +444,10 @@ var podcastSearchCmd = &cobra.Command{
 		title := fmt.Sprintf("Search results for '%s'", query)
 		if saveFav {
 			action = ActionSaveFavorite
-			title = title + " (save mode)"
+			title += SuffixSaveMode
 		} else if addToQueue {
 			action = ActionAddToQueue
-			title = title + " (queue mode)"
+			title += SuffixQueueMode
 		}
 
 		result, err := RunContentPicker(ContentPickerConfig{
@@ -463,7 +466,7 @@ var podcastSearchCmd = &cobra.Command{
 	},
 }
 
-// podcastFavoritesCmd lists favorite podcasts
+// podcastFavoritesCmd lists favorite podcasts.
 var podcastFavoritesCmd = &cobra.Command{
 	Use:               "favorites [show[/episode]]",
 	Aliases:           []string{"fav"},
@@ -538,10 +541,10 @@ var podcastFavoritesCmd = &cobra.Command{
 		title := "Favorite Podcasts"
 		if removeFav {
 			action = ActionRemoveFavorite
-			title = title + " (remove mode)"
+			title += SuffixRemoveMode
 		} else if addToQueue {
 			action = ActionAddToQueue
-			title = title + " (queue mode)"
+			title += SuffixQueueMode
 		}
 
 		result, err := RunContentPicker(ContentPickerConfig{
@@ -560,7 +563,7 @@ var podcastFavoritesCmd = &cobra.Command{
 	},
 }
 
-// podcastPopularCmd lists popular podcasts
+// podcastPopularCmd lists popular podcasts.
 var podcastPopularCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Use:               "popular [show[/episode]]",
 	Short:             "Browse and play popular podcasts",
@@ -572,7 +575,7 @@ var podcastPopularCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Callbacks:         DefaultPodcastCallbacks,
 })
 
-// podcastTrendingCmd lists trending podcasts
+// podcastTrendingCmd lists trending podcasts.
 var podcastTrendingCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Use:               "trending [show[/episode]]",
 	Short:             "Browse and play trending podcasts",
@@ -584,7 +587,7 @@ var podcastTrendingCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Callbacks:         DefaultPodcastCallbacks,
 })
 
-// podcastHistoryCmd lists recently played podcasts
+// podcastHistoryCmd lists recently played podcasts.
 var podcastHistoryCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Use:               "history [show[/episode]]",
 	Short:             "Browse and play recently played podcasts",
@@ -596,7 +599,7 @@ var podcastHistoryCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	Callbacks:         DefaultPodcastCallbacks,
 })
 
-// podcastPlayCmd plays a podcast by searching and playing the first episode
+// podcastPlayCmd plays a podcast by searching and playing the first episode.
 var podcastPlayCmd = &cobra.Command{
 	Use:   "play [podcast name]",
 	Short: "Search for a podcast and play its latest episode",
@@ -624,7 +627,7 @@ Examples:
 		// Filter for podcast containers
 		var podcasts []kefw2.ContentItem
 		for _, p := range resp.Rows {
-			if p.Type == "container" {
+			if p.Type == TypeContainer {
 				podcasts = append(podcasts, p)
 			}
 		}
@@ -642,7 +645,7 @@ Examples:
 			exitOnError(err, "Failed to get episodes")
 
 			for _, ep := range episodes.Rows {
-				if ep.Type == "audio" {
+				if ep.Type == TypeAudio {
 					if addToQueue {
 						headerPrinter.Printf("Adding to queue: %s\n", ep.Title)
 						err := client.AddToQueue([]kefw2.ContentItem{ep}, true)
@@ -683,11 +686,11 @@ Examples:
 	},
 }
 
-// filterPodcastContainers filters items to only include podcast containers
+// filterPodcastContainers filters items to only include podcast containers.
 func filterPodcastContainers(rows []kefw2.ContentItem) []kefw2.ContentItem {
 	var podcasts []kefw2.ContentItem
 	for _, row := range rows {
-		if row.Type == "container" {
+		if row.Type == TypeContainer {
 			podcasts = append(podcasts, row)
 		}
 	}
@@ -695,7 +698,7 @@ func filterPodcastContainers(rows []kefw2.ContentItem) []kefw2.ContentItem {
 }
 
 // parsePodcastPath parses a "show/episode" path into show name and optional episode name.
-// Returns (showName, episodeName, hasEpisode)
+// Returns (showName, episodeName, hasEpisode).
 func parsePodcastPath(path string) (string, string, bool) {
 	// Find the first "/" that isn't escaped (%2F)
 	// We need to handle the case where show names might contain "/"
@@ -706,7 +709,7 @@ func parsePodcastPath(path string) (string, string, bool) {
 	return parts[0], parts[1], true
 }
 
-// playPodcastLatestEpisode plays the latest episode of a podcast
+// playPodcastLatestEpisode plays the latest episode of a podcast.
 func playPodcastLatestEpisode(client *kefw2.AirableClient, podcast *kefw2.ContentItem) error {
 	episode, err := client.GetLatestEpisode(podcast)
 	if err != nil {
@@ -715,10 +718,10 @@ func playPodcastLatestEpisode(client *kefw2.AirableClient, podcast *kefw2.Conten
 	return client.PlayPodcastEpisode(episode)
 }
 
-// Flags for podcast commands
+// Flags for podcast commands.
 var podcastSaveFavoriteFlag bool
 
-// podcastFilterCmd browses podcasts by genre/language
+// podcastFilterCmd browses podcasts by genre/language.
 var podcastFilterCmd = &cobra.Command{
 	Use:   "filter [path]",
 	Short: "Browse podcasts by genre or language",
@@ -743,10 +746,10 @@ Use TAB to navigate through categories:
 		actionSuffix := ""
 		if saveFav {
 			action = ActionSaveFavorite
-			actionSuffix = " (save mode)"
+			actionSuffix = SuffixSaveMode
 		} else if addToQueue {
 			action = ActionAddToQueue
-			actionSuffix = " (queue mode)"
+			actionSuffix = SuffixQueueMode
 		}
 
 		// If no path provided, show the filter menu
@@ -796,7 +799,7 @@ Use TAB to navigate through categories:
 	},
 }
 
-// podcastBrowseCmd browses podcast categories
+// podcastBrowseCmd browses podcast categories.
 var podcastBrowseCmd = &cobra.Command{
 	Use:   "browse [category]",
 	Short: "Browse podcast categories with interactive picker",
@@ -851,10 +854,10 @@ Use the fuzzy filter to quickly find what you're looking for.`,
 		action := ActionPlay
 		if podcastSaveFavoriteFlag {
 			action = ActionSaveFavorite
-			title = title + " (save mode)"
+			title += SuffixSaveMode
 		} else if addToQueue {
 			action = ActionAddToQueue
-			title = title + " (queue mode)"
+			title += SuffixQueueMode
 		}
 
 		result, err := RunContentPicker(ContentPickerConfig{

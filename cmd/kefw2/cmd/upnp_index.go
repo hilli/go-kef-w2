@@ -40,8 +40,10 @@ type IndexedTrack struct {
 	Album       string `json:"album"`
 	Path        string `json:"path"`
 	Icon        string `json:"icon,omitempty"`
-	Duration    int    `json:"duration,omitempty"` // milliseconds
-	SearchField string `json:"search_field"`       // Pre-computed lowercase "title artist album"
+	Duration    int    `json:"duration,omitempty"`  // milliseconds
+	URI         string `json:"uri,omitempty"`       // Audio file URL (required for playback)
+	MimeType    string `json:"mime_type,omitempty"` // e.g., "audio/flac"
+	SearchField string `json:"search_field"`        // Pre-computed lowercase "title artist album"
 }
 
 // TrackIndex represents the cached track index for a UPnP server.
@@ -57,7 +59,7 @@ type TrackIndex struct {
 }
 
 const (
-	trackIndexVersion  = 1
+	trackIndexVersion  = 2 // Bumped: added URI and MimeType fields for playback
 	trackIndexFilename = "upnp_track_index.json"
 	defaultIndexMaxAge = 24 * time.Hour // Default: re-index if older than 24 hours
 )
@@ -81,7 +83,7 @@ func LoadTrackIndex() (*TrackIndex, error) {
 	defer trackIndexMu.RUnlock()
 
 	indexPath := getTrackIndexPath()
-	data, err := os.ReadFile(indexPath)
+	data, err := os.ReadFile(indexPath) //nolint:gosec // Path is constructed from user's cache dir
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil // No index yet
@@ -110,7 +112,7 @@ func SaveTrackIndex(index *TrackIndex) error {
 	indexPath := getTrackIndexPath()
 
 	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(indexPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(indexPath), 0750); err != nil {
 		return err
 	}
 
@@ -119,7 +121,7 @@ func SaveTrackIndex(index *TrackIndex) error {
 		return err
 	}
 
-	return os.WriteFile(indexPath, data, 0644)
+	return os.WriteFile(indexPath, data, 0600)
 }
 
 // IsTrackIndexFresh checks if the track index is fresh enough to use.
@@ -166,6 +168,8 @@ func BuildTrackIndex(client *kefw2.AirableClient, serverPath, serverName, contai
 			it.Album = track.MediaData.MetaData.Album
 			if len(track.MediaData.Resources) > 0 {
 				it.Duration = track.MediaData.Resources[0].Duration
+				it.URI = track.MediaData.Resources[0].URI
+				it.MimeType = track.MediaData.Resources[0].MimeType
 			}
 		}
 
@@ -229,7 +233,7 @@ func findContainerByPath(client *kefw2.AirableClient, serverPath, containerPath 
 		var availableContainers []string
 
 		for _, item := range resp.Rows {
-			if item.Type == "container" {
+			if item.Type == TypeContainer {
 				availableContainers = append(availableContainers, item.Title)
 				if strings.ToLower(item.Title) == partLower {
 					currentPath = item.Path
@@ -349,7 +353,7 @@ func scoreTrack(track *IndexedTrack, queryParts []string) int {
 	return totalScore
 }
 
-// Score constants for ranking
+// Score constants for ranking.
 const (
 	scoreExactField   = 100 // Exact match on entire field (artist="earth")
 	scoreExactWord    = 50  // Exact word match (title="Down to Earth")
@@ -479,7 +483,7 @@ func IndexedTrackToContentItem(track *IndexedTrack) kefw2.ContentItem {
 		Icon:  track.Icon,
 	}
 
-	if track.Artist != "" || track.Album != "" || track.Duration > 0 {
+	if track.Artist != "" || track.Album != "" || track.Duration > 0 || track.URI != "" {
 		item.MediaData = &kefw2.MediaData{
 			MetaData: kefw2.MediaMetaData{
 				Artist:    track.Artist,
@@ -487,9 +491,13 @@ func IndexedTrackToContentItem(track *IndexedTrack) kefw2.ContentItem {
 				ServiceID: "UPnP",
 			},
 		}
-		if track.Duration > 0 {
+		if track.Duration > 0 || track.URI != "" {
 			item.MediaData.Resources = []kefw2.MediaResource{
-				{Duration: track.Duration},
+				{
+					Duration: track.Duration,
+					URI:      track.URI,
+					MimeType: track.MimeType,
+				},
 			}
 		}
 	}

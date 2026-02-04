@@ -48,7 +48,7 @@ func findItemByName(items []kefw2.ContentItem, name string) (*kefw2.ContentItem,
 // Matching strategies (in order):
 // 1. Exact case-insensitive match
 // 2. Case-insensitive substring match (item title contains query)
-// 3. Case-insensitive substring match (query contains item title) - only if no typeFilter
+// 3. Case-insensitive substring match (query contains item title) - only if no typeFilter.
 func findItemByNameWithFilter(items []kefw2.ContentItem, name string, typeFilter string) (*kefw2.ContentItem, bool) {
 	lowerName := strings.ToLower(name)
 
@@ -87,7 +87,7 @@ func findItemByNameWithFilter(items []kefw2.ContentItem, name string, typeFilter
 // findEpisodeByName finds an episode by name in a list of episodes.
 // This is a convenience wrapper around findItemByNameWithFilter for audio items.
 func findEpisodeByName(episodes []kefw2.ContentItem, name string) (*kefw2.ContentItem, bool) {
-	return findItemByNameWithFilter(episodes, name, "audio")
+	return findItemByNameWithFilter(episodes, name, TypeAudio)
 }
 
 // ============================================
@@ -97,7 +97,7 @@ func findEpisodeByName(episodes []kefw2.ContentItem, name string) (*kefw2.Conten
 // HandlePickerResult processes the result from RunContentPicker and prints
 // appropriate success/error messages. Returns true if an error occurred.
 func HandlePickerResult(result ContentPickerResult, action ContentAction) bool {
-	if result.Cancelled {
+	if result.Canceled {
 		return false
 	}
 
@@ -137,14 +137,14 @@ func HandlePickerResult(result ContentPickerResult, action ContentAction) bool {
 // Pattern 1: Completion Function Factories
 // ============================================
 
-// ContentFetcher is a function that fetches content items from an AirableClient
+// ContentFetcher is a function that fetches content items from an AirableClient.
 type ContentFetcher func(client *kefw2.AirableClient) (*kefw2.RowsResponse, error)
 
 // MakeStationCompletion creates a completion function for radio stations
 // using the provided fetcher function. This eliminates duplication across
 // RadioLocalCompletion, RadioFavoritesCompletion, RadioPopularCompletion, etc.
 func MakeStationCompletion(fetcher ContentFetcher) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
-	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) > 0 {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
@@ -166,7 +166,7 @@ func MakeStationCompletion(fetcher ContentFetcher) func(*cobra.Command, []string
 // MakePodcastCompletion creates a completion function for podcasts with hierarchical
 // episode support. It delegates to buildPodcastCompletionsWithEpisodes in completion_helpers.go.
 func MakePodcastCompletion(fetcher ContentFetcher) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
-	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if len(args) > 0 {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
@@ -186,7 +186,7 @@ func MakePodcastCompletion(fetcher ContentFetcher) func(*cobra.Command, []string
 // Pattern 2: Category Command Factories
 // ============================================
 
-// CategoryConfig defines the configuration for a category browse command
+// CategoryConfig defines the configuration for a category browse command.
 type CategoryConfig struct {
 	// Command configuration
 	Use               string
@@ -309,15 +309,16 @@ func MakeCategoryCommand(cfg CategoryConfig) *cobra.Command {
 			// Show interactive picker
 			action := ActionPlay
 			title := cfg.Title
-			if removeFav {
+			switch {
+			case removeFav:
 				action = ActionRemoveFavorite
-				title = title + " (remove mode)"
-			} else if saveFav {
+				title += SuffixRemoveMode
+			case saveFav:
 				action = ActionSaveFavorite
-				title = title + " (save mode)"
-			} else if addToQueue {
+				title += SuffixSaveMode
+			case addToQueue:
 				action = ActionAddToQueue
-				title = title + " (queue mode)"
+				title += SuffixQueueMode
 			}
 
 			result, err := RunContentPicker(ContentPickerConfig{
@@ -350,11 +351,11 @@ func MakeCategoryCommand(cfg CategoryConfig) *cobra.Command {
 	return cmd
 }
 
-// PodcastCategoryConfig holds configuration for creating podcast category commands
+// PodcastCategoryConfig holds configuration for creating podcast category commands.
 // This is separate from CategoryConfig because podcast commands have unique behavior:
-// - Episode path parsing (ShowName/EpisodeName)
-// - Queue support for episodes
-// - Play latest episode when no episode specified
+// - Episode path parsing (ShowName/EpisodeName).
+// - Queue support for episodes.
+// - Play latest episode when no episode specified.
 type PodcastCategoryConfig struct {
 	Use               string // Command usage string (e.g., "popular [show[/episode]]")
 	Short             string // Short description
@@ -392,12 +393,13 @@ func MakePodcastCategoryCommand(cfg PodcastCategoryConfig) *cobra.Command {
 			if len(args) > 0 {
 				showName, episodeName, hasEpisode := parsePodcastPath(strings.Join(args, " "))
 				if podcast, found := findItemByName(podcasts, showName); found {
-					if saveFav {
+					switch {
+					case saveFav:
 						headerPrinter.Printf("Saving: %s\n", podcast.Title)
 						err := client.AddPodcastFavorite(podcast)
 						exitOnError(err, "Failed to save favorite")
 						taskConpletedPrinter.Printf("Saved to favorites: %s\n", podcast.Title)
-					} else if hasEpisode {
+					case hasEpisode:
 						// Play specific episode
 						episodes, err := client.GetPodcastEpisodesAll(podcast.Path)
 						exitOnError(err, "Failed to get episodes")
@@ -416,7 +418,7 @@ func MakePodcastCategoryCommand(cfg PodcastCategoryConfig) *cobra.Command {
 						} else {
 							exitWithError("Episode '%s' not found in '%s'.", episodeName, podcast.Title)
 						}
-					} else {
+					default:
 						// Play latest episode
 						if addToQueue {
 							headerPrinter.Printf("Adding latest episode of '%s' to queue\n", podcast.Title)
@@ -442,10 +444,10 @@ func MakePodcastCategoryCommand(cfg PodcastCategoryConfig) *cobra.Command {
 			title := cfg.Title
 			if saveFav {
 				action = ActionSaveFavorite
-				title = title + " (save mode)"
+				title += SuffixSaveMode
 			} else if addToQueue {
 				action = ActionAddToQueue
-				title = title + " (queue mode)"
+				title += SuffixQueueMode
 			}
 
 			result, err := RunContentPicker(ContentPickerConfig{

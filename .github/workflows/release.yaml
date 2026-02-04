@@ -20,11 +20,39 @@ jobs:
         with:
           go-version: '1.24'
           check-latest: true
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          # Strip 'v' prefix from tag to match CHANGELOG format
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Extracting release notes for version: $VERSION"
+          
+          # Extract section for this version (from ## [x.y.z] to next ## [ or EOF)
+          # Skip the first line (version header) since GitHub shows the tag separately
+          awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ "\\[" ver "\\]") { found=1; next }
+            }
+            found { print }
+          ' CHANGELOG.md > /tmp/release-notes.md
+          
+          # Remove leading blank lines
+          sed -i '/./,$!d' /tmp/release-notes.md
+          
+          # Check if we found anything
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "Warning: No changelog entry found for version $VERSION"
+            echo "See [CHANGELOG.md](https://github.com/hilli/go-kef-w2/blob/main/CHANGELOG.md) for details." > /tmp/release-notes.md
+          fi
+          
+          echo "--- Release notes ---"
+          cat /tmp/release-notes.md
+          echo "--- End release notes ---"
       - name: Release
         uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
-          args: release --clean
+          args: release --clean --release-notes=/tmp/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
           MASTODON_CLIENT_ID: ${{ secrets.MASTODON_CLIENT_ID }}

@@ -47,16 +47,16 @@ import (
 //   Names containing "/" are escaped as "%2F"
 //   Example: "AC/DC" becomes "AC%2FDC" in paths
 
-// EscapePathSegment escapes special characters for use in hierarchical paths
-// "/" -> "%2F" (path separator)
-// ":" -> "%3A" (zsh word separator)
+// EscapePathSegment escapes special characters for use in hierarchical paths.
+// "/" -> "%2F" (path separator).
+// ":" -> "%3A" (zsh word separator).
 func EscapePathSegment(s string) string {
 	s = strings.ReplaceAll(s, "/", "%2F")
 	s = strings.ReplaceAll(s, ":", "%3A")
 	return s
 }
 
-// UnescapePathSegment unescapes special characters back to original
+// UnescapePathSegment unescapes special characters back to original.
 func UnescapePathSegment(s string) string {
 	s = strings.ReplaceAll(s, "%2F", "/")
 	s = strings.ReplaceAll(s, "%3A", ":")
@@ -86,7 +86,7 @@ func ParseHierarchicalPath(path string) []string {
 	return result
 }
 
-// BuildHierarchicalPath joins segments with "/", escaping slashes in names
+// BuildHierarchicalPath joins segments with "/", escaping slashes in names.
 func BuildHierarchicalPath(segments []string) string {
 	escaped := make([]string, len(segments))
 	for i, seg := range segments {
@@ -97,7 +97,7 @@ func BuildHierarchicalPath(segments []string) string {
 
 // FuzzyMatch checks if all characters in pattern appear in str in order.
 // Both strings are compared case-insensitively.
-// Example: FuzzyMatch("WDVX Radio", "wdx") returns true
+// Example: FuzzyMatch("WDVX Radio", "wdx") returns true.
 func FuzzyMatch(str, pattern string) bool {
 	str = strings.ToLower(str)
 	pattern = strings.ToLower(pattern)
@@ -114,8 +114,8 @@ func FuzzyMatch(str, pattern string) bool {
 // Radio Browse Completion
 // ============================================
 
-// HierarchicalRadioCompletion provides tab completion for radio browse paths
-func HierarchicalRadioCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// HierarchicalRadioCompletion provides tab completion for radio browse paths.
+func HierarchicalRadioCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	// Don't complete if we already have an argument
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -189,14 +189,14 @@ func HierarchicalRadioCompletion(cmd *cobra.Command, args []string, toComplete s
 	return buildRadioCompletions(items, parentPath), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 }
 
-// convertRowsToCachedItems converts API rows to cached items for completion
-// parentDisplayPath is the display path of the parent (for building full display paths)
+// convertRowsToCachedItems converts API rows to cached items for completion.
+// parentDisplayPath is the display path of the parent (for building full display paths).
 func convertRowsToCachedItems(rows []kefw2.ContentItem, parentDisplayPath string) []CachedItem {
 	items := make([]CachedItem, 0, len(rows))
 	for _, row := range rows {
 		itemType := "playable"
-		if row.Type == "container" && !row.ContainerPlayable {
-			itemType = "container"
+		if row.Type == TypeContainer && !row.ContainerPlayable {
+			itemType = TypeContainer
 		}
 
 		// Build the display path for this item
@@ -216,9 +216,9 @@ func convertRowsToCachedItems(rows []kefw2.ContentItem, parentDisplayPath string
 	return items
 }
 
-// buildRadioCompletions builds completion strings from cached items
-// Returns full paths (required for shell to replace the argument correctly)
-// Uses Cobra's "completion\tdescription" format for cleaner display
+// buildRadioCompletions builds completion strings from cached items.
+// Returns full paths (required for shell to replace the argument correctly).
+// Uses Cobra's "completion\tdescription" format for cleaner display.
 func buildRadioCompletions(items []CachedItem, currentPath string) []string {
 	completions := make([]string, 0, len(items))
 
@@ -233,14 +233,14 @@ func buildRadioCompletions(items []CachedItem, currentPath string) []string {
 		fullPath := prefix + escapedTitle
 
 		// Add "/" suffix for containers to hint "more inside"
-		if item.Type == "container" {
+		if item.Type == TypeContainer {
 			fullPath += "/"
 		}
 
 		// Use tab-separated format: "completion\tdescription"
 		// The description shows just the name, making the display cleaner
 		completion := fullPath + "\t" + item.Title
-		if item.Type == "container" {
+		if item.Type == TypeContainer {
 			completion = fullPath + "\t" + item.Title + "/"
 		}
 
@@ -254,7 +254,7 @@ func buildRadioCompletions(items []CachedItem, currentPath string) []string {
 // Utility Functions for Completion
 // ============================================
 
-// FilterItemsByPrefix returns items whose title starts with the given prefix
+// FilterItemsByPrefix returns items whose title starts with the given prefix.
 func FilterItemsByPrefix(items []CachedItem, prefix string) []CachedItem {
 	if prefix == "" {
 		return items
@@ -274,7 +274,7 @@ func FilterItemsByPrefix(items []CachedItem, prefix string) []CachedItem {
 // Podcast Browse Completion
 // ============================================
 
-// PodcastBrowseCategories is the list of available browse categories
+// PodcastBrowseCategories is the list of available browse categories.
 var PodcastBrowseCategories = []string{
 	"popular\tPopular podcasts",
 	"trending\tTrending podcasts",
@@ -282,8 +282,8 @@ var PodcastBrowseCategories = []string{
 	"favorites\tYour favorite podcasts",
 }
 
-// PodcastBrowseCompletion provides tab completion for podcast browse categories
-func PodcastBrowseCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// PodcastBrowseCompletion provides tab completion for podcast browse categories.
+func PodcastBrowseCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	// Don't complete if we already have an argument
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -311,7 +311,7 @@ func PodcastBrowseCompletion(cmd *cobra.Command, args []string, toComplete strin
 // Radio Station Completion Functions
 // ============================================
 
-// Radio completion functions using MakeStationCompletion factory
+// Radio completion functions using MakeStationCompletion factory.
 var (
 	RadioLocalCompletion     = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioLocalAll() })
 	RadioFavoritesCompletion = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioFavoritesAll() })
@@ -321,8 +321,8 @@ var (
 	RadioPopularCompletion   = MakeStationCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetRadioPopularAll() })
 )
 
-// DynamicRadioSearchCompletion provides dynamic completion for radio search by querying the API
-func DynamicRadioSearchCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// DynamicRadioSearchCompletion provides dynamic completion for radio search by querying the API.
+func DynamicRadioSearchCompletion(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	// Need at least 2 characters to search
 	if len(toComplete) < 2 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -341,7 +341,7 @@ func DynamicRadioSearchCompletion(cmd *cobra.Command, args []string, toComplete 
 	return buildStationCompletions(resp.Rows, ""), cobra.ShellCompDirectiveNoFileComp
 }
 
-// buildStationCompletions builds completion strings from radio station rows
+// buildStationCompletions builds completion strings from radio station rows.
 func buildStationCompletions(rows []kefw2.ContentItem, filter string) []string {
 	completions := make([]string, 0, len(rows))
 	lowerFilter := strings.ToLower(filter)
@@ -377,16 +377,16 @@ func buildStationCompletions(rows []kefw2.ContentItem, filter string) []string {
 	return completions
 }
 
-// isPlayableStation checks if a content item is a playable radio station
+// isPlayableStation checks if a content item is a playable radio station.
 func isPlayableStation(item kefw2.ContentItem) bool {
-	return (item.ContainerPlayable && item.AudioType == "audioBroadcast") || item.Type == "audio"
+	return (item.ContainerPlayable && item.AudioType == TypeAudioBroadcast) || item.Type == TypeAudio
 }
 
 // ============================================
 // Podcast Completion Functions
 // ============================================
 
-// Podcast completion functions using MakePodcastCompletion factory
+// Podcast completion functions using MakePodcastCompletion factory.
 var (
 	PodcastPopularCompletion   = MakePodcastCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastPopularAll() })
 	PodcastTrendingCompletion  = MakePodcastCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastTrendingAll() })
@@ -394,8 +394,8 @@ var (
 	PodcastFavoritesCompletion = MakePodcastCompletion(func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastFavoritesAll() })
 )
 
-// DynamicPodcastSearchCompletion provides dynamic completion for podcast search
-func DynamicPodcastSearchCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// DynamicPodcastSearchCompletion provides dynamic completion for podcast search.
+func DynamicPodcastSearchCompletion(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	// Need at least 2 characters to search
 	if len(toComplete) < 2 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -416,7 +416,7 @@ func DynamicPodcastSearchCompletion(cmd *cobra.Command, args []string, toComplet
 
 // PodcastPlayCompletion provides completion for podcast play command.
 // Shows favorites when empty, searches when 2+ characters typed, shows episodes after "ShowName/".
-func PodcastPlayCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func PodcastPlayCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -495,8 +495,8 @@ func PodcastPlayCompletion(cmd *cobra.Command, args []string, toComplete string)
 	return buildPodcastCompletions(resp.Rows, toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 }
 
-// PodcastFilterCompletion provides hierarchical completion for podcast filter paths
-func PodcastFilterCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// PodcastFilterCompletion provides hierarchical completion for podcast filter paths.
+func PodcastFilterCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -547,8 +547,8 @@ func PodcastFilterCompletion(cmd *cobra.Command, args []string, toComplete strin
 }
 
 // buildPodcastCompletionsWithEpisodes handles two-level completion:
-// 1. At top level, shows podcast names with "/" suffix
-// 2. After "ShowName/", shows episodes of that show
+// 1. At top level, shows podcast names with "/" suffix.
+// 2. After "ShowName/", shows episodes of that show.
 func buildPodcastCompletionsWithEpisodes(client *kefw2.AirableClient, fetchPodcasts func() (*kefw2.RowsResponse, error), toComplete string) ([]string, cobra.ShellCompDirective) {
 	// Check if we're completing an episode (path contains "/")
 	if strings.Contains(toComplete, "/") {
@@ -598,14 +598,14 @@ func buildPodcastCompletionsWithEpisodes(client *kefw2.AirableClient, fetchPodca
 	return buildPodcastCompletions(resp.Rows, toComplete), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 }
 
-// buildPodcastCompletions builds completion strings from podcast container rows
+// buildPodcastCompletions builds completion strings from podcast container rows.
 func buildPodcastCompletions(rows []kefw2.ContentItem, filter string) []string {
 	completions := make([]string, 0, len(rows))
 	lowerFilter := strings.ToLower(filter)
 
 	for _, row := range rows {
 		// Only include podcast containers
-		if row.Type != "container" {
+		if row.Type != TypeContainer {
 			continue
 		}
 
@@ -619,10 +619,6 @@ func buildPodcastCompletions(rows []kefw2.ContentItem, filter string) []string {
 		fullPath := escapedTitle + "/"
 
 		// Use tab-separated format: "completion\tdescription"
-		description := row.LongDescription
-		if description == "" {
-			description = "Podcast"
-		}
 		completions = append(completions, fullPath+"\t"+row.Title)
 
 		// Limit suggestions for shell UX
@@ -634,7 +630,7 @@ func buildPodcastCompletions(rows []kefw2.ContentItem, filter string) []string {
 	return completions
 }
 
-// buildEpisodeCompletions builds completion strings for podcast episodes
+// buildEpisodeCompletions builds completion strings for podcast episodes.
 func buildEpisodeCompletions(rows []kefw2.ContentItem, showName string, filter string) []string {
 	completions := make([]string, 0, len(rows))
 	// Unescape the filter since it may contain %3A for ":"
@@ -670,7 +666,7 @@ func buildEpisodeCompletions(rows []kefw2.ContentItem, showName string, filter s
 
 // HierarchicalUPnPCompletion provides tab completion for UPnP browse/play paths.
 // Uses default server from config. If no default server, shows server list at top level.
-func HierarchicalUPnPCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func HierarchicalUPnPCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -738,13 +734,13 @@ func HierarchicalUPnPCompletion(cmd *cobra.Command, args []string, toComplete st
 func convertUPnPRowsToCachedItems(rows []kefw2.ContentItem, parentDisplayPath string) []CachedItem {
 	items := make([]CachedItem, 0, len(rows))
 	for _, row := range rows {
-		if row.Type == "query" {
+		if row.Type == TypeQuery {
 			continue // Skip search entries
 		}
 
 		itemType := "playable"
-		if row.Type == "container" {
-			itemType = "container"
+		if row.Type == TypeContainer {
+			itemType = TypeContainer
 		}
 
 		displayPath := EscapePathSegment(row.Title)
@@ -781,12 +777,12 @@ func buildUPnPCompletions(items []CachedItem, currentPath string) []string {
 		escapedTitle := EscapePathSegment(item.Title)
 		fullPath := prefix + escapedTitle
 
-		if item.Type == "container" {
+		if item.Type == TypeContainer {
 			fullPath += "/"
 		}
 
 		completion := fullPath + "\t" + item.Title
-		if item.Type == "container" {
+		if item.Type == TypeContainer {
 			completion = fullPath + "\t" + item.Title + "/"
 		}
 
@@ -802,7 +798,7 @@ func buildUPnPCompletions(items []CachedItem, currentPath string) []string {
 
 // QueueItemCompletion provides tab completion for queue items.
 // Format: "Title - Artist" with "(2)", "(3)" for duplicates.
-func QueueItemCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func QueueItemCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -869,10 +865,10 @@ func buildQueueCompletions(rows []kefw2.ContentItem, filter string) []string {
 }
 
 // QueueMoveCompletion provides tab completion for the queue move command.
-// First arg: track to move (by title or position)
-// Second arg: destination keywords or track title
-// Third arg: target track (only for before/after)
-func QueueMoveCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// First arg: track to move (by title or position).
+// Second arg: destination keywords or track title.
+// Third arg: target track (only for before/after).
+func QueueMoveCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

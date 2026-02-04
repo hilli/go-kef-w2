@@ -34,7 +34,7 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// Styles for the radio TUI
+// Styles for the radio TUI.
 var (
 	radioTitleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -58,10 +58,10 @@ var (
 				Foreground(lipgloss.Color("82"))
 )
 
-// Flags for radio commands
+// Flags for radio commands.
 var saveFavoriteFlag bool
 
-// radioItem represents a radio station in the list
+// radioItem represents a radio station in the list.
 type radioItem struct {
 	station kefw2.ContentItem
 }
@@ -70,7 +70,7 @@ func (i radioItem) Title() string       { return i.station.Title }
 func (i radioItem) Description() string { return i.station.LongDescription }
 func (i radioItem) FilterValue() string { return i.station.Title }
 
-// radioModel is the Bubbletea model for the radio browser
+// radioModel is the Bubbletea model for the radio browser.
 type radioModel struct {
 	client      *kefw2.AirableClient
 	searchInput textinput.Model
@@ -86,7 +86,7 @@ type radioModel struct {
 	quitting    bool
 }
 
-// Messages for async operations
+// Messages for async operations.
 type searchResultMsg struct {
 	stations []kefw2.ContentItem
 	err      error
@@ -133,12 +133,12 @@ func (m radioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
-			if !m.searchInput.Focused() || msg.String() == "ctrl+c" {
+		case KeyCtrlC, "q":
+			if !m.searchInput.Focused() || msg.String() == KeyCtrlC {
 				m.quitting = true
 				return m, tea.Quit
 			}
-		case "enter":
+		case KeyEnter:
 			if m.searchInput.Focused() && m.searchInput.Value() != "" {
 				m.loading = true
 				m.searching = true
@@ -159,7 +159,7 @@ func (m radioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.searchInput.Focus()
 			}
-		case "esc":
+		case KeyEsc:
 			if m.searchInput.Focused() {
 				m.searchInput.Blur()
 			} else {
@@ -167,13 +167,13 @@ func (m radioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "f":
 			if !m.searchInput.Focused() {
-				m.mode = "favorites"
+				m.mode = ModeFavorites
 				m.loading = true
 				return m, m.loadFavorites()
 			}
 		case "p":
 			if !m.searchInput.Focused() {
-				m.mode = "popular"
+				m.mode = ModePopular
 				m.loading = true
 				return m, m.loadPopular()
 			}
@@ -185,7 +185,7 @@ func (m radioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "t":
 			if !m.searchInput.Focused() {
-				m.mode = "trending"
+				m.mode = ModeTrending
 				m.loading = true
 				return m, m.loadTrending()
 			}
@@ -284,11 +284,12 @@ func (m radioModel) View() string {
 
 	// Status bar
 	var status string
-	if m.err != nil {
+	switch {
+	case m.err != nil:
 		status = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(fmt.Sprintf("Error: %v", m.err))
-	} else if m.playing != "" {
+	case m.playing != "":
 		status = radioPlayingStyle.Render(fmt.Sprintf("Now playing: %s", m.playing))
-	} else {
+	default:
 		status = fmt.Sprintf("Mode: %s | Tab: focus | f: fav | p: popular | l: local | t: trend | h: hq | n: new | q: quit", m.mode)
 	}
 	b.WriteString("\n")
@@ -297,7 +298,7 @@ func (m radioModel) View() string {
 	return b.String()
 }
 
-// Command functions for async operations
+// Command functions for async operations.
 func (m radioModel) searchRadio(query string) tea.Cmd {
 	return func() tea.Msg {
 		resp, err := m.client.SearchRadio(query)
@@ -309,9 +310,9 @@ func (m radioModel) searchRadio(query string) tea.Cmd {
 		// Radio stations come as type "container" with containerPlayable=true and audioType="audioBroadcast"
 		var stations []kefw2.ContentItem
 		for _, row := range resp.Rows {
-			if row.ContainerPlayable && row.AudioType == "audioBroadcast" {
+			if row.ContainerPlayable && row.AudioType == TypeAudioBroadcast {
 				stations = append(stations, row)
-			} else if row.Type == "audio" {
+			} else if row.Type == TypeAudio {
 				// Also include direct audio items
 				stations = append(stations, row)
 			}
@@ -390,11 +391,11 @@ func (m radioModel) loadNew() tea.Cmd {
 	}
 }
 
-// filterPlayableStations filters stations to only include playable radio stations
+// filterPlayableStations filters stations to only include playable radio stations.
 func filterPlayableStations(rows []kefw2.ContentItem) []kefw2.ContentItem {
 	var stations []kefw2.ContentItem
 	for _, row := range rows {
-		if row.ContainerPlayable && row.AudioType == "audioBroadcast" || row.Type == "audio" {
+		if row.ContainerPlayable && row.AudioType == TypeAudioBroadcast || row.Type == TypeAudio {
 			stations = append(stations, row)
 		}
 	}
@@ -408,7 +409,7 @@ func playRadioStationWithDetails(client *kefw2.AirableClient, station *kefw2.Con
 	return client.ResolveAndPlayRadioStation(station)
 }
 
-// radioCmd represents the radio command
+// radioCmd represents the radio command.
 var radioCmd = &cobra.Command{
 	Use:     "radio",
 	Aliases: []string{"r"},
@@ -428,7 +429,7 @@ Keyboard shortcuts:
   h      - Load high quality stations
   n      - Load new stations
   q      - Quit`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 		model := initialRadioModel(client)
 
@@ -438,14 +439,14 @@ Keyboard shortcuts:
 	},
 }
 
-// radioSearchCmd handles direct search from command line
+// radioSearchCmd handles direct search from command line.
 var radioSearchCmd = &cobra.Command{
 	Use:               "search [query]",
 	Short:             "Search for radio stations",
 	Long:              `Search for radio stations by name or keyword. Shows an interactive picker to select and play.`,
 	Args:              cobra.MinimumNArgs(1),
 	ValidArgsFunction: DynamicRadioSearchCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		query := strings.Join(args, " ")
 		client := kefw2.NewAirableClient(currentSpeaker)
 
@@ -478,7 +479,7 @@ var radioSearchCmd = &cobra.Command{
 	},
 }
 
-// radioFavoritesCmd lists favorite stations
+// radioFavoritesCmd lists favorite stations.
 var radioFavoritesCmd = &cobra.Command{
 	Use:               "favorites [station]",
 	Aliases:           []string{"fav"},
@@ -523,7 +524,7 @@ var radioFavoritesCmd = &cobra.Command{
 		title := "Favorite Radio Stations"
 		if removeFav {
 			action = ActionRemoveFavorite
-			title = title + " (remove mode)"
+			title += SuffixRemoveMode
 		}
 
 		result, err := RunContentPicker(ContentPickerConfig{
@@ -542,13 +543,13 @@ var radioFavoritesCmd = &cobra.Command{
 	},
 }
 
-// radioPlayCmd plays a station by name
+// radioPlayCmd plays a station by name.
 var radioPlayCmd = &cobra.Command{
 	Use:               "play [station name]",
 	Short:             "Play a radio station by searching and playing the first match, or select from results",
 	Args:              cobra.MinimumNArgs(1),
 	ValidArgsFunction: RadioPlayCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		query := strings.Join(args, " ")
 		client := kefw2.NewAirableClient(currentSpeaker)
 
@@ -590,7 +591,7 @@ var radioPlayCmd = &cobra.Command{
 	},
 }
 
-// radioPopularCmd lists popular stations
+// radioPopularCmd lists popular stations.
 var radioPopularCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "popular [station]",
 	Short:             "Browse and play popular radio stations",
@@ -607,7 +608,7 @@ var radioPopularCmd = MakeCategoryCommand(CategoryConfig{
 	SupportsSaveFav:   true,
 })
 
-// radioLocalCmd lists local stations
+// radioLocalCmd lists local stations.
 var radioLocalCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "local [station]",
 	Short:             "Browse and play local radio stations",
@@ -624,7 +625,7 @@ var radioLocalCmd = MakeCategoryCommand(CategoryConfig{
 	SupportsSaveFav:   true,
 })
 
-// radioTrendingCmd lists trending stations
+// radioTrendingCmd lists trending stations.
 var radioTrendingCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "trending [station]",
 	Short:             "Browse and play trending radio stations",
@@ -641,7 +642,7 @@ var radioTrendingCmd = MakeCategoryCommand(CategoryConfig{
 	SupportsSaveFav:   true,
 })
 
-// radioHQCmd lists high quality stations
+// radioHQCmd lists high quality stations.
 var radioHQCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "hq [station]",
 	Aliases:           []string{"highquality"},
@@ -659,7 +660,7 @@ var radioHQCmd = MakeCategoryCommand(CategoryConfig{
 	SupportsSaveFav:   true,
 })
 
-// radioNewCmd lists new stations
+// radioNewCmd lists new stations.
 var radioNewCmd = MakeCategoryCommand(CategoryConfig{
 	Use:               "new [station]",
 	Short:             "Browse and play new radio stations",
@@ -676,7 +677,7 @@ var radioNewCmd = MakeCategoryCommand(CategoryConfig{
 	SupportsSaveFav:   true,
 })
 
-// radioBrowseCmd browses radio categories with hierarchical path completion
+// radioBrowseCmd browses radio categories with hierarchical path completion.
 var radioBrowseCmd = &cobra.Command{
 	Use:   "browse [path]",
 	Short: "Browse radio categories with tab completion",
@@ -694,7 +695,7 @@ Path escaping:
 When you reach a category with playable stations, press Enter to open
 an interactive fuzzy-filter picker.`,
 	ValidArgsFunction: HierarchicalRadioCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
 		browsePath := ""
@@ -713,7 +714,7 @@ an interactive fuzzy-filter picker.`,
 		// Count playable items vs containers
 		var playableItems []kefw2.ContentItem
 		for _, item := range resp.Rows {
-			if item.Type != "container" || item.ContainerPlayable {
+			if item.Type != TypeContainer || item.ContainerPlayable {
 				playableItems = append(playableItems, item)
 			}
 		}
@@ -746,7 +747,7 @@ an interactive fuzzy-filter picker.`,
 		action := ActionPlay
 		if saveFavoriteFlag {
 			action = ActionSaveFavorite
-			title = title + " (save mode)"
+			title += SuffixSaveMode
 		}
 
 		result, err := RunContentPicker(ContentPickerConfig{
@@ -787,7 +788,7 @@ func init() {
 	radioFavoritesCmd.Flags().BoolP("remove", "r", false, "Remove selected station from favorites instead of playing")
 }
 
-// RadioSearchCompletion provides completion for radio search queries
+// RadioSearchCompletion provides completion for radio search queries.
 func RadioSearchCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	// Suggest common radio search terms
 	return []string{
@@ -801,8 +802,8 @@ func RadioSearchCompletion(_ *cobra.Command, _ []string, _ string) ([]string, co
 	}, cobra.ShellCompDirectiveNoFileComp
 }
 
-// RadioPlayCompletion provides dynamic completion for radio play command
-// It fetches popular stations from the speaker for suggestions
+// RadioPlayCompletion provides dynamic completion for radio play command.
+// It fetches popular stations from the speaker for suggestions.
 func RadioPlayCompletion(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if currentSpeaker.IPAddress == "" {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -822,7 +823,7 @@ func RadioPlayCompletion(_ *cobra.Command, _ []string, toComplete string) ([]str
 
 	var completions []string
 	for _, station := range resp.Rows {
-		if station.ContainerPlayable && station.AudioType == "audioBroadcast" || station.Type == "audio" {
+		if station.ContainerPlayable && station.AudioType == TypeAudioBroadcast || station.Type == TypeAudio {
 			// Filter by what user has typed so far
 			if toComplete == "" || strings.HasPrefix(strings.ToLower(station.Title), strings.ToLower(toComplete)) {
 				completions = append(completions, station.Title)

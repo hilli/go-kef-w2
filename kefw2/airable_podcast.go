@@ -10,7 +10,7 @@ import (
 // Podcasts are accessed via the Airable feeds service.
 
 // GetPodcastMenu returns the top-level podcast menu.
-// Entry point: ui:/airablefeeds
+// Entry point: ui:/airablefeeds.
 func (a *AirableClient) GetPodcastMenu() (*RowsResponse, error) {
 	resp, err := a.GetRows("ui:/airablefeeds", 0, 19)
 	if err != nil {
@@ -99,7 +99,7 @@ func (a *AirableClient) GetPodcastEpisodesAll(podcastPath string) (*RowsResponse
 
 	// Find the Episodes container
 	for _, item := range resp.Rows {
-		if item.Title == "Episodes" && item.Type == "container" {
+		if item.Title == "Episodes" && item.Type == ContentTypeContainer {
 			return a.GetAllRows(item.Path)
 		}
 	}
@@ -117,7 +117,7 @@ func (a *AirableClient) GetLatestEpisode(podcast *ContentItem) (*ContentItem, er
 	// Find the Episodes container in the response
 	var episodesPath string
 	for _, item := range resp.Rows {
-		if item.Title == "Episodes" && item.Type == "container" {
+		if item.Title == "Episodes" && item.Type == ContentTypeContainer {
 			episodesPath = item.Path
 			break
 		}
@@ -179,7 +179,7 @@ func (a *AirableClient) RemovePodcastFavorite(podcast *ContentItem) error {
 }
 
 // BrowsePodcastByDisplayPath browses using a display path (title-based).
-// Example: "Favorites" or "Popular/Tech"
+// Example: "Favorites" or "Popular/Tech".
 func (a *AirableClient) BrowsePodcastByDisplayPath(displayPath string) (*RowsResponse, error) {
 	return a.browseByDisplayPath(ServicePodcast, displayPath)
 }

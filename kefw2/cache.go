@@ -98,7 +98,7 @@ func NewRowsCache(config CacheConfig) *RowsCache {
 
 	// Create cache directory if needed
 	if cache.persistDir != "" {
-		_ = os.MkdirAll(cache.persistDir, 0755)
+		_ = os.MkdirAll(cache.persistDir, 0750)
 	}
 
 	// Load existing cache from disk
@@ -239,7 +239,7 @@ func (c *RowsCache) saveLocked() error {
 		return err
 	}
 
-	if err := os.WriteFile(c.cacheFilePath(), data, 0644); err != nil {
+	if err := os.WriteFile(c.cacheFilePath(), data, 0600); err != nil {
 		return err
 	}
 

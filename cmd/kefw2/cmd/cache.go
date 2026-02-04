@@ -33,7 +33,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// CachedItem represents a cached content item for completion
+// CachedItem represents a cached content item for completion.
 type CachedItem struct {
 	Title       string `json:"title"`
 	Path        string `json:"path"`         // Actual API path
@@ -42,13 +42,13 @@ type CachedItem struct {
 	Description string `json:"description"`  // Optional description
 }
 
-// CacheEntry represents a cached response for a browse path
+// CacheEntry represents a cached response for a browse path.
 type CacheEntry struct {
 	Items     []CachedItem `json:"items"`
 	FetchedAt time.Time    `json:"fetched_at"`
 }
 
-// BrowseCache provides caching for hierarchical path completion
+// BrowseCache provides caching for hierarchical path completion.
 type BrowseCache struct {
 	cacheDir string
 	entries  map[string]*CacheEntry
@@ -56,10 +56,10 @@ type BrowseCache struct {
 	dirty    bool // Track if cache needs saving
 }
 
-// Global cache instance
+// Global cache instance.
 var browseCache *BrowseCache
 
-// NewBrowseCache creates a new browse cache
+// NewBrowseCache creates a new browse cache.
 func NewBrowseCache() (*BrowseCache, error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
@@ -69,7 +69,7 @@ func NewBrowseCache() (*BrowseCache, error) {
 	cacheDir = filepath.Join(cacheDir, "kefw2")
 
 	// Create cache directory if it doesn't exist
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -84,7 +84,7 @@ func NewBrowseCache() (*BrowseCache, error) {
 	return cache, nil
 }
 
-// InitCache initializes the global browse cache
+// InitCache initializes the global browse cache.
 func InitCache() {
 	var err error
 	browseCache, err = NewBrowseCache()
@@ -97,18 +97,18 @@ func InitCache() {
 	}
 }
 
-// cacheFilePath returns the path to the cache file
+// cacheFilePath returns the path to the cache file.
 func (c *BrowseCache) cacheFilePath() string {
 	return filepath.Join(c.cacheDir, "browse_cache.json")
 }
 
-// IsEnabled returns whether caching is enabled
+// IsEnabled returns whether caching is enabled.
 func (c *BrowseCache) IsEnabled() bool {
 	return viper.GetBool("cache.enabled")
 }
 
-// GetTTL returns the TTL for a given service type
-// Defaults are set in root.go initConfig(): default=300, radio=300, podcast=300, upnp=60
+// GetTTL returns the TTL for a given service type.
+// Defaults are set in root.go initConfig(): default=300, radio=300, podcast=300, upnp=60.
 func (c *BrowseCache) GetTTL(service string) time.Duration {
 	key := fmt.Sprintf("cache.ttl_%s", service)
 	seconds := viper.GetInt(key)
@@ -122,7 +122,7 @@ func (c *BrowseCache) GetTTL(service string) time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-// Get retrieves items from cache if valid
+// Get retrieves items from cache if valid.
 func (c *BrowseCache) Get(path string, service string) ([]CachedItem, bool) {
 	if !c.IsEnabled() {
 		return nil, false
@@ -146,7 +146,7 @@ func (c *BrowseCache) Get(path string, service string) ([]CachedItem, bool) {
 	return entry.Items, true
 }
 
-// Set stores items in cache
+// Set stores items in cache.
 func (c *BrowseCache) Set(path string, service string, items []CachedItem) {
 	if !c.IsEnabled() {
 		return
@@ -163,7 +163,7 @@ func (c *BrowseCache) Set(path string, service string, items []CachedItem) {
 	c.dirty = true
 }
 
-// Clear removes all cached data
+// Clear removes all cached data.
 func (c *BrowseCache) Clear() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -175,7 +175,7 @@ func (c *BrowseCache) Clear() error {
 	return os.Remove(c.cacheFilePath())
 }
 
-// Status returns cache statistics
+// Status returns cache statistics.
 func (c *BrowseCache) Status() (entries int, size int64, oldestAge time.Duration) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -201,7 +201,7 @@ func (c *BrowseCache) Status() (entries int, size int64, oldestAge time.Duration
 	return
 }
 
-// Load loads cache from disk
+// Load loads cache from disk.
 func (c *BrowseCache) Load() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -223,7 +223,7 @@ func (c *BrowseCache) Load() error {
 	return nil
 }
 
-// Save persists cache to disk
+// Save persists cache to disk.
 func (c *BrowseCache) Save() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -246,7 +246,7 @@ func (c *BrowseCache) Save() error {
 		return err
 	}
 
-	if err := os.WriteFile(c.cacheFilePath(), data, 0644); err != nil {
+	if err := os.WriteFile(c.cacheFilePath(), data, 0600); err != nil {
 		return err
 	}
 
@@ -254,12 +254,12 @@ func (c *BrowseCache) Save() error {
 	return nil
 }
 
-// CacheDir returns the cache directory path
+// CacheDir returns the cache directory path.
 func (c *BrowseCache) CacheDir() string {
 	return c.cacheDir
 }
 
-// FindItemByTitle finds a cached item by its title within a parent path
+// FindItemByTitle finds a cached item by its title within a parent path.
 func (c *BrowseCache) FindItemByTitle(parentPath, service, title string) (*CachedItem, bool) {
 	items, ok := c.Get(parentPath, service)
 	if !ok {
@@ -274,8 +274,8 @@ func (c *BrowseCache) FindItemByTitle(parentPath, service, title string) (*Cache
 	return nil, false
 }
 
-// ResolveDisplayPath resolves a display path (title-based) to an API path
-// Returns the API path and the last item, or empty string if not found
+// ResolveDisplayPath resolves a display path (title-based) to an API path.
+// Returns the API path and the last item, or empty string if not found.
 func (c *BrowseCache) ResolveDisplayPath(displayPath, service string) (string, *CachedItem, bool) {
 	if displayPath == "" {
 		return "", nil, true // Empty path = top level, no API path needed
@@ -318,7 +318,7 @@ func (c *BrowseCache) ResolveDisplayPath(displayPath, service string) (string, *
 // Cache Command
 // ============================================
 
-// cacheCmd represents the cache command
+// cacheCmd represents the cache command.
 var cacheCmd = &cobra.Command{
 	Use:   "cache",
 	Short: "Manage browse cache for tab completion",
@@ -328,11 +328,11 @@ The cache stores browse results to speed up tab completion.
 Cache location: ~/.cache/kefw2/`,
 }
 
-// cacheClearCmd clears the cache
+// cacheClearCmd clears the cache.
 var cacheClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Clear all cached browse data",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		if browseCache == nil {
 			errorPrinter.Println("Cache not initialized")
 			return
@@ -345,11 +345,11 @@ var cacheClearCmd = &cobra.Command{
 	},
 }
 
-// cacheStatusCmd shows cache status
+// cacheStatusCmd shows cache status.
 var cacheStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show cache statistics",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		// Get cache directory
 		cacheDir, err := os.UserCacheDir()
 		if err != nil {
@@ -361,7 +361,7 @@ var cacheStatusCmd = &cobra.Command{
 		rowsCachePath := filepath.Join(cacheDir, "rows_cache.json")
 		if info, err := os.Stat(rowsCachePath); err == nil {
 			// Read and parse the cache file to count entries
-			data, readErr := os.ReadFile(rowsCachePath)
+			data, readErr := os.ReadFile(rowsCachePath) //nolint:gosec // Path is constructed from user's cache dir
 			var entryCount int
 			var oldestAge time.Duration
 			if readErr == nil {
@@ -422,7 +422,7 @@ var cacheStatusCmd = &cobra.Command{
 	},
 }
 
-// formatBytes formats bytes as human-readable string
+// formatBytes formats bytes as human-readable string.
 func formatBytes(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {

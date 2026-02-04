@@ -33,7 +33,7 @@ import (
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// SavedQueue represents a saved queue file
+// SavedQueue represents a saved queue file.
 type SavedQueue struct {
 	Name   string       `yaml:"name"`
 	Tracks []SavedTrack `yaml:"tracks"`
@@ -108,7 +108,7 @@ func (t SavedTrack) toContentItem() kefw2.ContentItem {
 	}
 }
 
-// getQueuesDir returns the directory for saved queues
+// getQueuesDir returns the directory for saved queues.
 func getQueuesDir() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -116,14 +116,14 @@ func getQueuesDir() (string, error) {
 	}
 
 	queuesDir := filepath.Join(configDir, "kefw2", "queues")
-	if err := os.MkdirAll(queuesDir, 0755); err != nil {
+	if err := os.MkdirAll(queuesDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create queues directory: %w", err)
 	}
 
 	return queuesDir, nil
 }
 
-// getSavedQueuePath returns the path for a saved queue file
+// getSavedQueuePath returns the path for a saved queue file.
 func getSavedQueuePath(name string) (string, error) {
 	queuesDir, err := getQueuesDir()
 	if err != nil {
@@ -138,7 +138,7 @@ func getSavedQueuePath(name string) (string, error) {
 	return filepath.Join(queuesDir, safeName+".yaml"), nil
 }
 
-// listSavedQueues returns a list of saved queue names
+// listSavedQueues returns a list of saved queue names.
 func listSavedQueues() ([]string, error) {
 	queuesDir, err := getQueuesDir()
 	if err != nil {
@@ -168,7 +168,7 @@ func listSavedQueues() ([]string, error) {
 	return names, nil
 }
 
-// queueSaveCmd saves the current queue
+// queueSaveCmd saves the current queue.
 var queueSaveCmd = &cobra.Command{
 	Use:   "save <name>",
 	Short: "Save the current queue to a file",
@@ -183,7 +183,7 @@ Examples:
   kefw2 queue save "workout"
   kefw2 queue save "jazz favorites"`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 		name := args[0]
 
@@ -216,14 +216,14 @@ Examples:
 		exitOnError(err, "Failed to get queue file path")
 
 		// Write to file
-		err = os.WriteFile(filePath, data, 0644)
+		err = os.WriteFile(filePath, data, 0600)
 		exitOnError(err, "Failed to save queue")
 
 		taskConpletedPrinter.Printf("Saved %d tracks to '%s'\n", len(resp.Rows), name)
 	},
 }
 
-// queueLoadCmd loads a saved queue
+// queueLoadCmd loads a saved queue.
 var queueLoadCmd = &cobra.Command{
 	Use:   "load <name>",
 	Short: "Load a saved queue",
@@ -236,7 +236,7 @@ Examples:
   kefw2 queue load "jazz favorites"`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: SavedQueueCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 		name := args[0]
 
@@ -245,7 +245,7 @@ Examples:
 		exitOnError(err, "Failed to get queue file path")
 
 		// Read file
-		data, err := os.ReadFile(filePath)
+		data, err := os.ReadFile(filePath) //nolint:gosec // Path is constructed from user's config dir
 		if err != nil {
 			if os.IsNotExist(err) {
 				exitWithError("Saved queue '%s' not found.", name)
@@ -280,13 +280,13 @@ Examples:
 	},
 }
 
-// queueSavedCmd lists saved queues
+// queueSavedCmd lists saved queues.
 var queueSavedCmd = &cobra.Command{
 	Use:     "saved",
 	Aliases: []string{"list-saved"},
 	Short:   "List saved queues",
 	Long:    `List all saved queues stored locally.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		names, err := listSavedQueues()
 		exitOnError(err, "Failed to list saved queues")
 
@@ -302,7 +302,7 @@ var queueSavedCmd = &cobra.Command{
 	},
 }
 
-// queueDeleteSavedCmd deletes a saved queue
+// queueDeleteSavedCmd deletes a saved queue.
 var queueDeleteSavedCmd = &cobra.Command{
 	Use:               "delete-saved <name>",
 	Aliases:           []string{"rm-saved"},
@@ -310,7 +310,7 @@ var queueDeleteSavedCmd = &cobra.Command{
 	Long:              `Delete a previously saved queue file.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: SavedQueueCompletion,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		name := args[0]
 
 		filePath, err := getSavedQueuePath(name)
@@ -328,8 +328,8 @@ var queueDeleteSavedCmd = &cobra.Command{
 	},
 }
 
-// SavedQueueCompletion provides tab completion for saved queue names
-func SavedQueueCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// SavedQueueCompletion provides tab completion for saved queue names.
+func SavedQueueCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

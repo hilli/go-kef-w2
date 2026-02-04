@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// configCacheCmd configures cache settings
+// configCacheCmd configures cache settings.
 var configCacheCmd = &cobra.Command{
 	Use:   "cache [setting] [value]",
 	Short: "Show or configure cache settings",
@@ -51,7 +51,7 @@ Examples:
   kefw2 config cache enable             # Enable caching
   kefw2 config cache ttl-radio 600      # Set radio cache TTL to 10 minutes`,
 	Args: cobra.MaximumNArgs(2),
-	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	ValidArgsFunction: func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 		if len(args) == 0 {
 			// Complete setting names
 			completions := []string{
@@ -67,7 +67,7 @@ Examples:
 		// No completion for values (user enters a number)
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		// No args: show all cache settings
 		if len(args) == 0 {
 			showAllCacheSettings()
@@ -123,7 +123,7 @@ Examples:
 	},
 }
 
-// showAllCacheSettings displays all current cache configuration values
+// showAllCacheSettings displays all current cache configuration values.
 func showAllCacheSettings() {
 	headerPrinter.Println("Cache Configuration:")
 

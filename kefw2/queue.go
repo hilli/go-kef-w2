@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Play mode constants for queue playback
+// Play mode constants for queue playback.
 const (
 	PlayModeNormal           = "normal"
 	PlayModeRepeatOne        = "repeatOne"
@@ -223,11 +223,12 @@ func (a *AirableClient) SetShuffle(enabled bool) error {
 			newMode = PlayModeShuffle
 		}
 	} else {
-		if hasRepeatAll {
+		switch {
+		case hasRepeatAll:
 			newMode = PlayModeRepeatAll
-		} else if hasRepeatOne {
+		case hasRepeatOne:
 			newMode = PlayModeRepeatOne
-		} else {
+		default:
 			newMode = PlayModeNormal
 		}
 	}

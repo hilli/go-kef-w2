@@ -10,19 +10,19 @@ import (
 // Access local media servers like Plex, Sonos, etc.
 
 // GetMediaServers returns the list of available UPnP/DLNA media servers.
-// Entry point: ui:/upnp
+// Entry point: ui:/upnp.
 func (a *AirableClient) GetMediaServers() (*RowsResponse, error) {
 	return a.GetRows("ui:/upnp", 0, 19)
 }
 
 // BrowseMediaServer browses the root of a media server.
-// serverPath should be in format: upnp:/uuid:{uuid}?itemType=server
+// serverPath should be in format: upnp:/uuid:{uuid}?itemType=server.
 func (a *AirableClient) BrowseMediaServer(serverPath string) (*RowsResponse, error) {
 	return a.GetRows(serverPath, 0, 50)
 }
 
 // BrowseContainer browses a container (folder/album) on a media server.
-// containerPath should be in format: upnp:/uuid:{uuid}/{containerID}?itemType=container
+// containerPath should be in format: upnp:/uuid:{uuid}/{containerID}?itemType=container.
 func (a *AirableClient) BrowseContainer(containerPath string) (*RowsResponse, error) {
 	return a.GetRows(containerPath, 0, 100)
 }
@@ -76,7 +76,7 @@ func (a *AirableClient) GetPlayQueue() (*RowsResponse, error) {
 }
 
 // PlayUPnPContainer plays all tracks from a container (album/folder).
-// This follows the pattern: clear playlist → add all items → play from index 0
+// This follows the pattern: clear playlist → add all items → play from index 0.
 func (a *AirableClient) PlayUPnPContainer(containerPath string) error {
 	// Get the container contents
 	resp, err := a.BrowseContainer(containerPath)
@@ -87,7 +87,7 @@ func (a *AirableClient) PlayUPnPContainer(containerPath string) error {
 	// Filter to only audio tracks
 	var tracks []ContentItem
 	for _, item := range resp.Rows {
-		if item.Type == "audio" {
+		if item.Type == ContentTypeAudio {
 			tracks = append(tracks, item)
 		}
 	}
@@ -100,7 +100,7 @@ func (a *AirableClient) PlayUPnPContainer(containerPath string) error {
 }
 
 // PlayUPnPTracks plays a list of UPnP tracks using playlist-based playback.
-// Pattern: clear playlist → add items via pl/addexternalitems → play from player:player/control
+// Pattern: clear playlist → add items via pl/addexternalitems → play from player:player/control.
 func (a *AirableClient) PlayUPnPTracks(tracks []ContentItem) error {
 	if len(tracks) == 0 {
 		return fmt.Errorf("no tracks provided")
@@ -477,9 +477,10 @@ func (a *AirableClient) getAllTracksRecursive(containerPath string, progress Ind
 	}
 
 	for _, item := range resp.Rows {
-		if item.Type == "audio" {
+		switch item.Type {
+		case "audio":
 			tracks = append(tracks, item)
-		} else if item.Type == "container" {
+		case "container":
 			subContainers = append(subContainers, item)
 		}
 	}

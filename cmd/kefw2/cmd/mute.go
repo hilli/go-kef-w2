@@ -70,7 +70,7 @@ func parseMuteArg(mute string) (bool, error) {
 	switch mute {
 	case "on", "true", "1", "muted":
 		return true, nil
-	case "off", "false", "0", "unmute", "unmuted":
+	case PlayModeOff, "false", "0", "unmute", "unmuted":
 		return false, nil
 	default:
 		return false, fmt.Errorf("mute must be one of: on, off, true, false, 0, 1, muted, unmute, unmuted")

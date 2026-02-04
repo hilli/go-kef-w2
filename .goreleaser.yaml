@@ -150,8 +150,4 @@ announce:
     server: https://mastodon.social
 
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
+  disable: true

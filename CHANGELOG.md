@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-02-04
+
+### Fixed
+
+- Fixed playback from `upnp search` results - tracks now play and add to queue correctly
+  - The search index was missing audio file URIs required for playback
+  - Index version bumped to v2; run `kefw2 upnp index --rebuild` after updating
+
 ## [0.2.2] - 2025-02-03
 
 ### Added
@@ -358,7 +366,8 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/hilli/go-kef-w2/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/hilli/go-kef-w2/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/hilli/go-kef-w2/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/hilli/go-kef-w2/compare/v0.1.0...v0.2.0

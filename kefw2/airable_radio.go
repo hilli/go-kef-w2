@@ -9,7 +9,7 @@ import (
 // Internet radio stations are accessed via the Airable service.
 
 // GetRadioMenu returns the top-level radio menu.
-// Entry point: ui:/airableradios
+// Entry point: ui:/airableradios.
 func (a *AirableClient) GetRadioMenu() (*RowsResponse, error) {
 	resp, err := a.GetRows("ui:/airableradios", 0, 19)
 	if err != nil {
@@ -204,7 +204,7 @@ func (a *AirableClient) ResolveAndPlayRadioStation(station *ContentItem) error {
 }
 
 // BrowseRadioByDisplayPath browses using a display path (title-based).
-// Example: "Favorites" or "by Genre/Jazz"
+// Example: "Favorites" or "by Genre/Jazz".
 func (a *AirableClient) BrowseRadioByDisplayPath(displayPath string) (*RowsResponse, error) {
 	return a.browseByDisplayPath(ServiceRadio, displayPath)
 }
@@ -215,6 +215,7 @@ func (a *AirableClient) BrowseRadioByItemPath(itemPath string) (*RowsResponse, e
 }
 
 // BrowseRadioPath browses the radio hierarchy at the given path.
+//
 // Deprecated: Use BrowseRadioByDisplayPath instead.
 func (a *AirableClient) BrowseRadioPath(browsePath string) (*RowsResponse, error) {
 	return a.BrowseRadioByDisplayPath(browsePath)
