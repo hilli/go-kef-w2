@@ -17,6 +17,7 @@ import (
 
 const (
 	typeNameI32               = "i32_"
+	typeNameI64               = "i64_"
 	typeNameString            = "string_"
 	typeNameBool              = "bool_"
 	typeNameKefPhysicalSource = "kefPhysicalSource"
@@ -189,6 +190,34 @@ func (s *KEFSpeaker) setActivate(ctx context.Context, path, item, value string) 
 	return err
 }
 
+// setActivateMap sends an activate command with a map value to the speaker.
+// This is more flexible than setActivate for commands that need mixed types.
+func (s *KEFSpeaker) setActivateMap(ctx context.Context, path string, value map[string]any) error {
+	jsonStr, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("marshaling value: %w", err)
+	}
+	rawValue := json.RawMessage(jsonStr)
+
+	reqBody, err := json.Marshal(KEFPostRequest{
+		Path:  path,
+		Roles: "activate",
+		Value: &rawValue,
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling request: %w", err)
+	}
+
+	slog.Debug("setActivateMap", "path", path, "body", string(reqBody))
+
+	_, err = s.doRequest(ctx, requestConfig{
+		method: http.MethodPost,
+		path:   "setData",
+		body:   reqBody,
+	})
+	return err
+}
+
 // TypeEncoder interface for types that can encode themselves for the KEF API.
 type TypeEncoder interface {
 	KEFTypeInfo() (typeName string, value string)
@@ -211,26 +240,32 @@ func (c CableMode) KEFTypeInfo() (string, string) {
 
 // setTypedValue sets a typed value on the speaker.
 func (s *KEFSpeaker) setTypedValue(ctx context.Context, path string, value any) error {
-	var typeName, typeValue string
+	var typeName string
+	var typeValue any
 
 	switch v := value.(type) {
 	case int:
 		typeName = typeNameI32
-		typeValue = fmt.Sprintf("%d", v)
+		typeValue = v
+	case int64:
+		typeName = typeNameI64
+		typeValue = v
 	case string:
 		typeName = typeNameString
-		typeValue = fmt.Sprintf("%q", v)
+		typeValue = v
 	case bool:
 		typeName = typeNameBool
-		typeValue = fmt.Sprintf("%t", v)
+		typeValue = v
 	case TypeEncoder:
-		typeName, typeValue = v.KEFTypeInfo()
+		var strVal string
+		typeName, strVal = v.KEFTypeInfo()
+		typeValue = strVal
 	default:
 		return fmt.Errorf("unsupported type: %T", value)
 	}
 
-	// Build the JSON value
-	jsonStr, err := json.Marshal(map[string]string{
+	// Build the JSON value with proper types (not stringified)
+	jsonStr, err := json.Marshal(map[string]any{
 		"type":   typeName,
 		typeName: typeValue,
 	})
