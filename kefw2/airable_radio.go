@@ -3,6 +3,7 @@ package kefw2
 import (
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // Radio-specific methods for the AirableClient.
@@ -10,19 +11,37 @@ import (
 
 // GetRadioMenu returns the top-level radio menu.
 // Entry point: ui:/airableradios.
+// Follows multiple redirects until reaching the actual menu content.
 func (a *AirableClient) GetRadioMenu() (*RowsResponse, error) {
-	resp, err := a.GetRows("ui:/airableradios", 0, 19)
-	if err != nil {
-		return nil, err
+	path := "ui:/airableradios"
+
+	// Follow redirects (up to 5 to prevent infinite loops)
+	for i := 0; i < 5; i++ {
+		resp, err := a.GetRows(path, 0, 100)
+		if err != nil {
+			return nil, err
+		}
+
+		// If we got rows, we're at the final destination
+		if len(resp.Rows) > 0 {
+			// Cache the base URL if we found the final airable URL
+			if strings.HasPrefix(path, "airable:https://") {
+				a.RadioBaseURL = path
+			}
+			return resp, nil
+		}
+
+		// If there's a redirect, follow it
+		if resp.RowsRedirect != "" {
+			path = resp.RowsRedirect
+			continue
+		}
+
+		// No rows and no redirect - return what we have
+		return resp, nil
 	}
 
-	// Follow the redirect to get the actual menu
-	if resp.RowsRedirect != "" {
-		a.RadioBaseURL = resp.RowsRedirect
-		return a.GetRows(resp.RowsRedirect, 0, 19)
-	}
-
-	return resp, nil
+	return nil, fmt.Errorf("too many redirects when getting radio menu")
 }
 
 // SearchRadio searches for radio stations using direct URL pattern.

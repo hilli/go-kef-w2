@@ -172,7 +172,18 @@ func (a *AirableClient) SetQueueID(queueID string) {
 }
 
 // GetRows retrieves content rows from the specified path.
+// Results are cached if caching is enabled.
 func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error) {
+	// Build cache key including pagination
+	cacheKey := fmt.Sprintf("rows:%s:%d:%d", path, from, to)
+
+	// Check cache first
+	if a.Cache != nil {
+		if cached, ok := a.Cache.Get(cacheKey); ok {
+			return cached, nil
+		}
+	}
+
 	requestURL := fmt.Sprintf("http://%s/api/getRows?path=%s&roles=@all&from=%d&to=%d",
 		a.Speaker.IPAddress, url.QueryEscape(path), from, to)
 
@@ -195,6 +206,11 @@ func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error
 	var rowsResp RowsResponse
 	if err := json.Unmarshal(body, &rowsResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Cache the result
+	if a.Cache != nil {
+		a.Cache.Set(cacheKey, &rowsResp)
 	}
 
 	return &rowsResp, nil

@@ -10,20 +10,38 @@ import (
 // Podcasts are accessed via the Airable feeds service.
 
 // GetPodcastMenu returns the top-level podcast menu.
-// Entry point: ui:/airablefeeds.
+// Entry point: airable:linkService_airable.feeds.
+// Follows multiple redirects until reaching the actual menu content.
 func (a *AirableClient) GetPodcastMenu() (*RowsResponse, error) {
-	resp, err := a.GetRows("ui:/airablefeeds", 0, 19)
-	if err != nil {
-		return nil, err
+	path := "airable:linkService_airable.feeds"
+
+	// Follow redirects (up to 5 to prevent infinite loops)
+	for i := 0; i < 5; i++ {
+		resp, err := a.GetRows(path, 0, 100)
+		if err != nil {
+			return nil, err
+		}
+
+		// If we got rows, we're at the final destination
+		if len(resp.Rows) > 0 {
+			// Cache the base URL if we found the final airable URL
+			if strings.HasPrefix(path, "airable:https://") {
+				a.PodcastBaseURL = path
+			}
+			return resp, nil
+		}
+
+		// If there's a redirect, follow it
+		if resp.RowsRedirect != "" {
+			path = resp.RowsRedirect
+			continue
+		}
+
+		// No rows and no redirect - return what we have
+		return resp, nil
 	}
 
-	// Follow the redirect to get the actual menu
-	if resp.RowsRedirect != "" {
-		a.PodcastBaseURL = resp.RowsRedirect
-		return a.GetRows(resp.RowsRedirect, 0, 19)
-	}
-
-	return resp, nil
+	return nil, fmt.Errorf("too many redirects when getting podcast menu")
 }
 
 // SearchPodcasts searches for podcasts using direct URL pattern.
