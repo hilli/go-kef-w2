@@ -117,6 +117,19 @@ kefw2 play
 kefw2 pause
 ```
 
+Seek to a specific position in the current track or podcast
+
+```shell
+# Seek to 5 minutes and 30 seconds
+kefw2 seek 5:30
+
+# Seek to 1 hour, 23 minutes, 45 seconds
+kefw2 seek 1:23:45
+
+# Seek to 90 seconds
+kefw2 seek 90
+```
+
 Turn the speakers off
 
 ```shell
@@ -333,6 +346,7 @@ kefw2 events --json
 - [x] Get status
 - [x] Turn on/off
 - [x] Track next/previous
+- [x] Seek within tracks
 - [x] Discover speakers automatically
 - [x] Display cover art in ASCII (wifi media)
 - [x] Backup speaker settings/eq profiles to file

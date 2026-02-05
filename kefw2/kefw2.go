@@ -358,3 +358,14 @@ func (s *KEFSpeaker) SongProgress(ctx context.Context) (string, error) {
 func (s *KEFSpeaker) SongProgressMS(ctx context.Context) (int, error) {
 	return parseTypedInt(s.getData(ctx, "player:player/data/playTime"))
 }
+
+// SeekTo seeks to a specific position in the current track.
+// positionMS is the position in milliseconds.
+func (s *KEFSpeaker) SeekTo(ctx context.Context, positionMS int64) error {
+	// Use the player control path with seekTime control
+	// Format: {"control": "seekTime", "time": <milliseconds>}
+	return s.setActivateMap(ctx, "player:player/control", map[string]any{
+		"control": "seekTime",
+		"time":    positionMS,
+	})
+}

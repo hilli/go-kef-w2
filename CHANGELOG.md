@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-02-05
+
+### Added
+
+- **Seek Command**: New `kefw2 seek <position>` command for jumping to a specific position in the current track
+  - Supports multiple time formats: `hh:mm:ss`, `mm:ss`, or seconds
+  - Examples: `seek 1:30` (1 min 30 sec), `seek 1:23:45` (1 hr 23 min 45 sec), `seek 90` (90 seconds)
+- **Library: SeekTo method**: New `SeekTo(ctx, positionMS)` method for programmatic seeking within tracks
+
 ## [0.2.4] - 2026-02-04
 
 ### Fixed
@@ -373,7 +382,8 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/hilli/go-kef-w2/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/hilli/go-kef-w2/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/hilli/go-kef-w2/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/hilli/go-kef-w2/compare/v0.2.1...v0.2.2
