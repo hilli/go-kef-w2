@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-02-06
+
+### Added
+
+- **Browse container configuration**: Set a default starting folder for UPnP browsing
+  - `config upnp container browse <path>` - Set the starting container for browsing
+  - Skips parent containers and other servers for a cleaner navigation experience
+- **Browse cache**: New browse cache system for faster navigation and tab completion
+  - Caches container listings with configurable TTLs per service type
+  - Automatic cache persistence and cleanup
+- **Cache search**: Search cached entries for quick offline lookups
+- **Library: Track indexing moved to kefw2 package**: Track index functionality is now part of the library
+  - `kefw2.LoadTrackIndex()`, `kefw2.SaveTrackIndex()`, `kefw2.BuildTrackIndex()`
+  - `kefw2.SearchTracks()`, `kefw2.TrackIndexPath()`, `kefw2.IsTrackIndexFresh()`
+  - `kefw2.FindContainerByPath()`, `kefw2.ListContainersAtPath()`
+
+### Changed
+
+- **Reorganized UPnP container config**: Moved from `config upnp index container` to `config upnp container index`
+  - `config upnp container browse` - Configure starting folder for browsing
+  - `config upnp container index` - Configure folder to index for search
+- **Improved queue playback**: Fixed queue track playback to properly handle metadata and resources
+- **Enhanced UPnP track metadata handling**: Preserve original serviceID and support Airable-specific metadata fields
+
+### Fixed
+
+- **Player event duration fallback**: Duration now correctly falls back to MediaData.Resources or ActiveResource when Status.Duration is zero
+- **Podcast playback**: Improved handling of Airable podcast authentication by playing through parent containers
+- **Queue index playback**: Queue items now fetch track details when not provided
+
 ## [0.2.5] - 2026-02-05
 
 ### Added
@@ -382,7 +412,8 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/hilli/go-kef-w2/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/hilli/go-kef-w2/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/hilli/go-kef-w2/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/hilli/go-kef-w2/compare/v0.2.2...v0.2.3
