@@ -169,11 +169,73 @@ func (a *AirableClient) GetPodcastDetails(podcastPath string) (*ContentItem, err
 }
 
 // PlayPodcastEpisode plays a podcast episode using the player:player/control pattern.
+// Due to Airable's authentication requirements, podcast episodes must be played
+// through their parent container (episodes listing). This function plays the
+// container, which starts playback from the first episode.
+//
+// Note: Unlike radio stations, individual podcast episode paths cannot be resolved
+// directly by the speaker. The speaker needs to resolve streams through the Airable
+// session established with the container.
 func (a *AirableClient) PlayPodcastEpisode(episode *ContentItem) error {
-	if err := a.playItem(episode); err != nil {
-		return fmt.Errorf("failed to play podcast episode: %w", err)
+	// Try to extract or derive the episodes container path from the episode
+	containerPath := a.getEpisodesContainerPath(episode)
+	if containerPath == "" {
+		// Fallback: try direct playback (may fail with "Request was canceled")
+		episode.ContainerPlayable = true
+		if episode.Type == "" {
+			episode.Type = ContentTypeAudio
+		}
+		return a.playItem(episode)
+	}
+
+	// Play the episodes container - the speaker will resolve streams through Airable
+	container := &ContentItem{
+		Path:              containerPath,
+		Title:             "Episodes",
+		Type:              ContentTypeContainer,
+		ContainerPlayable: true,
+		MediaData: &MediaData{
+			MetaData: MediaMetaData{
+				ServiceID: "airablePodcasts",
+			},
+		},
+	}
+
+	if err := a.playItem(container); err != nil {
+		return fmt.Errorf("failed to play podcast episodes container: %w", err)
 	}
 	return nil
+}
+
+// getEpisodesContainerPath extracts the episodes container path from an episode.
+// Episode paths look like: airable:https://xxx.airable.io/id/airable/feed.episode/123
+// We need the container: airable:https://xxx.airable.io/airable/feed/PODCAST_ID/episodes
+//
+// We try to find the container path from:
+// 1. The contentPlayContextPath metadata (if it points to a container)
+// 2. Cached/known podcast feed paths
+// 3. Pattern matching on the episode path
+func (a *AirableClient) getEpisodesContainerPath(episode *ContentItem) string {
+	// The episode path format is: airable:https://xxx.airable.io/id/airable/feed.episode/EPISODE_ID
+	// We can't directly derive the podcast feed ID from this.
+	//
+	// However, the contentPlayContextPath often contains the episode path.
+	// For now, we return empty and let the caller handle fallback.
+	//
+	// In the future, we could:
+	// 1. Maintain a cache of episode ID -> container path mappings
+	// 2. Store the container path when browsing episodes
+	// 3. Ask the user to browse to the podcast first
+
+	// Check if we have context information
+	if episode.Context != nil && episode.Context.Path != "" {
+		// If context points to an episodes container, use it
+		if strings.Contains(episode.Context.Path, "/episodes") {
+			return episode.Context.Path
+		}
+	}
+
+	return ""
 }
 
 // PlayPodcastByPath plays a podcast episode by its path.

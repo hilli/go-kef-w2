@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -112,14 +113,26 @@ func (a *AirableClient) MoveQueueItem(fromIndex, toIndex int) error {
 }
 
 // PlayQueueIndex starts playback from a specific position in the queue.
-// index is 0-based. track should be the ContentItem at that index.
+// index is 0-based. track is optional - if nil, will be fetched from queue.
 func (a *AirableClient) PlayQueueIndex(index int, track *ContentItem) error {
+	// If track not provided, fetch it from the queue
 	if track == nil {
-		return fmt.Errorf("track is required")
+		queue, err := a.GetPlayQueue()
+		if err != nil {
+			return fmt.Errorf("failed to get queue: %w", err)
+		}
+		if index < 0 || index >= len(queue.Rows) {
+			return fmt.Errorf("queue index %d out of range (queue has %d items)", index, len(queue.Rows))
+		}
+		track = &queue.Rows[index]
 	}
+
+	log.Printf("[PlayQueueIndex] Playing index %d: %q (path=%s, type=%s)", index, track.Title, track.Path, track.Type)
 
 	trackRoles := buildUPnPTrackRoles(track)
 
+	// Use player:player/control with itemInContainer to play from queue context
+	// This preserves the queue so the speaker advances to next track
 	playPayload := map[string]interface{}{
 		"path": "player:player/control",
 		"role": "activate",

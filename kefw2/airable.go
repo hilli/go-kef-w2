@@ -84,16 +84,18 @@ type MediaData struct {
 
 // MediaMetaData contains metadata about the media.
 type MediaMetaData struct {
-	Artist                 string `json:"artist,omitempty"`
-	Album                  string `json:"album,omitempty"`
-	Genre                  string `json:"genre,omitempty"`
-	Composer               string `json:"composer,omitempty"`
-	ServiceID              string `json:"serviceID,omitempty"` // "airableRadios", "UPnP", etc.
-	Live                   bool   `json:"live,omitempty"`
-	PlayLogicPath          string `json:"playLogicPath,omitempty"`
-	ContentPlayContextPath string `json:"contentPlayContextPath,omitempty"`
-	PrePlayPath            string `json:"prePlayPath,omitempty"`
-	MaximumRetryCount      int    `json:"maximumRetryCount,omitempty"`
+	Artist                  string `json:"artist,omitempty"`
+	Album                   string `json:"album,omitempty"`
+	Genre                   string `json:"genre,omitempty"`
+	Composer                string `json:"composer,omitempty"`
+	ServiceID               string `json:"serviceID,omitempty"` // "airableRadios", "UPnP", etc.
+	Live                    bool   `json:"live,omitempty"`
+	PlayLogicPath           string `json:"playLogicPath,omitempty"`
+	ContentPlayContextPath  string `json:"contentPlayContextPath,omitempty"`
+	PrePlayPath             string `json:"prePlayPath,omitempty"`
+	MaximumRetryCount       int    `json:"maximumRetryCount,omitempty"`
+	PlaybackStateChangePath string `json:"playbackStateChangePath,omitempty"` // For Airable podcasts/radio
+	RadioStation            bool   `json:"radioStation,omitempty"`            // For Airable radio
 }
 
 // MediaResource represents a single audio stream resource.

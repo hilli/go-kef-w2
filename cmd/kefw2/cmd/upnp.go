@@ -538,7 +538,7 @@ Examples:
 				containerPath = resp.Roles.Path
 			} else {
 				// Fallback: navigate to get the actual container path
-				containerPath, _, err = findContainerByPath(client, serverPath, path)
+				containerPath, _, err = kefw2.FindContainerByPath(client, serverPath, path)
 				exitOnError(err, "Failed to find container")
 			}
 		}
@@ -593,7 +593,7 @@ Examples:
 		client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithHTTPTimeout(60*time.Second))
 
 		// Load index
-		index, err := LoadTrackIndex()
+		index, err := kefw2.LoadTrackIndex()
 		if err != nil {
 			exitWithError("Could not load search index: %v\nRun 'kefw2 upnp index --rebuild' to create one.", err)
 		}
@@ -602,16 +602,16 @@ Examples:
 		}
 
 		// Check if index is stale
-		if !IsTrackIndexFresh(index, defaultIndexMaxAge) {
+		if !kefw2.IsTrackIndexFresh(index, defaultIndexMaxAge) {
 			headerPrinter.Printf("Note: Search index is %s old. Run 'kefw2 upnp index --rebuild' to refresh.\n\n",
 				time.Since(index.IndexedAt).Round(time.Hour))
 		}
 
 		// Search or browse all tracks
-		var results []IndexedTrack
+		var results []kefw2.IndexedTrack
 		var title string
 		if query != "" {
-			results = SearchTracks(index, query, 100)
+			results = kefw2.SearchTracks(index, query, 100)
 			if len(results) == 0 {
 				contentPrinter.Printf("No tracks found for '%s'\n", query)
 				return
@@ -626,7 +626,7 @@ Examples:
 		// Convert to ContentItems for the picker
 		items := make([]kefw2.ContentItem, len(results))
 		for i, track := range results {
-			items[i] = IndexedTrackToContentItem(&track)
+			items[i] = kefw2.IndexedTrackToContentItem(&track)
 			// Add duration and details to description for display
 			desc := track.Artist
 			if track.Album != "" {
@@ -639,7 +639,7 @@ Examples:
 				if desc != "" {
 					desc += " "
 				}
-				desc += fmt.Sprintf("(%s)", FormatDuration(track.Duration))
+				desc += fmt.Sprintf("(%s)", kefw2.FormatTrackDuration(track.Duration))
 			}
 			items[i].LongDescription = desc
 		}
@@ -710,7 +710,7 @@ Examples:
 
 		if !rebuild {
 			// Show status
-			index, _ := LoadTrackIndex()
+			index, _ := kefw2.LoadTrackIndex()
 			headerPrinter.Println("UPnP Track Index Status:")
 			if index != nil {
 				contentPrinter.Printf("  Server:      %s\n", index.ServerName)
@@ -720,7 +720,7 @@ Examples:
 				contentPrinter.Printf("  Tracks:      %d\n", index.TrackCount)
 				age := time.Since(index.IndexedAt)
 				contentPrinter.Printf("  Age:         %v\n", age.Round(time.Second))
-				contentPrinter.Printf("  Location:    %s\n", getTrackIndexPath())
+				contentPrinter.Printf("  Location:    %s\n", kefw2.TrackIndexPath())
 
 				if index.ServerName != serverName {
 					headerPrinter.Printf("\n  Note: Index is for different server (%s vs %s)\n", index.ServerName, serverName)
@@ -751,19 +751,19 @@ Examples:
 		}
 
 		startTime := time.Now()
-		index, err := BuildTrackIndex(client, serverPath, serverName, containerPath, func(containers, tracks int, _ string) {
+		index, err := kefw2.BuildTrackIndex(client, serverPath, serverName, containerPath, func(containers, tracks int, _ string) {
 			fmt.Printf("\r  Scanning... %d containers, %d tracks found", containers, tracks)
 		})
 		fmt.Println() // Newline after progress
 		exitOnError(err, "Failed to build index")
 
-		if err := SaveTrackIndex(index); err != nil {
+		if err := kefw2.SaveTrackIndex(index); err != nil {
 			exitWithError("Failed to save index: %v", err)
 		}
 
 		duration := time.Since(startTime).Round(time.Millisecond)
 		taskConpletedPrinter.Printf("Indexed %d tracks in %v\n", index.TrackCount, duration)
-		contentPrinter.Printf("Index saved to: %s\n", getTrackIndexPath())
+		contentPrinter.Printf("Index saved to: %s\n", kefw2.TrackIndexPath())
 	},
 }
 

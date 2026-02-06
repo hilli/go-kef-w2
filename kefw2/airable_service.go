@@ -1,7 +1,9 @@
 package kefw2
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -323,6 +325,12 @@ func buildMediaRoles(item *ContentItem) map[string]interface{} {
 		if item.MediaData.MetaData.MaximumRetryCount > 0 {
 			metaData["maximumRetryCount"] = item.MediaData.MetaData.MaximumRetryCount
 		}
+		if item.MediaData.MetaData.PlaybackStateChangePath != "" {
+			metaData["playbackStateChangePath"] = item.MediaData.MetaData.PlaybackStateChangePath
+		}
+		if item.MediaData.MetaData.RadioStation {
+			metaData["radioStation"] = true
+		}
 		mediaData["metaData"] = metaData
 
 		// Resources
@@ -381,6 +389,11 @@ func (a *AirableClient) playItem(item *ContentItem) error {
 
 	// Build the mediaRoles payload
 	mediaRoles := buildMediaRoles(item)
+
+	// Log the mediaRoles for debugging comparison with queue playback
+	if rolesJSON, err := json.MarshalIndent(mediaRoles, "", "  "); err == nil {
+		log.Printf("[playItem] Sending mediaRoles: %s", string(rolesJSON))
+	}
 
 	// Send play command
 	payload := map[string]interface{}{
