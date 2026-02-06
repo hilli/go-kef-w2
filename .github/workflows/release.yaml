@@ -9,6 +9,9 @@ on:
 jobs:
   release:
     name: Release
+    permissions:
+      contents: write
+      packages: write
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
