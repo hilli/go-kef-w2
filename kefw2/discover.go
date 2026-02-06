@@ -39,9 +39,16 @@ func DiscoverSpeakers(ctx context.Context, timeout time.Duration) ([]*KEFSpeaker
 }
 
 func discoverIPs(ctx context.Context, timeout time.Duration) ([]string, error) {
-	// Create a context with timeout if not already set
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	// IMPORTANT: Use WithCancel instead of WithTimeout because the dnssd library
+	// only checks for context.Canceled, not context.DeadlineExceeded.
+	// This is a workaround for a bug in github.com/brutella/dnssd where
+	// readInto goroutines spin forever if the context times out.
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	// Set up our own timer to trigger cancellation
+	timer := time.AfterFunc(timeout, cancel)
+	defer timer.Stop()
 
 	var ips []string
 	discovered := make(chan string, 100)
