@@ -29,9 +29,7 @@ Sleep 2s
 Type "kefw2 config speaker list"
 Enter
 Sleep 3ms
-Type "kefw2 config speaker default "
-Tab@500ms 4
-Enter
+Type "kefw2 config speaker default Hillis\ Desk"
 Sleep 200ms
 Enter
 Sleep 500ms
@@ -96,11 +94,15 @@ Enter
 Sleep 2s
 Type "kefw2 radio popular"
 Enter
-Sleep 3s
+Sleep 2s
+Enter
+Sleep 2s
 Type "kefw2 radio browse "
 Tab@500ms 4
 Enter
 Sleep 2s
+Enter
+Sleep 1s
 Type "kefw2 pause"
 Enter
 Sleep 500ms
@@ -113,7 +115,7 @@ Type "kefw2 podcast --help"
 Enter
 Sleep 2s
 Type "kefw2 podcast trending"
-Enter
+Enter 4
 Sleep 3s
 Type "kefw2 podcast browse "
 Tab@500ms 4
@@ -130,8 +132,12 @@ Sleep 500ms
 Type "kefw2 upnp --help"
 Enter
 Sleep 2s
-Type "kefw2 upnp browse "
+Type "kefw2 upnp browse"
 Tab@500ms 4
+Enter 2
+Type@500ms "Sepul"
+Enter
+Sleep 2s
 Enter
 Sleep 2s
 Escape
