@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Stop command**: New `kefw2 stop` command to stop playback entirely
+  - Unlike pause, stop ends the current stream completely
+  - Useful for radio and live streams where pause is not meaningful
+- **Library: Stop method**: New `Stop(ctx)` method for programmatic stream termination
 - **Browse container configuration**: Set a default starting folder for UPnP browsing
   - `config upnp container browse <path>` - Set the starting container for browsing
   - Skips parent containers and other servers for a cleaner navigation experience
@@ -33,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Speaker discovery goroutine leak**: Fixed dnssd goroutine leak by using context.WithCancel instead of context.WithTimeout
 - **Player event duration fallback**: Duration now correctly falls back to MediaData.Resources or ActiveResource when Status.Duration is zero
 - **Podcast playback**: Improved handling of Airable podcast authentication by playing through parent containers
 - **Queue index playback**: Queue items now fetch track details when not provided

@@ -117,6 +117,12 @@ kefw2 play
 kefw2 pause
 ```
 
+Stop playback entirely (useful for radio/live streams)
+
+```shell
+kefw2 stop
+```
+
 Seek to a specific position in the current track or podcast
 
 ```shell
