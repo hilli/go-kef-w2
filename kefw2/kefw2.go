@@ -247,6 +247,13 @@ func (s *KEFSpeaker) PlayPause(ctx context.Context) error {
 	return s.setActivate(ctx, "player:player/control", "control", "pause")
 }
 
+// Stop stops playback entirely. Unlike PlayPause (which toggles), Stop ends
+// the current stream and cannot be resumed. This is particularly useful for
+// radio and live streams where pause is not meaningful.
+func (s *KEFSpeaker) Stop(ctx context.Context) error {
+	return s.setActivate(ctx, "player:player/control", "control", "stop")
+}
+
 // GetVolume returns the current volume level.
 func (s *KEFSpeaker) GetVolume(ctx context.Context) (int, error) {
 	return parseTypedInt(s.getData(ctx, "player:volume"))

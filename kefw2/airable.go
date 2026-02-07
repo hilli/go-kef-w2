@@ -84,16 +84,18 @@ type MediaData struct {
 
 // MediaMetaData contains metadata about the media.
 type MediaMetaData struct {
-	Artist                 string `json:"artist,omitempty"`
-	Album                  string `json:"album,omitempty"`
-	Genre                  string `json:"genre,omitempty"`
-	Composer               string `json:"composer,omitempty"`
-	ServiceID              string `json:"serviceID,omitempty"` // "airableRadios", "UPnP", etc.
-	Live                   bool   `json:"live,omitempty"`
-	PlayLogicPath          string `json:"playLogicPath,omitempty"`
-	ContentPlayContextPath string `json:"contentPlayContextPath,omitempty"`
-	PrePlayPath            string `json:"prePlayPath,omitempty"`
-	MaximumRetryCount      int    `json:"maximumRetryCount,omitempty"`
+	Artist                  string `json:"artist,omitempty"`
+	Album                   string `json:"album,omitempty"`
+	Genre                   string `json:"genre,omitempty"`
+	Composer                string `json:"composer,omitempty"`
+	ServiceID               string `json:"serviceID,omitempty"` // "airableRadios", "UPnP", etc.
+	Live                    bool   `json:"live,omitempty"`
+	PlayLogicPath           string `json:"playLogicPath,omitempty"`
+	ContentPlayContextPath  string `json:"contentPlayContextPath,omitempty"`
+	PrePlayPath             string `json:"prePlayPath,omitempty"`
+	MaximumRetryCount       int    `json:"maximumRetryCount,omitempty"`
+	PlaybackStateChangePath string `json:"playbackStateChangePath,omitempty"` // For Airable podcasts/radio
+	RadioStation            bool   `json:"radioStation,omitempty"`            // For Airable radio
 }
 
 // MediaResource represents a single audio stream resource.
@@ -172,7 +174,18 @@ func (a *AirableClient) SetQueueID(queueID string) {
 }
 
 // GetRows retrieves content rows from the specified path.
+// Results are cached if caching is enabled.
 func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error) {
+	// Build cache key including pagination
+	cacheKey := fmt.Sprintf("rows:%s:%d:%d", path, from, to)
+
+	// Check cache first
+	if a.Cache != nil {
+		if cached, ok := a.Cache.Get(cacheKey); ok {
+			return cached, nil
+		}
+	}
+
 	requestURL := fmt.Sprintf("http://%s/api/getRows?path=%s&roles=@all&from=%d&to=%d",
 		a.Speaker.IPAddress, url.QueryEscape(path), from, to)
 
@@ -195,6 +208,11 @@ func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error
 	var rowsResp RowsResponse
 	if err := json.Unmarshal(body, &rowsResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Cache the result
+	if a.Cache != nil {
+		a.Cache.Set(cacheKey, &rowsResp)
 	}
 
 	return &rowsResp, nil

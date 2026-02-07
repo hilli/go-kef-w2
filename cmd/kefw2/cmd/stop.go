@@ -19,25 +19,31 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-
-// Package cmd provides CLI commands for kefw2.
-// Track index functionality has been moved to the kefw2 library:
-//   - kefw2.IndexedTrack, kefw2.TrackIndex
-//   - kefw2.LoadTrackIndex(), kefw2.SaveTrackIndex()
-//   - kefw2.BuildTrackIndex(), kefw2.SearchTracks()
-//   - kefw2.TrackIndexPath(), kefw2.IsTrackIndexFresh()
-//   - kefw2.FindContainerByPath(), kefw2.ListContainersAtPath()
-//   - kefw2.IndexedTrackToContentItem(), kefw2.FormatTrackDuration()
 package cmd
 
 import (
-	"time"
+	"github.com/spf13/cobra"
 )
 
-// CLI-specific constants for track indexing.
-// TypeContainer and TypeAudio are defined in constants.go.
-const (
-	// defaultIndexMaxAge is the default maximum age for the track index.
-	// If the index is older than this, it will be considered stale.
-	defaultIndexMaxAge = 24 * time.Hour
-)
+// stopCmd stops playback entirely (useful for radio/live streams where pause is not meaningful).
+var stopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stop playback when on WiFi/BT source",
+	Long:  `Stop playback entirely. Unlike pause, this ends the current stream and is particularly useful for radio and live streams.`,
+	Args:  cobra.MaximumNArgs(0),
+	Run: func(cmd *cobra.Command, _ []string) {
+		ctx := cmd.Context()
+		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
+		exitOnError(err, "Can't stop speaker")
+		if !canControlPlayback {
+			headerPrinter.Println("Can't stop speaker: Not on WiFi/BT source.")
+			return
+		}
+		err = currentSpeaker.Stop(ctx)
+		exitOnError(err, "Can't stop playback")
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(stopCmd)
+}

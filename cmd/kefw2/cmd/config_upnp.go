@@ -153,39 +153,110 @@ func UPnPServerCompletion(_ *cobra.Command, args []string, toComplete string) ([
 }
 
 // upnpIndexConfigCmd is the parent for index config subcommands.
-var upnpIndexConfigCmd = &cobra.Command{
-	Use:   "index",
-	Short: "Configure UPnP search index settings",
-	Long:  `Configure settings for the UPnP search index, including the container path to index.`,
+var upnpContainerConfigCmd = &cobra.Command{
+	Use:   "container",
+	Short: "Configure UPnP container paths",
+	Long:  `Configure container paths for browsing and indexing.`,
 	Run: func(cmd *cobra.Command, _ []string) {
 		_ = cmd.Help()
 	},
 }
 
-// upnpIndexContainerCmd shows or sets the index container path.
-var upnpIndexContainerCmd = &cobra.Command{
-	Use:   "container [path]",
+// upnpContainerBrowseCmd shows or sets the browse container path.
+var upnpContainerBrowseCmd = &cobra.Command{
+	Use:   "browse [path]",
+	Short: "Show or set the container path for browsing",
+	Long: `Show the current container path for browsing, or set a new one.
+
+The browse container determines the starting point when browsing your UPnP library.
+When set, you won't see parent containers or other servers - the browse container
+becomes your "root" for navigation.
+
+Use "/" as separator for nested paths.
+
+Without arguments, displays the current setting.
+With a path, sets that as the starting container for browsing.
+
+Examples:
+  kefw2 config upnp container browse                           # Show current
+  kefw2 config upnp container browse "Music"                   # Start from Music folder
+  kefw2 config upnp container browse "Music/Hilli's Music"     # Start from specific folder
+  kefw2 config upnp container browse ""                        # Clear (show all servers)`,
+	Run: func(_ *cobra.Command, args []string) {
+		if len(args) == 0 {
+			// Show current setting
+			containerPath := viper.GetString("upnp.browse_container")
+			if containerPath == "" {
+				contentPrinter.Println("No browse container configured (will show all servers).")
+				contentPrinter.Println("Use 'kefw2 config upnp container browse <path>' to set one.")
+				return
+			}
+			headerPrinter.Print("Browse container: ")
+			contentPrinter.Println(containerPath)
+			return
+		}
+
+		// Set new container path
+		containerPath := args[0]
+
+		// If a path is provided, validate it exists
+		if containerPath != "" {
+			serverPath := viper.GetString("upnp.default_server_path")
+			if serverPath == "" {
+				exitWithError("No default UPnP server configured. Set one first with: kefw2 config upnp server default <name>")
+			}
+
+			client := kefw2.NewAirableClient(currentSpeaker)
+			_, resolvedName, err := kefw2.FindContainerByPath(client, serverPath, containerPath)
+			if err != nil {
+				exitWithError("Invalid container path: %v", err)
+			}
+			// Use the resolved path (with proper casing)
+			containerPath = resolvedName
+		}
+
+		// Save to config
+		viper.Set("upnp.browse_container", containerPath)
+		err := viper.WriteConfig()
+		exitOnError(err, "Error saving config")
+
+		if containerPath == "" {
+			taskConpletedPrinter.Println("Browse container cleared (will show all servers)")
+		} else {
+			taskConpletedPrinter.Print("Browse container set: ")
+			contentPrinter.Println(containerPath)
+		}
+	},
+	ValidArgsFunction: UPnPContainerCompletion,
+}
+
+// upnpContainerIndexCmd shows or sets the index container path.
+var upnpContainerIndexCmd = &cobra.Command{
+	Use:   "index [path]",
 	Short: "Show or set the container path for indexing",
 	Long: `Show the current container path for indexing, or set a new one.
 
 The container path determines which folder to start indexing from.
 Use "/" as separator for nested paths.
 
+TIP: For best results, use a "By Folder" path (e.g., "Music/Hilli's Music/By Folder").
+This indexes your actual folder structure without any reorganization by the media server.
+
 Without arguments, displays the current setting.
 With a path, sets that as the default container to index.
 
 Examples:
-  kefw2 config upnp index container                                  # Show current
-  kefw2 config upnp index container "Music"                          # Index Music folder
-  kefw2 config upnp index container "Music/Hilli's Music/By Folder"  # Index specific folder
-  kefw2 config upnp index container ""                               # Clear (index entire server)`,
+  kefw2 config upnp container index                                  # Show current
+  kefw2 config upnp container index "Music"                          # Index Music folder
+  kefw2 config upnp container index "Music/Hilli's Music/By Folder"  # Index by folder (recommended)
+  kefw2 config upnp container index ""                               # Clear (index entire server)`,
 	Run: func(_ *cobra.Command, args []string) {
 		if len(args) == 0 {
 			// Show current setting
 			containerPath := viper.GetString("upnp.index_container")
 			if containerPath == "" {
 				contentPrinter.Println("No index container configured (will index entire server).")
-				contentPrinter.Println("Use 'kefw2 config upnp index container <path>' to set one.")
+				contentPrinter.Println("Use 'kefw2 config upnp container index <path>' to set one.")
 				return
 			}
 			headerPrinter.Print("Index container: ")
@@ -204,12 +275,12 @@ Examples:
 			}
 
 			client := kefw2.NewAirableClient(currentSpeaker)
-			_, resolvedPath, err := findContainerByPath(client, serverPath, containerPath)
+			_, resolvedName, err := kefw2.FindContainerByPath(client, serverPath, containerPath)
 			if err != nil {
 				exitWithError("Invalid container path: %v", err)
 			}
 			// Use the resolved path (with proper casing)
-			containerPath = resolvedPath
+			containerPath = resolvedName
 		}
 
 		// Save to config
@@ -256,7 +327,7 @@ func UPnPContainerCompletion(_ *cobra.Command, args []string, toComplete string)
 	}
 
 	// Get containers at the parent path
-	containers, err := listContainersAtPath(client, serverPath, parentPath)
+	containers, err := kefw2.ListContainersAtPath(client, serverPath, parentPath)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -285,6 +356,7 @@ func init() {
 	upnpConfigCmd.AddCommand(upnpServerConfigCmd)
 	upnpServerConfigCmd.AddCommand(upnpServerDefaultCmd)
 	upnpServerConfigCmd.AddCommand(upnpServerListCmd)
-	upnpConfigCmd.AddCommand(upnpIndexConfigCmd)
-	upnpIndexConfigCmd.AddCommand(upnpIndexContainerCmd)
+	upnpConfigCmd.AddCommand(upnpContainerConfigCmd)
+	upnpContainerConfigCmd.AddCommand(upnpContainerBrowseCmd)
+	upnpContainerConfigCmd.AddCommand(upnpContainerIndexCmd)
 }

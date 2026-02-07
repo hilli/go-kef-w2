@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -273,4 +274,69 @@ func (c *RowsCache) IsEnabled() bool {
 // TTL returns the configured TTL.
 func (c *RowsCache) TTL() time.Duration {
 	return c.config.TTL
+}
+
+// Search searches all cached entries for items matching the query.
+// It searches in title, artist, and album fields (case-insensitive).
+// Only searches entries with paths starting with the given prefix (e.g., "upnp:" for UPnP content).
+// Returns matching ContentItems with a maximum of maxResults.
+func (c *RowsCache) Search(query string, pathPrefix string, maxResults int) []ContentItem {
+	if !c.config.Enabled || query == "" {
+		return nil
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	query = strings.ToLower(query)
+	var results []ContentItem
+	seen := make(map[string]bool) // Deduplicate by path
+
+	now := time.Now()
+	for key, entry := range c.entries {
+		// Skip expired entries
+		if now.Sub(entry.FetchedAt) > c.config.TTL {
+			continue
+		}
+
+		// Filter by path prefix if specified
+		if pathPrefix != "" && !strings.HasPrefix(key, pathPrefix) {
+			continue
+		}
+
+		// Search through all rows in this cache entry
+		for _, item := range entry.Response.Rows {
+			// Skip already seen items
+			if seen[item.Path] {
+				continue
+			}
+
+			// Only include audio items (skip containers)
+			if item.Type != "audio" {
+				continue
+			}
+
+			// Check if query matches title, artist, or album
+			matches := strings.Contains(strings.ToLower(item.Title), query)
+
+			if !matches && item.MediaData != nil {
+				if strings.Contains(strings.ToLower(item.MediaData.MetaData.Artist), query) {
+					matches = true
+				} else if strings.Contains(strings.ToLower(item.MediaData.MetaData.Album), query) {
+					matches = true
+				}
+			}
+
+			if matches {
+				results = append(results, item)
+				seen[item.Path] = true
+
+				if maxResults > 0 && len(results) >= maxResults {
+					return results
+				}
+			}
+		}
+	}
+
+	return results
 }

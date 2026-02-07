@@ -188,9 +188,13 @@ func buildUPnPTrackRoles(track *ContentItem) map[string]interface{} {
 	if track.MediaData != nil {
 		mediaData := map[string]interface{}{}
 
-		// Metadata
+		// Metadata - preserve original serviceID if available, default to UPnP for local content
+		serviceID := "UPnP"
+		if track.MediaData.MetaData.ServiceID != "" {
+			serviceID = track.MediaData.MetaData.ServiceID
+		}
 		metaData := map[string]interface{}{
-			"serviceID": "UPnP",
+			"serviceID": serviceID,
 		}
 		if track.MediaData.MetaData.Artist != "" {
 			metaData["artist"] = track.MediaData.MetaData.Artist
@@ -203,6 +207,19 @@ func buildUPnPTrackRoles(track *ContentItem) map[string]interface{} {
 		}
 		if track.MediaData.MetaData.Composer != "" {
 			metaData["composer"] = track.MediaData.MetaData.Composer
+		}
+		// Airable-specific metadata for radio/podcast content
+		if track.MediaData.MetaData.Live {
+			metaData["live"] = true
+		}
+		if track.MediaData.MetaData.ContentPlayContextPath != "" {
+			metaData["contentPlayContextPath"] = track.MediaData.MetaData.ContentPlayContextPath
+		}
+		if track.MediaData.MetaData.PrePlayPath != "" {
+			metaData["prePlayPath"] = track.MediaData.MetaData.PrePlayPath
+		}
+		if track.MediaData.MetaData.MaximumRetryCount > 0 {
+			metaData["maximumRetryCount"] = track.MediaData.MetaData.MaximumRetryCount
 		}
 		mediaData["metaData"] = metaData
 
