@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -406,7 +407,7 @@ var cacheStatusCmd = &cobra.Command{
 
 		// Show UPnP track index status
 		headerPrinter.Println("\nUPnP Track Index:")
-		index, err := LoadTrackIndex()
+		index, err := kefw2.LoadTrackIndex()
 		if err != nil || index == nil {
 			contentPrinter.Println("  No index found")
 			contentPrinter.Println("  Run 'kefw2 upnp index --rebuild' to create one")
@@ -417,7 +418,7 @@ var cacheStatusCmd = &cobra.Command{
 			}
 			contentPrinter.Printf("  Tracks: %d\n", index.TrackCount)
 			contentPrinter.Printf("  Age: %v\n", time.Since(index.IndexedAt).Round(time.Second))
-			contentPrinter.Printf("  Location: %s\n", getTrackIndexPath())
+			contentPrinter.Printf("  Location: %s\n", kefw2.TrackIndexPath())
 		}
 	},
 }

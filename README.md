@@ -123,6 +123,12 @@ kefw2 play
 kefw2 pause
 ```
 
+Stop playback entirely (useful for radio/live streams)
+
+```shell
+kefw2 stop
+```
+
 Seek to a specific position in the current track or podcast
 
 ```shell
@@ -246,7 +252,10 @@ scanning duplicate views (By Genre, By Album, etc. contain the same tracks):
 
 ```shell
 # Set the container path to index (with tab completion)
-kefw2 config upnp index container "Music/Hilli's Music/By Folder"
+kefw2 config upnp container index "Music/Hilli's Music/By Folder"
+
+# Set a default starting folder for browsing
+kefw2 config upnp container browse "Music/Hilli's Music"
 
 # Show current index status
 kefw2 upnp index
@@ -258,7 +267,7 @@ kefw2 upnp index --rebuild
 kefw2 upnp index --rebuild --container "Music/My Library/By Album"
 
 # Clear the container setting (index entire server)
-kefw2 config upnp index container ""
+kefw2 config upnp container index ""
 ```
 
 The container path uses `/` as separator and supports tab completion at each level.

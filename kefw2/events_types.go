@@ -242,6 +242,14 @@ func (ec *EventClient) parseRawEvent(ctx context.Context, raw rawEvent) Event {
 				event.Artist = pd.TrackRoles.MediaData.MetaData.Artist
 				event.Album = pd.TrackRoles.MediaData.MetaData.Album
 				event.Duration = pd.Status.Duration
+				// Fallback: check MediaData.Resources if Status.Duration is 0
+				if event.Duration == 0 && len(pd.TrackRoles.MediaData.Resources) > 0 {
+					event.Duration = pd.TrackRoles.MediaData.Resources[0].Duration
+				}
+				// Fallback: check ActiveResource if still 0
+				if event.Duration == 0 {
+					event.Duration = pd.TrackRoles.MediaData.ActiveResource.Duration
+				}
 				event.Icon = pd.TrackRoles.Icon
 				gotData = true
 			}
@@ -255,6 +263,14 @@ func (ec *EventClient) parseRawEvent(ctx context.Context, raw rawEvent) Event {
 				event.Artist = pd.TrackRoles.MediaData.MetaData.Artist
 				event.Album = pd.TrackRoles.MediaData.MetaData.Album
 				event.Duration = pd.Status.Duration
+				// Fallback: check MediaData.Resources if Status.Duration is 0
+				if event.Duration == 0 && len(pd.TrackRoles.MediaData.Resources) > 0 {
+					event.Duration = pd.TrackRoles.MediaData.Resources[0].Duration
+				}
+				// Fallback: check ActiveResource if still 0
+				if event.Duration == 0 {
+					event.Duration = pd.TrackRoles.MediaData.ActiveResource.Duration
+				}
 				event.Icon = pd.TrackRoles.Icon
 			}
 		}
