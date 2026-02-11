@@ -47,14 +47,27 @@ func TestAirableClient_GetRows(t *testing.T) {
 }
 
 func TestAirableClient_GetRadioMenu(t *testing.T) {
-	// Mock server to simulate the API
+	// Mock server to simulate the API with redirect handling
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/getRows" {
-			response := RowsResponse{
-				RowsCount:    0,
-				RowsRedirect: "airable:https://mock.airable.io/airable/radios",
+			path := r.URL.Query().Get("path")
+			if path == "airable:https://mock.airable.io/airable/radios" {
+				// Second request after redirect - return actual rows
+				response := RowsResponse{
+					RowsCount: 1,
+					Rows: []ContentItem{
+						{Title: "Popular", Type: "container", Path: "airable:https://mock.airable.io/airable/radios/popular"},
+					},
+				}
+				_ = json.NewEncoder(w).Encode(response)
+			} else {
+				// Initial request - return redirect
+				response := RowsResponse{
+					RowsCount:    0,
+					RowsRedirect: "airable:https://mock.airable.io/airable/radios",
+				}
+				_ = json.NewEncoder(w).Encode(response)
 			}
-			_ = json.NewEncoder(w).Encode(response)
 		}
 	}))
 	defer mockServer.Close()
@@ -62,10 +75,15 @@ func TestAirableClient_GetRadioMenu(t *testing.T) {
 	// Initialize AirableClient with the mock server
 	client := NewAirableClient(&KEFSpeaker{IPAddress: mockServer.URL[7:]})
 
-	// Call GetRadioMenu - this should set RadioBaseURL from redirect
-	_, err := client.GetRadioMenu()
+	// Call GetRadioMenu - this should follow the redirect and set RadioBaseURL
+	resp, err := client.GetRadioMenu()
 	if err != nil {
 		t.Fatalf("GetRadioMenu failed: %v", err)
+	}
+
+	// Validate rows were returned
+	if len(resp.Rows) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(resp.Rows))
 	}
 
 	// Validate RadioBaseURL was set
@@ -227,14 +245,27 @@ func TestContentItem_GetThumbnail(t *testing.T) {
 }
 
 func TestAirableClient_GetPodcastMenu(t *testing.T) {
-	// Mock server to simulate the API
+	// Mock server to simulate the API with redirect handling
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/getRows" {
-			response := RowsResponse{
-				RowsCount:    0,
-				RowsRedirect: "airable:https://mock.airable.io/airable/feeds",
+			path := r.URL.Query().Get("path")
+			if path == "airable:https://mock.airable.io/airable/feeds" {
+				// Second request after redirect - return actual rows
+				response := RowsResponse{
+					RowsCount: 1,
+					Rows: []ContentItem{
+						{Title: "Popular", Type: "container", Path: "airable:https://mock.airable.io/airable/feeds/popular"},
+					},
+				}
+				_ = json.NewEncoder(w).Encode(response)
+			} else {
+				// Initial request - return redirect
+				response := RowsResponse{
+					RowsCount:    0,
+					RowsRedirect: "airable:https://mock.airable.io/airable/feeds",
+				}
+				_ = json.NewEncoder(w).Encode(response)
 			}
-			_ = json.NewEncoder(w).Encode(response)
 		}
 	}))
 	defer mockServer.Close()
@@ -242,10 +273,15 @@ func TestAirableClient_GetPodcastMenu(t *testing.T) {
 	// Initialize AirableClient with the mock server
 	client := NewAirableClient(&KEFSpeaker{IPAddress: mockServer.URL[7:]})
 
-	// Call GetPodcastMenu
-	_, err := client.GetPodcastMenu()
+	// Call GetPodcastMenu - this should follow the redirect and set PodcastBaseURL
+	resp, err := client.GetPodcastMenu()
 	if err != nil {
 		t.Fatalf("GetPodcastMenu failed: %v", err)
+	}
+
+	// Validate rows were returned
+	if len(resp.Rows) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(resp.Rows))
 	}
 
 	// Validate PodcastBaseURL was set

@@ -22,28 +22,59 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// muteCmd toggles the mute state of the speakers.
+// playCmd resumes or starts playback on the speaker.
 var playCmd = &cobra.Command{
 	Use:   "play",
-	Short: "Resume playback when on WiFi/BT source if paused",
-	Long:  `Resume playback when on WiFi/BT source if paused`,
-	Args:  cobra.MaximumNArgs(0),
+	Short: "Resume or start playback",
+	Long: `Resume or start playback.
+
+If the speaker is in standby, it will be woken up by switching to WiFi
+before starting playback. If paused, playback is resumed. If stopped and
+the queue has tracks, playback starts from the top of the queue (or a
+random track if shuffle is enabled). If the queue is empty, a message is
+shown.`,
+	Args: cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, _ []string) {
 		ctx := cmd.Context()
-		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
+
+		// Check current source - refuse if on a non-streamable physical input
+		// (optical, coaxial, etc.) but allow standby since PlayOrResumeFromQueue
+		// will wake the speaker by switching to WiFi.
+		source, err := currentSpeaker.Source(ctx)
 		exitOnError(err, "Can't query source")
-		if !canControlPlayback {
-			headerPrinter.Println("Can only play on WiFi/BT source.")
+		if source != kefw2.SourceWiFi && source != kefw2.SourceBluetooth && source != kefw2.SourceStandby {
+			headerPrinter.Printf("Can only play on WiFi/BT source (current: %s).\n", source)
 			return
 		}
-		isPlaying, err := currentSpeaker.IsPlaying(ctx)
-		exitOnError(err, "Can't check playback state")
-		if !isPlaying {
-			err = currentSpeaker.PlayPause(ctx)
-			exitOnError(err, "Can't resume playback")
+
+		client := kefw2.NewAirableClient(currentSpeaker)
+		result, err := client.PlayOrResumeFromQueue(ctx)
+		exitOnError(err, "Can't play")
+
+		switch result.Action {
+		case kefw2.PlayActionStartedFromQueue:
+			if result.WokeFromStandby {
+				headerPrinter.Print("Woke speaker from standby. ")
+			}
+			if result.Shuffled {
+				headerPrinter.Print("Shuffling queue, playing: ")
+			} else {
+				headerPrinter.Print("Playing from queue: ")
+			}
+			contentPrinter.Printf("%s", result.Track.Title)
+			if result.Track.MediaData != nil && result.Track.MediaData.MetaData.Artist != "" {
+				contentPrinter.Printf(" - %s", result.Track.MediaData.MetaData.Artist)
+			}
+			fmt.Println()
+		case kefw2.PlayActionNothingToPlay:
+			headerPrinter.Println("Nothing to play - queue is empty.")
 		}
 	},
 }

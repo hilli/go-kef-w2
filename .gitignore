@@ -6,4 +6,6 @@ fyne-cross
 dist/
 completions/
 research
+go.work
+go.work.sum
 

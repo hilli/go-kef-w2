@@ -214,7 +214,7 @@ func (a *AirableClient) PlayPodcastEpisode(episode *ContentItem) error {
 // We try to find the container path from:
 // 1. The contentPlayContextPath metadata (if it points to a container)
 // 2. Cached/known podcast feed paths
-// 3. Pattern matching on the episode path
+// 3. Pattern matching on the episode path.
 func (a *AirableClient) getEpisodesContainerPath(episode *ContentItem) string {
 	// The episode path format is: airable:https://xxx.airable.io/id/airable/feed.episode/EPISODE_ID
 	// We can't directly derive the podcast feed ID from this.

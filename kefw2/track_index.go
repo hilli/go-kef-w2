@@ -502,6 +502,58 @@ func FilterByArtist(index *TrackIndex, artist string, maxResults int) []IndexedT
 	return results
 }
 
+// ArtistAlbum represents a unique album found in artist search results.
+type ArtistAlbum struct {
+	Album      string // Album name
+	Artist     string // Artist name (for display)
+	Icon       string // Album art from first track
+	TrackCount int    // Number of tracks in this album
+}
+
+// AlbumsForArtist extracts unique albums from a list of tracks (typically from FilterByArtist).
+// The input tracks are expected to be sorted by album already.
+// Returns albums in alphabetical order.
+func AlbumsForArtist(tracks []IndexedTrack) []ArtistAlbum {
+	if len(tracks) == 0 {
+		return nil
+	}
+
+	albumMap := make(map[string]*ArtistAlbum)
+	var albumOrder []string
+
+	for _, track := range tracks {
+		albumKey := strings.ToLower(track.Album)
+		if albumKey == "" {
+			albumKey = "(unknown album)"
+		}
+		if existing, ok := albumMap[albumKey]; ok {
+			existing.TrackCount++
+		} else {
+			displayAlbum := track.Album
+			if displayAlbum == "" {
+				displayAlbum = "(Unknown Album)"
+			}
+			albumMap[albumKey] = &ArtistAlbum{
+				Album:      displayAlbum,
+				Artist:     track.Artist,
+				Icon:       track.Icon,
+				TrackCount: 1,
+			}
+			albumOrder = append(albumOrder, albumKey)
+		}
+	}
+
+	// Sort alphabetically by album name
+	sort.Strings(albumOrder)
+
+	albums := make([]ArtistAlbum, 0, len(albumOrder))
+	for _, key := range albumOrder {
+		albums = append(albums, *albumMap[key])
+	}
+
+	return albums
+}
+
 // FilterByAlbum returns all tracks from the given album (case-insensitive exact match).
 // Results are sorted by title.
 func FilterByAlbum(index *TrackIndex, album string, maxResults int) []IndexedTrack {

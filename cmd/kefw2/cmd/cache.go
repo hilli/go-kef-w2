@@ -29,9 +29,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hilli/go-kef-w2/kefw2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 )
 
 // CachedItem represents a cached content item for completion.
