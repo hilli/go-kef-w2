@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-02-11
+
+### Added
+
+- **Standby wake on play**: `PlayOrResumeFromQueue` now automatically switches to WiFi and waits for the speaker to wake when called from standby, then starts playback from the queue
+- **Library: `WokeFromStandby` field on `PlayResult`**: Callers can check whether a standby wake occurred during playback start
+- **Library: `AlbumsForArtist()` helper**: New function and `ArtistAlbum` type for extracting unique albums from artist search results
+
+### Changed
+
+- **`play` command wakes from standby**: The CLI play command now wakes the speaker from standby instead of refusing; still refuses on non-streamable physical sources (optical, coaxial, etc.)
+- **Goreleaser: Homebrew cask**: Switched from Homebrew formula to Homebrew cask with shell completion installation and macOS quarantine removal
+- **Renamed `min` to `mins` in seek**: Avoids shadowing the Go 1.21+ `min` builtin
+
+### Fixed
+
+- **PlayerTrackRoles documentation**: Corrected `Path` and `ID` field comments — these are internal item IDs, not display indices
+- **Airable redirect handling**: Radio and podcast menu endpoints now properly follow redirects and return rows from the redirected path
+- **Import ordering**: Fixed import grouping in `cache.go`
+
 ## [0.2.6] - 2026-02-06
 
 ### Added
@@ -417,7 +437,8 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/hilli/go-kef-w2/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/hilli/go-kef-w2/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/hilli/go-kef-w2/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/hilli/go-kef-w2/compare/v0.2.3...v0.2.4
