@@ -113,7 +113,7 @@ func parseTimePosition(s string) (int64, error) {
 
 	case 2:
 		// mm:ss
-		min, err := strconv.ParseInt(parts[0], 10, 64)
+		mins, err := strconv.ParseInt(parts[0], 10, 64)
 		if err != nil {
 			return 0, fmt.Errorf("invalid minutes: %s", parts[0])
 		}
@@ -121,13 +121,13 @@ func parseTimePosition(s string) (int64, error) {
 		if err != nil {
 			return 0, fmt.Errorf("invalid seconds: %s", parts[1])
 		}
-		if min < 0 {
+		if mins < 0 {
 			return 0, fmt.Errorf("minutes cannot be negative")
 		}
 		if sec < 0 || sec >= 60 {
 			return 0, fmt.Errorf("seconds must be 0-59")
 		}
-		return (min*60 + sec) * 1000, nil
+		return (mins*60 + sec) * 1000, nil
 
 	case 3:
 		// hh:mm:ss
@@ -135,7 +135,7 @@ func parseTimePosition(s string) (int64, error) {
 		if err != nil {
 			return 0, fmt.Errorf("invalid hours: %s", parts[0])
 		}
-		min, err := strconv.ParseInt(parts[1], 10, 64)
+		mins, err := strconv.ParseInt(parts[1], 10, 64)
 		if err != nil {
 			return 0, fmt.Errorf("invalid minutes: %s", parts[1])
 		}
@@ -146,13 +146,13 @@ func parseTimePosition(s string) (int64, error) {
 		if hours < 0 {
 			return 0, fmt.Errorf("hours cannot be negative")
 		}
-		if min < 0 || min >= 60 {
+		if mins < 0 || mins >= 60 {
 			return 0, fmt.Errorf("minutes must be 0-59")
 		}
 		if sec < 0 || sec >= 60 {
 			return 0, fmt.Errorf("seconds must be 0-59")
 		}
-		return (hours*3600 + min*60 + sec) * 1000, nil
+		return (hours*3600 + mins*60 + sec) * 1000, nil
 
 	default:
 		return 0, fmt.Errorf("invalid time format: %s (use hh:mm:ss, mm:ss, or seconds)", s)

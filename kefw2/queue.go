@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"strconv"
+	"math/rand"
 	"strings"
+	"time"
 )
 
 // Play mode constants for queue playback.
@@ -58,12 +58,23 @@ func (a *AirableClient) AddToQueue(tracks []ContentItem, startIfEmpty bool) erro
 		},
 	}
 
-	if _, err := a.SetData(addPayload); err != nil {
+	resp, err := a.SetData(addPayload)
+	if err != nil {
 		return fmt.Errorf("failed to add tracks to queue: %w", err)
 	}
+	_ = resp
 
-	// If queue was empty and startIfEmpty is true, start playback
+	// If queue was empty and startIfEmpty is true, wait for tracks to appear then start playback
 	if queueWasEmpty && startIfEmpty {
+		// Poll until queue has items (speaker needs time to process the add)
+		for attempt := 0; attempt < 20; attempt++ {
+			time.Sleep(250 * time.Millisecond)
+			q, err := a.GetPlayQueue()
+			if err == nil && len(q.Rows) > 0 {
+				break
+			}
+		}
+		// Attempt playback even if queue appears empty after polling.
 		return a.PlayQueueIndex(0, &tracks[0])
 	}
 
@@ -126,8 +137,6 @@ func (a *AirableClient) PlayQueueIndex(index int, track *ContentItem) error {
 		}
 		track = &queue.Rows[index]
 	}
-
-	log.Printf("[PlayQueueIndex] Playing index %d: %q (path=%s, type=%s)", index, track.Title, track.Path, track.Type)
 
 	trackRoles := buildUPnPTrackRoles(track)
 
@@ -312,6 +321,8 @@ func (a *AirableClient) GetRepeatMode() (string, error) {
 
 // GetCurrentQueueIndex returns the 0-based index of the currently playing track
 // in the queue, or -1 if not playing from queue or unable to determine.
+// It matches by comparing the now-playing path against queue item paths,
+// since TrackRoles.Path contains an internal item ID, not the display index.
 func (a *AirableClient) GetCurrentQueueIndex() (int, error) {
 	// Get player data
 	playerData, err := a.Speaker.PlayerData(context.Background())
@@ -320,17 +331,144 @@ func (a *AirableClient) GetCurrentQueueIndex() (int, error) {
 	}
 
 	// Check if playing from queue (path starts with "playlists:item/")
-	path := playerData.TrackRoles.Path
-	if !strings.HasPrefix(path, "playlists:item/") {
+	nowPlayingPath := playerData.TrackRoles.Path
+	if !strings.HasPrefix(nowPlayingPath, "playlists:item/") {
 		return -1, nil // Not playing from queue
 	}
 
-	// Parse index from path like "playlists:item/1" (1-based in API, return 0-based)
-	idxStr := strings.TrimPrefix(path, "playlists:item/")
-	idx, err := strconv.Atoi(idxStr)
+	// Get queue and match by path
+	queue, err := a.GetPlayQueue()
 	if err != nil {
-		return -1, fmt.Errorf("failed to parse queue index from path: %s", path)
+		return -1, fmt.Errorf("failed to get queue for index lookup: %w", err)
 	}
 
-	return idx - 1, nil // Convert to 0-based
+	for i, item := range queue.Rows {
+		if item.Path == nowPlayingPath {
+			return i, nil
+		}
+	}
+
+	// Fallback: match by title
+	nowPlayingTitle := playerData.TrackRoles.Title
+	if nowPlayingTitle != "" {
+		for i, item := range queue.Rows {
+			if item.Title == nowPlayingTitle {
+				return i, nil
+			}
+		}
+	}
+
+	return -1, nil
+}
+
+// PlayAction describes what action PlayOrResumeFromQueue took.
+type PlayAction string
+
+const (
+	// PlayActionResumed means playback was resumed from a paused state.
+	PlayActionResumed PlayAction = "resumed"
+	// PlayActionStartedFromQueue means playback was started from the queue (transport was stopped).
+	PlayActionStartedFromQueue PlayAction = "startedFromQueue"
+	// PlayActionNothingToPlay means the transport was stopped and the queue was empty.
+	PlayActionNothingToPlay PlayAction = "nothingToPlay"
+	// PlayActionAlreadyPlaying means the speaker was already playing.
+	PlayActionAlreadyPlaying PlayAction = "alreadyPlaying"
+)
+
+// PlayResult contains the outcome of a PlayOrResumeFromQueue call.
+type PlayResult struct {
+	Action          PlayAction   // What action was taken
+	Track           *ContentItem // The track that was started (only when Action == PlayActionStartedFromQueue)
+	Index           int          // 0-based queue index of the track
+	Shuffled        bool         // True if a random track was picked due to shuffle mode
+	WokeFromStandby bool         // True if the speaker was woken from standby before playing
+}
+
+// PlayOrResumeFromQueue intelligently resumes or starts playback.
+//   - If the speaker is in standby, it switches to WiFi source and waits for
+//     the speaker to wake up before proceeding.
+//   - If already playing, it returns PlayActionAlreadyPlaying (no-op).
+//   - If paused, it toggles play/pause to resume (PlayActionResumed).
+//   - If stopped and the queue has tracks, it starts playback from the queue.
+//     When shuffle is enabled, a random track is picked; otherwise it plays from
+//     the top. Returns PlayActionStartedFromQueue with track details.
+//   - If stopped and the queue is empty, returns PlayActionNothingToPlay.
+func (a *AirableClient) PlayOrResumeFromQueue(ctx context.Context) (PlayResult, error) {
+	wokeFromStandby := false
+
+	// Check if speaker is in standby and wake it by switching to WiFi
+	source, err := a.Speaker.Source(ctx)
+	if err != nil {
+		return PlayResult{}, fmt.Errorf("failed to get speaker source: %w", err)
+	}
+	if source == SourceStandby {
+		if err := a.Speaker.SetSource(ctx, SourceWiFi); err != nil {
+			return PlayResult{}, fmt.Errorf("failed to switch to WiFi source: %w", err)
+		}
+		// Poll until the speaker is awake and on WiFi (up to ~10 seconds)
+		wakeTimeout := 10 * time.Second
+		pollInterval := 500 * time.Millisecond
+		deadline := time.Now().Add(wakeTimeout)
+		for time.Now().Before(deadline) {
+			time.Sleep(pollInterval)
+			s, err := a.Speaker.Source(ctx)
+			if err == nil && s == SourceWiFi {
+				wokeFromStandby = true
+				break
+			}
+		}
+		if !wokeFromStandby {
+			return PlayResult{}, fmt.Errorf("speaker did not wake up within %s", wakeTimeout)
+		}
+		// Give the player subsystem a moment to initialize after source switch
+		time.Sleep(1 * time.Second)
+	}
+
+	pd, err := a.Speaker.PlayerData(ctx)
+	if err != nil {
+		return PlayResult{}, fmt.Errorf("failed to get player data: %w", err)
+	}
+
+	switch pd.State {
+	case PlayerStatePlaying:
+		return PlayResult{Action: PlayActionAlreadyPlaying, WokeFromStandby: wokeFromStandby}, nil
+
+	case PlayerStatePaused:
+		if err := a.Speaker.PlayPause(ctx); err != nil {
+			return PlayResult{}, fmt.Errorf("failed to resume playback: %w", err)
+		}
+		return PlayResult{Action: PlayActionResumed, WokeFromStandby: wokeFromStandby}, nil
+
+	default: // stopped or any other state
+		queue, err := a.GetPlayQueue()
+		if err != nil {
+			return PlayResult{}, fmt.Errorf("failed to get play queue: %w", err)
+		}
+		if len(queue.Rows) == 0 {
+			return PlayResult{Action: PlayActionNothingToPlay, WokeFromStandby: wokeFromStandby}, nil
+		}
+
+		shuffled, err := a.IsShuffleEnabled()
+		if err != nil {
+			return PlayResult{}, fmt.Errorf("failed to check shuffle mode: %w", err)
+		}
+
+		index := 0
+		if shuffled {
+			index = rand.Intn(len(queue.Rows))
+		}
+
+		track := queue.Rows[index]
+		if err := a.PlayQueueIndex(index, &track); err != nil {
+			return PlayResult{}, fmt.Errorf("failed to play from queue: %w", err)
+		}
+
+		return PlayResult{
+			Action:          PlayActionStartedFromQueue,
+			Track:           &track,
+			Index:           index,
+			Shuffled:        shuffled,
+			WokeFromStandby: wokeFromStandby,
+		}, nil
+	}
 }

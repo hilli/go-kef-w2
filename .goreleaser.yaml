@@ -64,19 +64,28 @@ archives:
       - LICENSE
       - completions/*
 
-brews:
+homebrew_casks:
   - name: kefw2
-    goarm: 7
     commit_author:
       name: Jens Hilligsøe
       email: github@hilli.dk
-    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
     homepage: "https://github.com/hilli/go-kef-w2"
-    description: "Command for handling KEF W2 platform speakers (LSX Wireless II (LT)/LS50 Wireless II/LS60 Wireless)"
-    license: "MIT"
-    url_template: "https://github.com/hilli/go-kef-w2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    description: "CLI for controlling KEF W2 platform speakers"
+    url:
+      template: "https://github.com/hilli/go-kef-w2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+      verified: "github.com/hilli/go-kef-w2/"
     skip_upload: false
-    directory: Formula
+    completions:
+      bash: completions/kefw2.bash
+      zsh: completions/kefw2.zsh
+      fish: completions/kefw2.fish
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/kefw2"]
+          end
     repository:
       owner: hilli
       name: homebrew-tap
@@ -84,10 +93,6 @@ brews:
       pull_request:
         enabled: true
         draft: false
-    extra_install: |-
-      bash_completion.install "completions/kefw2.bash" => "kefw2"
-      zsh_completion.install "completions/kefw2.zsh" => "_kefw2"
-      fish_completion.install "completions/kefw2.fish"
 
 scoops:
   - repository:

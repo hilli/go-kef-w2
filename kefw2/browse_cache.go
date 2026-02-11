@@ -351,7 +351,7 @@ func (c *BrowseCache) ResolveDisplayPath(displayPath, service string) (apiPath s
 // ============================================
 
 // ParseHierarchicalPath splits a path into segments, handling escaped characters.
-// For example: "Rock/Classic Rock" -> ["Rock", "Classic Rock"]
+// For example: "Rock/Classic Rock" -> ["Rock", "Classic Rock"].
 func ParseHierarchicalPath(path string) []string {
 	if path == "" {
 		return nil
