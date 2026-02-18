@@ -3,8 +3,9 @@ package kefw2
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // AirableServiceType represents a type of Airable service (radio, podcast, etc.)
@@ -15,6 +16,8 @@ const (
 	ServiceRadio AirableServiceType = "radios"
 	// ServicePodcast represents the podcast/feeds service.
 	ServicePodcast AirableServiceType = "feeds"
+	// ServiceDeezer represents the Deezer music streaming service.
+	ServiceDeezer AirableServiceType = "deezer"
 )
 
 // serviceConfig holds configuration for each service type.
@@ -39,6 +42,12 @@ var serviceConfigs = map[AirableServiceType]serviceConfig{
 		actionType:  "feed",
 		serviceName: "podcast",
 	},
+	ServiceDeezer: {
+		entryPoint:  "ui:/airabledeezer",
+		urlPath:     "/deezer",
+		actionType:  "track",
+		serviceName: "deezer",
+	},
 }
 
 // getServiceBaseURL returns the cached base URL for the given service.
@@ -48,6 +57,8 @@ func (a *AirableClient) getServiceBaseURL(service AirableServiceType) string {
 		return a.RadioBaseURL
 	case ServicePodcast:
 		return a.PodcastBaseURL
+	case ServiceDeezer:
+		return a.DeezerBaseURL
 	default:
 		return ""
 	}
@@ -60,6 +71,8 @@ func (a *AirableClient) setServiceBaseURL(service AirableServiceType, url string
 		a.RadioBaseURL = url
 	case ServicePodcast:
 		a.PodcastBaseURL = url
+	case ServiceDeezer:
+		a.DeezerBaseURL = url
 	}
 }
 
@@ -392,7 +405,7 @@ func (a *AirableClient) playItem(item *ContentItem) error {
 
 	// Log the mediaRoles for debugging comparison with queue playback
 	if rolesJSON, err := json.MarshalIndent(mediaRoles, "", "  "); err == nil {
-		log.Printf("[playItem] Sending mediaRoles: %s", string(rolesJSON))
+		log.Debugf("[playItem] Sending mediaRoles: %s", string(rolesJSON))
 	}
 
 	// Send play command

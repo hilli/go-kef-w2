@@ -3,8 +3,9 @@ package kefw2
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // UPnP/DLNA media server methods for the AirableClient.
@@ -513,7 +514,7 @@ func (a *AirableClient) getAllTracksRecursive(containerPath string, progress Ind
 	for _, container := range subContainers {
 		subTracks, err := a.getAllTracksRecursive(container.Path, progress, state)
 		if err != nil {
-			log.Printf("Warning: failed to scan container %q: %v", container.Path, err)
+			log.Warnf("failed to scan container %q: %v", container.Path, err)
 			continue
 		}
 		tracks = append(tracks, subTracks...)
