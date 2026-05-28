@@ -926,3 +926,260 @@ func QueueMoveCompletion(_ *cobra.Command, args []string, toComplete string) ([]
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 }
+
+// ============================================
+// Deezer Completion Functions
+// ============================================
+
+// DynamicDeezerSearchCompletion provides dynamic completion for Deezer search by querying the API.
+func DynamicDeezerSearchCompletion(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(toComplete) < 2 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	client := kefw2.NewAirableClient(currentSpeaker)
+	resp, err := client.SearchDeezer(toComplete)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	return buildDeezerCompletions(resp.Rows, ""), cobra.ShellCompDirectiveNoFileComp
+}
+
+// DeezerChartsCompletion provides completion for Deezer charts subcategories.
+func DeezerChartsCompletion(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return []string{
+		"tracks\tChart tracks",
+		"albums\tChart albums",
+	}, cobra.ShellCompDirectiveNoFileComp
+}
+
+// DeezerMoodCompletion provides completion for Deezer mood streams.
+func DeezerMoodCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
+		// Fall back to known mood names
+		return []string{"Flow", "Happy", "Workout", "Party", "Chill", "Sad", "Love", "Focus"}, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	client := kefw2.NewAirableClient(currentSpeaker)
+	moods, err := client.GetDeezerMoods()
+	if err != nil {
+		return []string{"Flow", "Happy", "Workout", "Party", "Chill", "Sad", "Love", "Focus"}, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var completions []string
+	lowerFilter := strings.ToLower(toComplete)
+	for _, mood := range moods {
+		if toComplete == "" || strings.HasPrefix(strings.ToLower(mood.Title), lowerFilter) {
+			completions = append(completions, mood.Title)
+		}
+	}
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// DeezerGenresCompletion provides completion for Deezer genres.
+func DeezerGenresCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	client := kefw2.NewAirableClient(currentSpeaker, kefw2.WithDiskCache())
+	resp, err := client.GetDeezerGenres()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var completions []string
+	lowerFilter := strings.ToLower(toComplete)
+	for _, row := range resp.Rows {
+		if toComplete == "" || strings.HasPrefix(strings.ToLower(row.Title), lowerFilter) {
+			completions = append(completions, row.Title)
+		}
+	}
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// DeezerLibraryCompletion provides completion for Deezer library sections.
+func DeezerLibraryCompletion(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return []string{
+		"tracks\tYour saved tracks",
+		"albums\tYour saved albums",
+		"playlists\tYour playlists",
+		"history\tListening history",
+	}, cobra.ShellCompDirectiveNoFileComp
+}
+
+// HierarchicalDeezerCompletion provides hierarchical path completion for Deezer browsing.
+func HierarchicalDeezerCompletion(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	parentPath := ""
+	partial := ""
+
+	if toComplete != "" {
+		if strings.HasSuffix(toComplete, "/") {
+			parentPath = strings.TrimSuffix(toComplete, "/")
+			partial = ""
+		} else {
+			lastSlash := strings.LastIndex(toComplete, "/")
+			if lastSlash >= 0 {
+				parentPath = toComplete[:lastSlash]
+				partial = toComplete[lastSlash+1:]
+			} else {
+				parentPath = ""
+				partial = toComplete
+			}
+		}
+	}
+
+	partial = UnescapePathSegment(partial)
+
+	cacheKey := "deezer:" + parentPath
+	var items []CachedItem
+	if browseCache != nil {
+		if cached, ok := browseCache.Get(parentPath, cacheKey); ok {
+			items = cached
+		}
+	}
+
+	if items == nil {
+		client := kefw2.NewAirableClient(currentSpeaker)
+		resp, err := client.BrowseDeezerByDisplayPath(parentPath)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		items = convertDeezerRowsToCachedItems(resp.Rows, parentPath)
+
+		if browseCache != nil {
+			browseCache.Set(parentPath, cacheKey, items)
+		}
+	}
+
+	if partial != "" {
+		items = FilterItemsByPrefix(items, partial)
+	}
+
+	return buildDeezerHierarchicalCompletions(items, parentPath), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
+}
+
+// convertDeezerRowsToCachedItems converts Deezer API rows to cached items.
+func convertDeezerRowsToCachedItems(rows []kefw2.ContentItem, parentDisplayPath string) []CachedItem {
+	items := make([]CachedItem, 0, len(rows))
+	for _, row := range rows {
+		// Skip action items (like Logout)
+		if row.Type == "action" || row.Type == "www" {
+			continue
+		}
+
+		itemType := "playable"
+		if row.Type == TypeContainer && !row.ContainerPlayable {
+			itemType = TypeContainer
+		}
+
+		displayPath := EscapePathSegment(row.Title)
+		if parentDisplayPath != "" {
+			displayPath = parentDisplayPath + "/" + displayPath
+		}
+
+		description := ""
+		if row.MediaData != nil && row.MediaData.MetaData.Artist != "" {
+			description = row.MediaData.MetaData.Artist
+			if row.MediaData.MetaData.Album != "" {
+				description += " — " + row.MediaData.MetaData.Album
+			}
+		}
+
+		items = append(items, CachedItem{
+			Title:       row.Title,
+			Path:        row.Path,
+			DisplayPath: displayPath,
+			Type:        itemType,
+			Description: description,
+		})
+	}
+	return items
+}
+
+// buildDeezerCompletions builds completion strings from Deezer search results.
+func buildDeezerCompletions(rows []kefw2.ContentItem, filter string) []string {
+	completions := make([]string, 0, len(rows))
+	lowerFilter := strings.ToLower(filter)
+
+	for _, row := range rows {
+		if filter != "" && !strings.HasPrefix(strings.ToLower(row.Title), lowerFilter) {
+			continue
+		}
+
+		description := ""
+		if row.MediaData != nil && row.MediaData.MetaData.Artist != "" {
+			description = row.MediaData.MetaData.Artist
+		} else if row.Type == TypeContainer {
+			description = row.Type
+		}
+
+		if description != "" {
+			completions = append(completions, row.Title+"\t"+description)
+		} else {
+			completions = append(completions, row.Title)
+		}
+
+		if len(completions) >= 30 {
+			break
+		}
+	}
+
+	return completions
+}
+
+// buildDeezerHierarchicalCompletions builds completion strings for Deezer hierarchical browsing.
+func buildDeezerHierarchicalCompletions(items []CachedItem, currentPath string) []string {
+	completions := make([]string, 0, len(items))
+
+	prefix := ""
+	if currentPath != "" {
+		prefix = currentPath + "/"
+	}
+
+	for _, item := range items {
+		escapedTitle := EscapePathSegment(item.Title)
+		path := prefix + escapedTitle
+
+		if item.Type == TypeContainer {
+			// Containers get "/" appended to enable further completion
+			path += "/"
+		}
+
+		if item.Description != "" {
+			completions = append(completions, fmt.Sprintf("%s\t%s", path, item.Description))
+		} else {
+			completions = append(completions, path)
+		}
+	}
+
+	return completions
+}

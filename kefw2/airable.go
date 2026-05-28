@@ -13,7 +13,7 @@ import (
 )
 
 // AirableClient handles communication with the Airable API on KEF speakers.
-// It provides access to streaming services including Radio, Podcasts, UPnP media servers, and Tidal.
+// It provides access to streaming services including Radio, Podcasts, Deezer, UPnP media servers, and Tidal.
 type AirableClient struct {
 	Speaker    *KEFSpeaker
 	HTTPClient *http.Client
@@ -23,6 +23,7 @@ type AirableClient struct {
 	// Dynamically discovered base URLs for services
 	RadioBaseURL   string // e.g., "airable:https://8448239770.airable.io"
 	PodcastBaseURL string
+	DeezerBaseURL  string
 }
 
 // AirableClientOption configures an AirableClient.
