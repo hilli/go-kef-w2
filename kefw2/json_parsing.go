@@ -1,9 +1,43 @@
 package kefw2
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 )
+
+// kefBool accepts either a JSON bool (true/false) or a string-encoded bool
+// ("true"/"false"/"1"/"0"). Different KEF settings paths use different
+// encodings for the same logical bool_ type.
+type kefBool bool
+
+func (b *kefBool) UnmarshalJSON(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return nil
+	}
+	if bytes.Equal(trimmed, []byte("true")) {
+		*b = true
+		return nil
+	}
+	if bytes.Equal(trimmed, []byte("false")) {
+		*b = false
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(trimmed, &s); err != nil {
+		return fmt.Errorf("kefBool: cannot decode %s: %w", string(trimmed), err)
+	}
+	switch s {
+	case "true", "1":
+		*b = true
+	case "false", "0", "":
+		*b = false
+	default:
+		return fmt.Errorf("kefBool: unrecognized value %q", s)
+	}
+	return nil
+}
 
 // kefTypedValue represents the structure of a typed value from the KEF API.
 // The API returns values in a format like: [{“type”: “i32_”, “i32_”: 42}].
@@ -12,7 +46,7 @@ type kefTypedValue struct {
 	I32               *int         `json:"i32_,omitempty"`
 	I64               *int64       `json:"i64_,omitempty"`
 	String            *string      `json:"string_,omitempty"`
-	Bool              *string      `json:"bool_,omitempty"` // API returns "true"/"false" as strings
+	Bool              *kefBool     `json:"bool_,omitempty"` // API returns either JSON bool or "true"/"false" string
 	KefPhysicalSource *string      `json:"kefPhysicalSource,omitempty"`
 	KefSpeakerStatus  *string      `json:"kefSpeakerStatus,omitempty"`
 	KefCableMode      *string      `json:"kefCableMode,omitempty"`
@@ -102,8 +136,7 @@ func parseTypedBool(data []byte, err error) (bool, error) {
 		return false, fmt.Errorf("%w: missing bool_ value", ErrInvalidJSONResponse)
 	}
 
-	// KEF API returns booleans as strings "true" or "false"
-	return *val.Bool != "false", nil
+	return bool(*val.Bool), nil
 }
 
 // parseTypedSource parses a KEF API Source (kefPhysicalSource) response.
