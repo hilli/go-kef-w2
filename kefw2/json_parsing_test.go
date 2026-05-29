@@ -142,6 +142,16 @@ func TestParseTypedBool(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "raw json true",
+			data: []byte(`[{"type":"bool_","bool_":true}]`),
+			want: true,
+		},
+		{
+			name: "raw json false",
+			data: []byte(`[{"type":"bool_","bool_":false}]`),
+			want: false,
+		},
+		{
 			name:    "empty array",
 			data:    []byte(`[]`),
 			wantErr: true,

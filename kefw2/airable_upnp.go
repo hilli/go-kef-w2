@@ -3,6 +3,7 @@ package kefw2
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -512,7 +513,7 @@ func (a *AirableClient) getAllTracksRecursive(containerPath string, progress Ind
 	for _, container := range subContainers {
 		subTracks, err := a.getAllTracksRecursive(container.Path, progress, state)
 		if err != nil {
-			// Log but continue with other containers
+			log.Printf("Warning: failed to scan container %q: %v", container.Path, err)
 			continue
 		}
 		tracks = append(tracks, subTracks...)
