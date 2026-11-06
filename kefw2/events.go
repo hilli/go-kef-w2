@@ -1,6 +1,7 @@
 package kefw2
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -171,32 +172,62 @@ func (ec *EventClient) registerQueue() (string, error) {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
+	queueID, status, err := ec.sendQueueRegistration(req)
+	if status != http.StatusNotImplemented && status != http.StatusMethodNotAllowed {
+		return queueID, err
+	}
+
+	// Newer firmware rejects GET registration and requires a JSON POST.
+	body, err := json.Marshal(struct {
+		Subscribe   []EventSubscription `json:"subscribe"`
+		Unsubscribe []EventSubscription `json:"unsubscribe"`
+		QueueID     string              `json:"queueId"`
+	}{
+		Subscribe:   ec.subscriptions,
+		Unsubscribe: []EventSubscription{},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal registration: %w", err)
+	}
+
+	requestURL = fmt.Sprintf("http://%s/api/event/modifyQueue", ec.speaker.IPAddress)
+	req, err = http.NewRequestWithContext(context.Background(), http.MethodPost, requestURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	queueID, _, err = ec.sendQueueRegistration(req)
+	return queueID, err
+}
+
+func (ec *EventClient) sendQueueRegistration(req *http.Request) (string, int, error) {
 	resp, err := ec.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return "", 0, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+		return "", resp.StatusCode, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	if resp.StatusCode != http.StatusOK {
+		return "", resp.StatusCode, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Response is a quoted string like: "{uuid-here}"
 	var queueID string
 	if err := json.Unmarshal(body, &queueID); err != nil {
-		return "", fmt.Errorf("failed to parse queue ID: %w (body: %s)", err, string(body))
+		return "", resp.StatusCode, fmt.Errorf("failed to parse queue ID: %w (body: %s)", err, string(body))
 	}
 
 	if queueID == "" {
-		return "", fmt.Errorf("empty queue ID returned")
+		return "", resp.StatusCode, fmt.Errorf("empty queue ID returned")
 	}
 
-	return queueID, nil
+	return queueID, resp.StatusCode, nil
 }
 
 // pollLoop continuously polls for events until context is canceled.
