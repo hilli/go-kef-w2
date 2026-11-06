@@ -149,7 +149,7 @@ func (s *KEFSpeaker) provisionAuthUser(ctx context.Context) error {
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if authDebug {
-		fmt.Printf("[auth] provision addUser status=%d resp=%s\n",
+		fmt.Fprintf(os.Stderr, "[auth] provision addUser status=%d resp=%s\n",
 			resp.StatusCode, truncate(respBody, 300))
 	}
 	// 2xx → success. The firmware returns 500 with an "already exists" style
@@ -226,7 +226,7 @@ func (s *KEFSpeaker) doAuthenticatedPOST(ctx context.Context, path string, body 
 		raw, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if authDebug {
-			fmt.Printf("[auth] POST %s status=%d canonical-len=%d body-len=%d resp=%s\n",
+			fmt.Fprintf(os.Stderr, "[auth] POST %s status=%d canonical-len=%d body-len=%d resp=%s\n",
 				url, resp.StatusCode, len(auth), len(body), truncate(raw, 200))
 		}
 		return resp, raw, nil

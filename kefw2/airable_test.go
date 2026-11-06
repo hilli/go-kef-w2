@@ -1,11 +1,70 @@
 package kefw2
 
 import (
+	"bytes"
 	"encoding/json"
+	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"strings"
 	"testing"
 )
+
+func TestAirableClient_PlayItemLogging(t *testing.T) {
+	for _, level := range []slog.Level{slog.LevelInfo, slog.LevelDebug} {
+		t.Run(level.String(), func(t *testing.T) {
+			previousLogger, previousWriter, previousFlags := slog.Default(), log.Writer(), log.Flags()
+			t.Cleanup(func() {
+				slog.SetDefault(previousLogger)
+				log.SetOutput(previousWriter)
+				log.SetFlags(previousFlags)
+			})
+			var output bytes.Buffer
+			slog.SetDefault(slog.New(slog.NewTextHandler(&output, &slog.HandlerOptions{Level: level})))
+
+			var paths []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost || r.URL.Path != "/api/setData" {
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+				}
+				var payload struct {
+					Path  string `json:"path"`
+					Value struct {
+						Control    string      `json:"control"`
+						MediaRoles ContentItem `json:"mediaRoles"`
+					} `json:"value"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Errorf("decode payload: %v", err)
+				}
+				paths = append(paths, payload.Path)
+				if payload.Path == "player:player/control" &&
+					(payload.Value.Control != "play" || payload.Value.MediaRoles.Title != "Test Radio" ||
+						payload.Value.MediaRoles.Path != "test:radio") {
+					t.Errorf("unexpected playback payload: %+v", payload)
+				}
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer server.Close()
+
+			client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+			if err := client.playItem(&ContentItem{Title: "Test Radio", Path: "test:radio"}); err != nil {
+				t.Fatalf("playItem: %v", err)
+			}
+			if !reflect.DeepEqual(paths, []string{"playlists:pl/clear", "player:player/control"}) {
+				t.Errorf("playback requests = %v", paths)
+			}
+			if level == slog.LevelInfo && output.Len() != 0 {
+				t.Errorf("normal playback logged debug details: %s", output.String())
+			}
+			if level == slog.LevelDebug && !strings.Contains(output.String(), "Test Radio") {
+				t.Errorf("debug log missing playback details: %s", output.String())
+			}
+		})
+	}
+}
 
 func TestAirableClient_GetRows(t *testing.T) {
 	// Mock server to simulate the API
