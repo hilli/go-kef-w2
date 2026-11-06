@@ -1,9 +1,8 @@
 package kefw2
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 )
 
@@ -390,10 +389,7 @@ func (a *AirableClient) playItem(item *ContentItem) error {
 	// Build the mediaRoles payload
 	mediaRoles := buildMediaRoles(item)
 
-	// Log the mediaRoles for debugging comparison with queue playback
-	if rolesJSON, err := json.MarshalIndent(mediaRoles, "", "  "); err == nil {
-		log.Printf("[playItem] Sending mediaRoles: %s", string(rolesJSON))
-	}
+	slog.Debug("playItem", "mediaRoles", mediaRoles)
 
 	// Send play command
 	payload := map[string]interface{}{

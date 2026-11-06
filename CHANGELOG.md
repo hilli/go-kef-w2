@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-06
+
+### Fixed
+
+- Hide radio and podcast playback payload dumps unless debug logging is enabled.
+- Write opt-in authentication debug output to stderr instead of stdout.
+
 ## [0.4.0] - 2026-11-06
 
 ### Fixed
