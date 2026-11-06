@@ -8,7 +8,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/fatih/color v1.18.0
-	github.com/hilli/icat v0.0.7
+	github.com/hilli/icat v0.0.8
 	github.com/ivanpirog/coloredcobra v1.0.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
@@ -17,7 +17,7 @@ require (
 )
 
 require (
-	github.com/BourgeoisBear/rasterm v1.1.2-0.20250103192908-b3632033a926 // indirect
+	github.com/BourgeoisBear/rasterm v1.1.3-0.20261105140326-6174df9d5b0b // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
