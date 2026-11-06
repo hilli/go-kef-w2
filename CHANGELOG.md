@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-06
+
+### Changed
+
+- Update icat to v0.0.8, enabling track artwork rendering in Rex through upstream rasterm's Kitty graphics support.
+- Update golang.org/x/net to v0.55.0 and its related Go dependencies.
+
 ## [0.2.7] - 2026-02-11
 
 ### Added
