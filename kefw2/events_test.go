@@ -1,10 +1,145 @@
 package kefw2
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestEventClientRegisterQueue(t *testing.T) {
+	tests := []struct {
+		name       string
+		getStatus  int
+		postStatus int
+		response   string
+		wantError  string
+	}{
+		{name: "GET supported", getStatus: http.StatusOK, response: `"{test-queue}"`},
+		{name: "405 fallback", getStatus: http.StatusMethodNotAllowed, postStatus: http.StatusOK, response: `"{test-queue}"`},
+		{name: "501 fallback", getStatus: http.StatusNotImplemented, postStatus: http.StatusOK, response: `"{test-queue}"`},
+		{name: "bad request", getStatus: http.StatusBadRequest, wantError: "HTTP 400: Invalid method"},
+		{name: "server error", getStatus: http.StatusInternalServerError, wantError: "HTTP 500: Invalid method"},
+		{name: "POST error", getStatus: http.StatusNotImplemented, postStatus: http.StatusForbidden, response: "Forbidden", wantError: "HTTP 403: Forbidden"},
+		{name: "invalid GET response", getStatus: http.StatusOK, response: `{}`, wantError: "failed to parse queue ID"},
+		{name: "empty GET queue", getStatus: http.StatusOK, response: `""`, wantError: "empty queue ID"},
+		{name: "invalid POST response", getStatus: http.StatusNotImplemented, postStatus: http.StatusOK, response: `{}`, wantError: "failed to parse queue ID"},
+		{name: "empty POST queue", getStatus: http.StatusMethodNotAllowed, postStatus: http.StatusOK, response: `""`, wantError: "empty queue ID"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			subscriptions := []EventSubscription{{Path: pathPlayerVolume, Type: "itemWithValue"}}
+			var methods []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/event/pollQueue" {
+					if r.Method != http.MethodGet || r.URL.Query().Get("queueId") != "{test-queue}" {
+						t.Errorf("unexpected poll request: %s %s", r.Method, r.URL)
+					}
+					_, _ = fmt.Fprint(w, `[{"path":"player:volume","itemValue":{"type":"i32_","i32_":25}}]`)
+					return
+				}
+				if r.URL.Path != "/api/event/modifyQueue" {
+					t.Errorf("unexpected registration path: %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				methods = append(methods, r.Method)
+				checkQueueRegistrationRequest(t, r, subscriptions, methods)
+				switch r.Method {
+				case http.MethodGet:
+					w.WriteHeader(tt.getStatus)
+					if tt.getStatus != http.StatusOK {
+						_, _ = fmt.Fprint(w, "Invalid method")
+						return
+					}
+				case http.MethodPost:
+					w.WriteHeader(tt.postStatus)
+				default:
+					t.Errorf("unexpected method: %s", r.Method)
+					w.WriteHeader(http.StatusMethodNotAllowed)
+					return
+				}
+				_, _ = fmt.Fprint(w, tt.response)
+			}))
+			defer server.Close()
+
+			speaker := &KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")}
+			client, err := speaker.NewEventClient(WithSubscriptions(subscriptions))
+			wantMethods := []string{http.MethodGet}
+			if tt.getStatus == http.StatusMethodNotAllowed || tt.getStatus == http.StatusNotImplemented {
+				wantMethods = append(wantMethods, http.MethodPost)
+			}
+			if !reflect.DeepEqual(methods, wantMethods) {
+				t.Errorf("registration methods = %v, want %v", methods, wantMethods)
+			}
+			if tt.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+					t.Fatalf("NewEventClient error = %v, want %q", err, tt.wantError)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("NewEventClient: %v", err)
+			}
+			defer client.Close()
+			events, err := client.poll(context.Background(), server.URL+"/api/event/pollQueue?queueId="+client.QueueID())
+			if err != nil {
+				t.Fatalf("poll: %v", err)
+			}
+			if len(events) != 1 {
+				t.Fatalf("got %d events, want 1", len(events))
+			}
+			volume, ok := events[0].(*VolumeEvent)
+			if !ok || volume.Volume != 25 {
+				t.Errorf("event = %#v, want volume 25", events[0])
+			}
+		})
+	}
+}
+
+func checkQueueRegistrationRequest(t *testing.T, r *http.Request, subscriptions []EventSubscription, methods []string) {
+	t.Helper()
+	switch r.Method {
+	case http.MethodGet:
+		if len(methods) != 1 {
+			t.Error("GET must be the first registration attempt")
+		}
+		query := r.URL.Query()
+		subscribeJSON, err := json.Marshal(subscriptions)
+		if err != nil {
+			t.Error(err)
+		}
+		if query.Get("subscribe") != string(subscribeJSON) ||
+			query.Get("unsubscribe") != "[]" || !query.Has("queueId") || query.Get("queueId") != "" {
+			t.Errorf("unexpected GET parameters: %v", query)
+		}
+	case http.MethodPost:
+		if len(methods) != 2 || methods[0] != http.MethodGet {
+			t.Error("POST must follow a single GET")
+		}
+		if r.URL.RawQuery != "" || r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("unexpected POST query or content type: %s %s", r.URL.RawQuery, r.Header.Get("Content-Type"))
+		}
+		var body struct {
+			Subscribe   []EventSubscription `json:"subscribe"`
+			Unsubscribe []EventSubscription `json:"unsubscribe"`
+			QueueID     *string             `json:"queueId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode POST body: %v", err)
+		}
+		if !reflect.DeepEqual(body.Subscribe, subscriptions) ||
+			body.Unsubscribe == nil || len(body.Unsubscribe) != 0 || body.QueueID == nil || *body.QueueID != "" {
+			t.Errorf("unexpected POST body: %+v", body)
+		}
+	}
+}
 
 func TestEventTypes(t *testing.T) {
 	// Test that all event types have expected values

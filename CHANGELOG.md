@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Retry event queue registration as a JSON POST when firmware rejects GET with HTTP 405 or 501.
+
 ## [0.3.1] - 2026-11-06
 
 ### Changed
