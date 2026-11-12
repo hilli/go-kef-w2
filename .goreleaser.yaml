@@ -74,7 +74,6 @@ homebrew_casks:
     description: "CLI for controlling KEF W2 platform speakers"
     url:
       template: "https://github.com/hilli/go-kef-w2/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-      verified: "github.com/hilli/go-kef-w2/"
     skip_upload: false
     completions:
       bash: completions/kefw2.bash
@@ -82,9 +81,9 @@ homebrew_casks:
       fish: completions/kefw2.fish
     hooks:
       post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/kefw2"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/kefw2"]
           end
     repository:
       owner: hilli
