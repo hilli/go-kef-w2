@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read fresh queue state when caching is enabled and preserve repeat-one settings when toggling shuffle.
 - Preserve opaque UPnP container selections and reject index rebuild paths outside the configured default server.
 - Support first-run configuration writes and honor explicit configuration files and speaker targets in shell completions.
+- Preserve HTTP rejection errors when a reboot response disconnects early instead of reporting a successful reboot.
 
 ## [0.4.2] - 2026-11-12
 

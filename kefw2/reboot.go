@@ -175,7 +175,7 @@ func (s *KEFSpeaker) Reboot(ctx context.Context) error {
 
 	status, raw, err := s.doAuthenticatedPOST(ctx, authPathSetData, body)
 	if err != nil {
-		if isRebootDisconnect(err) {
+		if (status == 0 || (status >= 200 && status < 300)) && isRebootDisconnect(err) {
 			return nil
 		}
 		return fmt.Errorf("reboot request: %w", err)

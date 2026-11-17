@@ -290,6 +290,7 @@ The following operational commands also accept `--json`:
 - `reboot`: request a reboot only when explicitly intended.
   `reboot schedule`: inspect the schedule; use the documented
   `--enable|--disable`, `--day`, and `--time` flags to change it.
+  Do not infer success from a disconnect if the speaker returned an HTTP rejection.
 
 Do not pass authentication credentials through agent output or enable auth
 debugging for authenticated actions. Configuration/schedule writes may

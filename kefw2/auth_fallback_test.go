@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -225,5 +226,39 @@ func TestReadRejectionDoesNotBecomeAuthenticatedWrite(t *testing.T) {
 	})
 	if _, err := speaker.Source(context.Background()); err == nil || signed != 0 {
 		t.Fatalf("read rejection became a write: err=%v signed=%d", err, signed)
+	}
+}
+
+func TestRebootPreservesHTTPRejections(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusUnauthorized, http.StatusForbidden, http.StatusServiceUnavailable} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			mockAuthenticatedControl(t, func(*http.Request) (*http.Response, error) {
+				response := authFallbackResponse(status)
+				response.Body = io.NopCloser(brokenAuthBody{})
+				return response, nil
+			})
+			speaker := &KEFSpeaker{IPAddress: "192.0.2.1"}
+			err := speaker.Reboot(context.Background())
+			if status == http.StatusOK {
+				if err != nil {
+					t.Fatalf("accepted reboot disconnect failed: %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("HTTP %d", status)) {
+				t.Fatalf("explicit HTTP rejection reported as success or lost its status: %v", err)
+			}
+		})
+	}
+}
+
+func TestRebootDoesNotAcceptProvisioningDisconnect(t *testing.T) {
+	mockAuthenticatedControl(t, func(r *http.Request) (*http.Response, error) {
+		if r.Header.Get("Authorization") != "" {
+			return authFallbackResponse(http.StatusUnauthorized), nil
+		}
+		return nil, io.ErrUnexpectedEOF
+	})
+	speaker := &KEFSpeaker{IPAddress: "192.0.2.1"}
+	if err := speaker.Reboot(context.Background()); err == nil {
+		t.Fatal("authentication provisioning failure reported as a successful reboot")
 	}
 }

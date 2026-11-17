@@ -244,7 +244,7 @@ func (s *KEFSpeaker) doAuthenticatedPOST(ctx context.Context, path string, body 
 		raw, readErr := io.ReadAll(resp.Body)
 		closeErr := resp.Body.Close()
 		if err := errors.Join(readErr, closeErr); err != nil {
-			return 0, nil, fmt.Errorf("read authenticated response: %w", err)
+			return resp.StatusCode, raw, fmt.Errorf("read authenticated response (HTTP %d): %w", resp.StatusCode, err)
 		}
 		if authDebug {
 			fmt.Fprintf(os.Stderr, "[auth] POST %s status=%d canonical-len=%d body-len=%d resp=%s\n",
@@ -255,7 +255,7 @@ func (s *KEFSpeaker) doAuthenticatedPOST(ctx context.Context, path string, body 
 
 	status, raw, err := send()
 	if err != nil {
-		return 0, nil, err
+		return status, raw, err
 	}
 	if status != http.StatusUnauthorized {
 		return status, raw, nil
@@ -263,7 +263,7 @@ func (s *KEFSpeaker) doAuthenticatedPOST(ctx context.Context, path string, body 
 
 	// Likely first-run: user not yet provisioned. Provision and retry once.
 	if err := s.provisionAuthUser(ctx); err != nil {
-		return 0, nil, fmt.Errorf("provision after 401: %w", err)
+		return status, raw, fmt.Errorf("provision after 401: %w", err)
 	}
 	return send()
 }
