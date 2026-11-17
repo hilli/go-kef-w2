@@ -5,7 +5,6 @@ package cmd
 import (
 	"fmt"
 	"math"
-	"net/url"
 	"strings"
 	"time"
 
@@ -157,24 +156,6 @@ func upnpDefaultServerPath() (string, error) {
 		return "", fmt.Errorf("no default UPnP server configured; run 'kefw2 config upnp server default <name>'")
 	}
 	return path, validateUPnPAPIPath(path)
-}
-
-func validateUPnPIndexServer(serverPath, path string) error {
-	server, err := url.Parse(serverPath)
-	if err != nil {
-		return fmt.Errorf("invalid configured UPnP server path: %w", err)
-	}
-	item, err := url.Parse(path)
-	if err != nil {
-		return fmt.Errorf("invalid UPnP index path: %w", err)
-	}
-	root := strings.TrimSuffix(server.EscapedPath(), "/")
-	child := item.EscapedPath()
-	if root == "" || server.Scheme != item.Scheme || server.Host != item.Host ||
-		(child != root && !strings.HasPrefix(child, root+"/")) {
-		return fmt.Errorf("index path must belong to the configured default UPnP server")
-	}
-	return nil
 }
 
 // Resolve every title uniquely, including the final track. Never select the first match.
@@ -351,7 +332,7 @@ func upnpIndexStartPath(cmd *cobra.Command, client *kefw2.AirableClient, serverP
 	if cmd.Flags().Changed("path") {
 		path, _, err := upnpPathArg(cmd, nil)
 		if err == nil {
-			err = validateUPnPIndexServer(serverPath, path)
+			err = kefw2.ValidateUPnPIndexPath(serverPath, path)
 		}
 		return path, "", err
 	}
@@ -360,7 +341,7 @@ func upnpIndexStartPath(cmd *cobra.Command, client *kefw2.AirableClient, serverP
 		container = viper.GetString("upnp.index_container")
 	}
 	if strings.HasPrefix(container, "upnp:/") {
-		return container, container, validateUPnPIndexServer(serverPath, container)
+		return container, container, kefw2.ValidateUPnPIndexPath(serverPath, container)
 	}
 	path, err := resolveUPnPJSONPath(client, container, true)
 	return path, container, err

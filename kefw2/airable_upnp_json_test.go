@@ -9,8 +9,47 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
+
+func TestBuildTrackIndexOpaqueContainerServer(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		path string
+		fail bool
+	}{
+		{"another server", "upnp:/server-b/folder", true},
+		{"sibling prefix", "upnp:/server-ab/folder", true},
+		{"encoded separator", "upnp:/server-a%2Ffolder", true},
+		{"same server", "upnp:/server-a/folder?itemType=container", false},
+		{"server root", "upnp:/server-a?itemType=container", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests.Add(1)
+				_, _ = fmt.Fprint(w, `{"rowsCount":1,"roles":{"type":"container"},`+
+					`"rows":[{"type":"audio","title":"Song","path":"upnp:/server-a/track"}]}`)
+			}))
+			defer server.Close()
+			speaker := &KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")}
+			index, err := BuildTrackIndex(NewAirableClient(speaker), "upnp:/server-a", "Library", tc.path, nil)
+			if tc.fail {
+				if err == nil || index != nil || requests.Load() != 0 {
+					t.Fatalf("mismatched container scanned: index=%+v err=%v requests=%d", index, err, requests.Load())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if index.ServerPath != "upnp:/server-a" || index.ContainerPath != tc.path || index.TrackCount != 1 {
+				t.Fatalf("valid opaque container changed: %+v", index)
+			}
+		})
+	}
+}
 
 func TestUPnPStrictRecursiveIndex(t *testing.T) {
 	for _, tc := range []struct {

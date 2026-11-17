@@ -25,6 +25,7 @@ package kefw2
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -241,6 +242,25 @@ func TrackIndexStatus() (exists bool, trackCount int, age time.Duration, serverN
 	return true, index.TrackCount, time.Since(index.IndexedAt), index.ServerName, nil
 }
 
+// ValidateUPnPIndexPath checks that an opaque index path belongs to the selected server.
+func ValidateUPnPIndexPath(serverPath, path string) error {
+	server, err := url.Parse(serverPath)
+	if err != nil {
+		return fmt.Errorf("invalid configured UPnP server path: %w", err)
+	}
+	item, err := url.Parse(path)
+	if err != nil {
+		return fmt.Errorf("invalid UPnP index path: %w", err)
+	}
+	root := strings.TrimSuffix(server.EscapedPath(), "/")
+	child := item.EscapedPath()
+	if root == "" || server.Scheme != item.Scheme || server.Host != item.Host ||
+		(child != root && !strings.HasPrefix(child, root+"/")) {
+		return fmt.Errorf("index path must belong to the configured default UPnP server")
+	}
+	return nil
+}
+
 // BuildTrackIndex scans a UPnP server and builds a searchable track index.
 // The progress callback (if not nil) is called with (containersScanned, tracksFound, currentContainer).
 // If containerPath is provided (e.g., "Music/By Folder"), it navigates to that container first.
@@ -249,6 +269,11 @@ func BuildTrackIndex(client *AirableClient, serverPath, serverName, containerPat
 	actualContainerName := ""
 
 	if containerPath != "" {
+		if strings.HasPrefix(containerPath, "upnp:/") {
+			if err := ValidateUPnPIndexPath(serverPath, containerPath); err != nil {
+				return nil, err
+			}
+		}
 		resolvedPath, resolvedName, err := FindContainerByPath(client, serverPath, containerPath)
 		if err != nil {
 			return nil, fmt.Errorf("could not find container '%s': %w", containerPath, err)

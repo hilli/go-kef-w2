@@ -230,7 +230,7 @@ network. Inspect that index with `upnp index --json`; rebuild explicitly on a
 selected speaker if missing or stale. Search reports index provenance: do not
 assume an index/path came from another selected speaker. A failed recursive
 scan returns an error; a failed rebuild preserves the previous index.
-Opaque rebuild paths must belong to the configured default UPnP server; select
+Opaque rebuild paths in either CLI mode must belong to the configured default UPnP server; select
 that server first rather than rebuilding an index with misleading provenance.
 
 The existing `config upnp server default` and `config upnp container browse`
