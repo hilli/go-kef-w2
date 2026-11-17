@@ -265,9 +265,16 @@ func TestAirableClient_PlayRadioByPath(t *testing.T) {
 		{"roles", `{"roles":{"path":"station:chosen","type":"audio","mediaData":{"resources":[{"uri":"stream:chosen"}]}}}`, false},
 		{"matching row", `{"rowsCount":1,"rows":[{"path":"station:chosen","type":"audio",` +
 			`"mediaData":{"resources":[{"uri":"stream:chosen"}]}}]}`, false},
+		{"broadcast roles", `{"roles":{"path":"station:chosen","type":"container",` +
+			`"containerPlayable":true,"audioType":"audioBroadcast"}}`, false},
+		{"broadcast matching row", `{"rowsCount":1,"rows":[{"path":"station:chosen","type":"container",` +
+			`"containerPlayable":true,"audioType":"audioBroadcast"}]}`, false},
+		{"audio broadcast", `{"roles":{"path":"station:chosen","type":"audio","audioType":"audioBroadcast"}}`, false},
 		{"ambiguous children", `{"rowsCount":2,"rows":[{"path":"station:a",` +
 			`"mediaData":{"resources":[{"uri":"stream:wrong"}]}},{"path":"station:b"}]}`, true},
 		{"mismatched roles", `{"roles":{"path":"station:other","mediaData":{"resources":[{"uri":"stream:other"}]}}}`, true},
+		{"mismatched broadcast roles", `{"roles":{"path":"station:other","type":"container",` +
+			`"containerPlayable":true,"audioType":"audioBroadcast"}}`, true},
 		{"missing station", `{"rowsCount":0,"rows":[]}`, true},
 		{"loop", `{"rowsCount":1,"rows":[{"path":"station:chosen"}]}`, true},
 	} {

@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const audioTypeBroadcast = "audioBroadcast"
+
 // Radio-specific methods for the AirableClient.
 // Internet radio stations are accessed via the Airable service.
 
@@ -176,6 +178,17 @@ func (a *AirableClient) GetRadioStationByPath(path string) (*ContentItem, error)
 	return a.resolveExactRadioPath(path)
 }
 
+func isPlayableRadioStation(station *ContentItem) bool {
+	if station == nil {
+		return false
+	}
+	if station.MediaData != nil && len(station.MediaData.Resources) > 0 {
+		return true
+	}
+	return station.Path != "" && station.AudioType == audioTypeBroadcast &&
+		(station.Type == ContentTypeAudio || station.ContainerPlayable)
+}
+
 func (a *AirableClient) resolveExactRadioPath(path string) (*ContentItem, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("radio station path must not be empty")
@@ -190,7 +203,7 @@ func (a *AirableClient) resolveExactRadioPath(path string) (*ContentItem, error)
 		if err != nil {
 			return nil, err
 		}
-		if resp.Roles != nil && resp.Roles.MediaData != nil && len(resp.Roles.MediaData.Resources) > 0 {
+		if isPlayableRadioStation(resp.Roles) {
 			if resp.Roles.Path != "" && resp.Roles.Path != path {
 				return nil, fmt.Errorf("station details do not match requested path %q", path)
 			}
@@ -211,7 +224,7 @@ func (a *AirableClient) resolveExactRadioPath(path string) (*ContentItem, error)
 		if candidate == nil || candidate.Path == "" {
 			return nil, fmt.Errorf("no unambiguous station details for path %q; search again", path)
 		}
-		if candidate.MediaData != nil && len(candidate.MediaData.Resources) > 0 {
+		if isPlayableRadioStation(candidate) {
 			return candidate, nil
 		}
 		path = candidate.Path
@@ -259,7 +272,7 @@ func (a *AirableClient) ResolveAndPlayRadioStation(station *ContentItem) error {
 			}
 
 			// Or if it's a containerPlayable item, it might be playable
-			if item.ContainerPlayable && item.AudioType == "audioBroadcast" && nextItem == nil {
+			if item.ContainerPlayable && item.AudioType == audioTypeBroadcast && nextItem == nil {
 				nextItem = item
 			}
 		}
@@ -278,7 +291,7 @@ func (a *AirableClient) ResolveAndPlayRadioStation(station *ContentItem) error {
 		// No matching item found - try to play the first containerPlayable item
 		for i := range resp.Rows {
 			item := &resp.Rows[i]
-			if item.ContainerPlayable && item.AudioType == "audioBroadcast" {
+			if item.ContainerPlayable && item.AudioType == audioTypeBroadcast {
 				return a.PlayRadioStation(item)
 			}
 		}

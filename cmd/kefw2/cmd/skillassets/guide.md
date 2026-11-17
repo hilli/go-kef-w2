@@ -116,6 +116,8 @@ are not guaranteed long-lived; search again if a path has expired.
 An `airable:` path is a speaker API identifier, not a stream URL: pass it
 unchanged to `--path`. Present station titles/descriptions to the user rather
 than asking them to interpret or copy raw Airable paths.
+The speaker can resolve broadcast identifiers without an embedded stream URL;
+do not invent or request a replacement stream URL.
 
 Radio playback selects WiFi first, waking a standby speaker and allowing its
 player to initialize before clearing/replacing the current queue and playing.
