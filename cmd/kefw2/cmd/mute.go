@@ -33,10 +33,18 @@ var muteCmd = &cobra.Command{
 	Short: "Get or adjust the mute state of the speakers",
 	Long:  `Get or adjust the mute state of the speakers`,
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if len(args) != 1 {
-			mute, _ := currentSpeaker.IsMuted(ctx)
+			mute, err := currentSpeaker.IsMuted(ctx)
+			if err != nil {
+				return fmt.Errorf("getting mute state: %w", err)
+			}
+			if jsonOutput(cmd) {
+				return writeSpeakerJSON(cmd, struct {
+					Muted bool `json:"muted"`
+				}{mute})
+			}
 			if mute {
 				headerPrinter.Print("Speakers are ")
 				contentPrinter.Println("muted")
@@ -44,22 +52,34 @@ var muteCmd = &cobra.Command{
 				headerPrinter.Print("Speakers are ")
 				contentPrinter.Println("not muted")
 			}
-			return
+			return nil
 		}
 		mute, err := parseMuteArg(args[0])
-		exitOnError(err, "Invalid mute argument")
+		if err != nil {
+			return fmt.Errorf("invalid mute argument: %w", err)
+		}
 		if mute {
 			err = currentSpeaker.Mute(ctx)
 		} else {
 			err = currentSpeaker.Unmute(ctx)
 		}
-		exitOnError(err, "Failed to set mute state")
+		if err != nil {
+			return fmt.Errorf("setting mute state: %w", err)
+		}
+		if jsonOutput(cmd) {
+			return writeSpeakerJSON(cmd, struct {
+				actionResult
+				Muted bool `json:"muted"`
+			}{actionResult{"set_mute", true}, mute})
+		}
+		return nil
 	},
 	ValidArgsFunction: MuteCompletion,
 }
 
 func init() {
 	rootCmd.AddCommand(muteCmd)
+	addJSONFlag(muteCmd)
 }
 
 func MuteCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {

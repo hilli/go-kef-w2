@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-17
+
+### Added
+
+- Bundled agent skill with `skill setup`, `skill show`, and `skill remove` for version-matched CLI guidance.
+- Automatic skill installation into the shared skills directory and existing Claude, Copilot, Codex, Cursor, Gemini, and OpenCode directories, with an explicit directory override and `-v`/`--verbose` progress.
+- Non-interactive `--json` support across speaker discovery, status, controls, radio, podcasts, UPnP/DLNA, queues, favorites, configuration, and utilities.
+- Exact-path content selection, explicit pagination metadata, and machine-readable action acknowledgements.
+
+### Changed
+
+- JSON workflows return structured results without pickers, prompts, artwork, or progress output; failures use stderr and nonzero exit codes.
+- Skill installation upgrades only recognized, unmodified bootstraps and preserves user edits and unrelated files.
+
+### Fixed
+
+- Radio playback selects WiFi and waits for player readiness before replacing the queue, including when waking from standby.
+- Retry explicitly rejected HTTP 401 control writes through the existing authenticated TLS channel, fixing radio playback and other protected controls without changing Airable paths.
+- Propagate speaker read, content resolution, and pagination errors instead of reporting success or silently returning incomplete results.
+- Allow local skill, saved-queue, and index operations without speaker access; honor explicit speaker targets without a configuration file.
+
 ## [0.4.2] - 2026-11-12
 
 ### Fixed
@@ -38,6 +59,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update icat to v0.0.8, enabling track artwork rendering in Rex through upstream rasterm's Kitty graphics support.
 - Update golang.org/x/net to v0.55.0 and its related Go dependencies.
 
+## [0.3.0] - 2026-05-29
+
+### Added
+
+- Immediate and scheduled speaker reboots through `reboot` and `reboot schedule`, with corresponding library methods.
+- Authenticated TLS control support for firmware requiring HMAC-signed requests.
+
+### Changed
+
+- Require Go 1.25 and update golang.org/x/image and related Go dependencies.
+
+### Fixed
+
+- Accept both raw JSON booleans and string-encoded booleans in speaker responses.
+- Log failed UPnP folder scans during indexing instead of silently ignoring them.
+
 ## [0.2.7] - 2026-02-11
 
 ### Added
@@ -58,7 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Airable redirect handling**: Radio and podcast menu endpoints now properly follow redirects and return rows from the redirected path
 - **Import ordering**: Fixed import grouping in `cache.go`
 
-## [0.2.6] - 2026-02-06
+## [0.2.6] - 2026-02-07
 
 ### Added
 
@@ -109,7 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve station selection logic for radio playback
 - `radio browse` with no arguments now shows the interactive picker instead of attempting to auto
 
-## [0.2.3] - 2025-02-04
+## [0.2.3] - 2026-02-04
 
 ### Fixed
 
@@ -117,7 +154,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The search index was missing audio file URIs required for playback
   - Index version bumped to v2; run `kefw2 upnp index --rebuild` after updating
 
-## [0.2.2] - 2025-02-03
+## [0.2.2] - 2026-02-03
 
 ### Added
 
@@ -264,6 +301,13 @@ client.BrowseContainer(ctx, serverPath)
 
 - Tab completion now uses `*All()` methods consistently to avoid truncated results
 - Fixed colon characters breaking tab completion in zsh
+
+## [0.1.1] - 2026-01-30
+
+### Fixed
+
+- Prevent a panic when retrieving an EQ profile fails and report the error in the CLI.
+- Decode fractional desk-mode levels correctly.
 
 ## [0.1.0] - 2026-01-30
 
@@ -468,7 +512,13 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 
 7. **Update player ID field access**: If you access `playId.SystemMemberId`, change it to `playId.SystemMemberID`.
 
-[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/hilli/go-kef-w2/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/hilli/go-kef-w2/compare/v0.4.2...v0.5.0
+[0.4.2]: https://github.com/hilli/go-kef-w2/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/hilli/go-kef-w2/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/hilli/go-kef-w2/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/hilli/go-kef-w2/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/hilli/go-kef-w2/compare/v0.2.7...v0.3.0
 [0.2.7]: https://github.com/hilli/go-kef-w2/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/hilli/go-kef-w2/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/hilli/go-kef-w2/compare/v0.2.4...v0.2.5
@@ -476,5 +526,6 @@ Implemented by: `Source`, `SpeakerStatus`, `CableMode`
 [0.2.3]: https://github.com/hilli/go-kef-w2/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/hilli/go-kef-w2/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/hilli/go-kef-w2/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/hilli/go-kef-w2/compare/v0.1.0...v0.2.0
+[0.2.0]: https://github.com/hilli/go-kef-w2/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/hilli/go-kef-w2/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/hilli/go-kef-w2/releases/tag/v0.1.0

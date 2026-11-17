@@ -311,6 +311,19 @@ func BuildTrackIndex(client *AirableClient, serverPath, serverName, containerPat
 // FindContainerByPath navigates to a container by human-readable path like "Music/By Folder".
 // Each path component is matched case-insensitively.
 func FindContainerByPath(client *AirableClient, serverPath, containerPath string) (resolvedPath, resolvedName string, err error) {
+	if strings.HasPrefix(containerPath, "upnp:/") {
+		resp, err := client.BrowseContainerAll(containerPath)
+		if err != nil {
+			return "", "", err
+		}
+		if resp.Roles != nil {
+			if resp.Roles.Type == ContentTypeAudio {
+				return "", "", fmt.Errorf("expected a container, got an audio track")
+			}
+			return containerPath, resp.Roles.Title, nil
+		}
+		return containerPath, containerPath, nil
+	}
 	parts := strings.Split(containerPath, "/")
 	var cleanParts []string
 	for _, p := range parts {
@@ -327,29 +340,33 @@ func FindContainerByPath(client *AirableClient, serverPath, containerPath string
 	currentPath := serverPath
 	var resolvedParts []string
 
-	for i, part := range cleanParts {
+	for _, part := range cleanParts {
 		resp, err := client.BrowseContainerAll(currentPath)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to browse '%s': %w", strings.Join(resolvedParts, "/"), err)
 		}
 
 		partLower := strings.ToLower(part)
-		var found bool
+		var exact, partial []ContentItem
 		var availableContainers []string
 
 		for _, item := range resp.Rows {
 			if item.Type == ContentTypeContainer {
 				availableContainers = append(availableContainers, item.Title)
-				if strings.ToLower(item.Title) == partLower {
-					currentPath = item.Path
-					resolvedParts = append(resolvedParts, item.Title)
-					found = true
-					break
+				switch {
+				case strings.ToLower(item.Title) == partLower:
+					exact = append(exact, item)
+				case strings.Contains(strings.ToLower(item.Title), partLower):
+					partial = append(partial, item)
 				}
 			}
 		}
 
-		if !found {
+		matches := partial
+		if len(exact) > 0 {
+			matches = exact
+		}
+		if len(matches) == 0 {
 			pathSoFar := ""
 			if len(resolvedParts) > 0 {
 				pathSoFar = strings.Join(resolvedParts, "/") + "/"
@@ -358,9 +375,11 @@ func FindContainerByPath(client *AirableClient, serverPath, containerPath string
 				part, pathSoFar, strings.Join(availableContainers, ", "))
 		}
 
-		if i == len(cleanParts)-1 {
-			break
+		if len(matches) > 1 {
+			return "", "", fmt.Errorf("container %q is ambiguous; use an opaque API path", part)
 		}
+		currentPath = matches[0].Path
+		resolvedParts = append(resolvedParts, matches[0].Title)
 	}
 
 	return currentPath, strings.Join(resolvedParts, "/"), nil

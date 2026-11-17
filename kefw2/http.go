@@ -31,6 +31,8 @@ const (
 	DefaultBaseURL = "http://%s/api"
 )
 
+const setDataEndpoint = "setData"
+
 // Common errors.
 var (
 	ErrConnectionRefused   = errors.New("connection refused")
@@ -125,6 +127,9 @@ func (s *KEFSpeaker) doRequest(ctx context.Context, cfg requestConfig) ([]byte, 
 		return nil, fmt.Errorf("reading response: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusUnauthorized && cfg.method == http.MethodPost && cfg.path == setDataEndpoint {
+		return s.authenticatedSetData(ctx, cfg.body)
+	}
 	if resp.StatusCode != http.StatusOK {
 		slog.Debug("HTTP request failed",
 			"status", resp.StatusCode,
@@ -184,7 +189,7 @@ func (s *KEFSpeaker) setActivate(ctx context.Context, path, item, value string) 
 
 	_, err = s.doRequest(ctx, requestConfig{
 		method: http.MethodPost,
-		path:   "setData",
+		path:   setDataEndpoint,
 		body:   reqBody,
 	})
 	return err
@@ -212,7 +217,7 @@ func (s *KEFSpeaker) setActivateMap(ctx context.Context, path string, value map[
 
 	_, err = s.doRequest(ctx, requestConfig{
 		method: http.MethodPost,
-		path:   "setData",
+		path:   setDataEndpoint,
 		body:   reqBody,
 	})
 	return err
@@ -287,7 +292,7 @@ func (s *KEFSpeaker) setTypedValue(ctx context.Context, path string, value any) 
 
 	_, err = s.doRequest(ctx, requestConfig{
 		method: http.MethodPost,
-		path:   "setData",
+		path:   setDataEndpoint,
 		body:   reqBody,
 	})
 	return err

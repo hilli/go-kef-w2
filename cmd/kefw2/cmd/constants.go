@@ -25,6 +25,7 @@ const (
 	ModeFavorites = "favorites"
 	ModePopular   = "popular"
 	ModeTrending  = "trending"
+	ModeQueue     = "queue"
 )
 
 // Playback mode constants.

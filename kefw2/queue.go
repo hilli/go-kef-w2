@@ -3,6 +3,7 @@ package kefw2
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -29,9 +30,10 @@ func (a *AirableClient) AddToQueue(tracks []ContentItem, startIfEmpty bool) erro
 	queueWasEmpty := false
 	if startIfEmpty {
 		queue, err := a.GetPlayQueue()
-		if err == nil {
-			queueWasEmpty = len(queue.Rows) == 0
+		if err != nil {
+			return fmt.Errorf("checking queue before adding tracks: %w", err)
 		}
+		queueWasEmpty = len(queue.Rows) == 0
 	}
 
 	// Build the items array with nsdkRoles JSON strings
@@ -70,12 +72,14 @@ func (a *AirableClient) AddToQueue(tracks []ContentItem, startIfEmpty bool) erro
 		for attempt := 0; attempt < 20; attempt++ {
 			time.Sleep(250 * time.Millisecond)
 			q, err := a.GetPlayQueue()
-			if err == nil && len(q.Rows) > 0 {
-				break
+			if err != nil {
+				return fmt.Errorf("waiting for added tracks: %w", err)
+			}
+			if len(q.Rows) > 0 {
+				return a.PlayQueueIndex(0, &tracks[0])
 			}
 		}
-		// Attempt playback even if queue appears empty after polling.
-		return a.PlayQueueIndex(0, &tracks[0])
+		return fmt.Errorf("added tracks did not appear in the queue before playback timeout")
 	}
 
 	return nil
@@ -189,10 +193,15 @@ func (a *AirableClient) GetPlayMode() (string, error) {
 	}
 
 	if len(response) == 0 {
-		return PlayModeNormal, nil
+		return "", fmt.Errorf("speaker returned no play mode")
 	}
-
-	return response[0].PlayerPlayMode, nil
+	mode := response[0].PlayerPlayMode
+	switch mode {
+	case PlayModeNormal, PlayModeRepeatOne, PlayModeRepeatAll, PlayModeShuffle, PlayModeShuffleRepeatAll:
+		return mode, nil
+	default:
+		return "", fmt.Errorf("speaker returned unsupported play mode %q", mode)
+	}
 }
 
 // SetPlayMode sets the play mode (normal, repeatOne, repeatAll, shuffle, shuffleRepeatAll).
@@ -384,6 +393,44 @@ type PlayResult struct {
 	WokeFromStandby bool         // True if the speaker was woken from standby before playing
 }
 
+func (a *AirableClient) switchToWiFi(ctx context.Context, retrySourceReads bool) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := a.Speaker.SetSource(ctx, SourceWiFi); err != nil {
+		return fmt.Errorf("failed to switch to WiFi source: %w", err)
+	}
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	var lastSourceErr error
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for WiFi source: %w", errors.Join(ctx.Err(), lastSourceErr))
+		case <-ticker.C:
+			source, err := a.Speaker.Source(ctx)
+			if err != nil {
+				if retrySourceReads {
+					lastSourceErr = err
+					continue
+				}
+				return fmt.Errorf("checking WiFi source: %w", err)
+			}
+			lastSourceErr = nil
+			if source == SourceWiFi {
+				// The player subsystem initializes after the source has changed.
+				ready := time.NewTimer(time.Second)
+				defer ready.Stop()
+				select {
+				case <-ctx.Done():
+					return fmt.Errorf("waiting for player initialization: %w", ctx.Err())
+				case <-ready.C:
+					return nil
+				}
+			}
+		}
+	}
+}
+
 // PlayOrResumeFromQueue intelligently resumes or starts playback.
 //   - If the speaker is in standby, it switches to WiFi source and waits for
 //     the speaker to wake up before proceeding.
@@ -402,26 +449,10 @@ func (a *AirableClient) PlayOrResumeFromQueue(ctx context.Context) (PlayResult, 
 		return PlayResult{}, fmt.Errorf("failed to get speaker source: %w", err)
 	}
 	if source == SourceStandby {
-		if err := a.Speaker.SetSource(ctx, SourceWiFi); err != nil {
-			return PlayResult{}, fmt.Errorf("failed to switch to WiFi source: %w", err)
+		if err := a.switchToWiFi(ctx, true); err != nil {
+			return PlayResult{}, err
 		}
-		// Poll until the speaker is awake and on WiFi (up to ~10 seconds)
-		wakeTimeout := 10 * time.Second
-		pollInterval := 500 * time.Millisecond
-		deadline := time.Now().Add(wakeTimeout)
-		for time.Now().Before(deadline) {
-			time.Sleep(pollInterval)
-			s, err := a.Speaker.Source(ctx)
-			if err == nil && s == SourceWiFi {
-				wokeFromStandby = true
-				break
-			}
-		}
-		if !wokeFromStandby {
-			return PlayResult{}, fmt.Errorf("speaker did not wake up within %s", wakeTimeout)
-		}
-		// Give the player subsystem a moment to initialize after source switch
-		time.Sleep(1 * time.Second)
+		wokeFromStandby = true
 	}
 
 	pd, err := a.Speaker.PlayerData(ctx)

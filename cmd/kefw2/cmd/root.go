@@ -22,13 +22,12 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 
@@ -51,9 +50,11 @@ var (
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
-	Use:   "kefw2",
-	Short: "kefw2 is a CLI tool for controlling KEF's W2 platform speakers",
-	Long:  ``,
+	Use:               "kefw2",
+	Short:             "kefw2 is a CLI tool for controlling KEF's W2 platform speakers",
+	SilenceErrors:     true,
+	SilenceUsage:      true,
+	PersistentPreRunE: prepareCommand,
 }
 
 // noFileCompletion is a ValidArgsFunction that disables file completion.
@@ -103,37 +104,19 @@ func Execute() {
 	// Disable file completion on all commands that don't have custom completion
 	disableFileCompletionRecursive(rootCmd)
 
-	// Pre-run check to ensure we have a speaker configured except for config and version commands
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, _ []string) {
-		if commandRequiresAsSpeaker(cmd) && currentSpeaker == nil && len(speakers) == 0 {
-			errorPrinter.Fprintf(os.Stderr, "No speakers configured. Please configure a speaker first:\n")
-			errorPrinter.Fprintf(os.Stderr, "Please configure a speaker first:\n")
-			errorPrinter.Fprintf(os.Stderr, "- Discover speakers automatically:\n")
-			errorPrinter.Fprintf(os.Stderr, "    kefw2 config speaker discover --save\n")
-			errorPrinter.Fprintf(os.Stderr, "- Manually add a speaker:\n")
-			errorPrinter.Fprintf(os.Stderr, "    kefw2 config speaker add IP_ADDRESS\n")
-			os.Exit(1)
-		}
-	}
-
 	err := rootCmd.Execute()
 	if err != nil {
+		fmt.Fprintln(rootCmd.ErrOrStderr(), "Error:", err)
 		os.Exit(1)
 	}
 }
 
 func init() {
 	rootCmd.AddCommand(ConfigCmd, VersionCmd)
-	cobra.OnInitialize(initConfig)
-
 	// Get OS-specific config directory
 	cfgPath, err := os.UserConfigDir()
 	cobra.CheckErr(err)
 	cfgPath = filepath.Join(cfgPath, "kefw2")
-	err = os.MkdirAll(cfgPath, 0750)
-	if err != nil && !os.IsExist(err) {
-		log.Fatal(err)
-	}
 
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("kefw2")
@@ -161,8 +144,33 @@ func init() {
 	})
 }
 
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
+func prepareCommand(cmd *cobra.Command, args []string) error {
+	if isUtilityCommand(cmd) || isFileOnlyCommand(cmd) {
+		return nil
+	}
+	if err := initConfig(); err != nil {
+		return err
+	}
+	if commandRequiresSpeaker(cmd, args) {
+		target := currentSpeakerParam
+		if target == "" {
+			target = viper.GetString("speaker")
+		}
+		if err := resolveSpeaker(target); err != nil {
+			return err
+		}
+	}
+	if !jsonOutput(cmd) && cmd != speakerListCmd && cmd != speakerDiscoverCmd {
+		InitCache()
+	}
+	return nil
+}
+
+// initConfig reads configuration without resolving speakers or changing files.
+func initConfig() error {
+	speakers = nil
+	defaultSpeaker = nil
+	currentSpeaker = nil
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -180,22 +188,20 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		// Output here interferes with the completion cmd if there is no config file.
-		// fmt.Fprintln(os.Stderr, "Couldn't read config file:", viper.ConfigFileUsed(), " Create one by adding a speaker: `kefw2 config speaker add IP_ADDRESS`")
-		// Initialize cache before returning
-		InitCache()
-		return
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.Is(err, os.ErrNotExist) && !errors.As(err, &notFound) {
+			return fmt.Errorf("reading configuration: %w", err)
+		}
 	}
 	// Unmarshal speakers
 	if err := viper.UnmarshalKey("speakers", &speakers); err != nil {
-		errorPrinter.Println("Error unmarshalling speakers:", err)
-		os.Exit(1)
+		return fmt.Errorf("reading configured speakers: %w", err)
 	}
 	// Unmarshal default speaker and set it up
 	defaultSpeakerIP := viper.GetString("defaultSpeaker")
-	for _, s := range speakers {
-		if s.IPAddress == defaultSpeakerIP {
-			defaultSpeaker = &s
+	for i := range speakers {
+		if speakers[i].IPAddress == defaultSpeakerIP {
+			defaultSpeaker = &speakers[i]
 			break
 		}
 	}
@@ -203,48 +209,88 @@ func initConfig() {
 	// If no default speaker is set but we have a speaker, use the first one
 	if defaultSpeaker == nil && len(speakers) == 1 {
 		defaultSpeaker = &speakers[0]
-		viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
-		_ = viper.WriteConfig()
-		taskConpletedPrinter.Printf("No default speaker was set. Using first available speaker as default: %s (%s)\n",
-			defaultSpeaker.Name, defaultSpeaker.IPAddress)
 	}
+	currentSpeaker = defaultSpeaker
+	return nil
+}
 
-	if currentSpeakerParam != "" {
-		// Try to find speaker by name or IP in configured speakers
-		var found bool
+func resolveSpeaker(target string) error {
+	currentSpeaker = nil
+	if target != "" {
 		for i := range speakers {
-			if speakers[i].Name == currentSpeakerParam || speakers[i].IPAddress == currentSpeakerParam {
+			if speakers[i].IPAddress == target {
 				currentSpeaker = &speakers[i]
-				found = true
-				break
+				return nil
 			}
 		}
-		if !found {
-			// Fall back to treating as IP address (for unconfigured speakers)
-			newSpeaker, err := kefw2.NewSpeaker(currentSpeakerParam)
-			if err != nil {
-				errorPrinter.Printf("Hmm, %s does not look like it is a KEF W2 speaker:\n%s\n", currentSpeakerParam, err.Error())
+		for i := range speakers {
+			if speakers[i].Name == target {
+				if currentSpeaker != nil {
+					return fmt.Errorf("speaker name %q is ambiguous; use an IP address", target)
+				}
+				currentSpeaker = &speakers[i]
 			}
-			currentSpeaker = newSpeaker
+		}
+		if currentSpeaker == nil {
+			speaker, err := kefw2.NewSpeaker(target)
+			if err != nil {
+				return fmt.Errorf("resolving speaker %q: %w", target, err)
+			}
+			currentSpeaker = speaker
 		}
 	} else {
 		currentSpeaker = defaultSpeaker
 	}
-
-	// Initialize cache
-	InitCache()
+	if currentSpeaker == nil {
+		return fmt.Errorf("no unambiguous speaker selected; use --speaker NAME_OR_IP, " +
+			"set a default with 'kefw2 config speaker default', or discover with 'kefw2 config speaker discover --save'")
+	}
+	return nil
 }
 
-func commandRequiresAsSpeaker(cmd *cobra.Command) bool {
+func isUtilityCommand(cmd *cobra.Command) bool {
 	cmdPath := strings.Split(cmd.CommandPath(), " ")
-	if slices.Contains(cmdPath, "config") {
+	return slices.Contains(cmdPath, "skill") || cmd.Name() == "version" || cmd.Name() == "help"
+}
+
+func isFileOnlyCommand(cmd *cobra.Command) bool {
+	switch cmd {
+	case queueSavedCmd, queueDeleteSavedCmd:
+		return true
+	case upnpSearchCmd, cacheClearCmd:
+		return jsonOutput(cmd)
+	case upnpIndexCmd:
+		rebuild, _ := cmd.Flags().GetBool("rebuild")
+		return jsonOutput(cmd) && !rebuild
+	default:
 		return false
 	}
-	if slices.Contains(cmdPath, "completion") {
+}
+
+func commandRequiresSpeaker(cmd *cobra.Command, args []string) bool {
+	cmdPath := strings.Split(cmd.CommandPath(), " ")
+	if isUtilityCommand(cmd) || slices.Contains(cmdPath, "completion") ||
+		cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" {
 		return false
 	}
-	if cmd.Name() == "version" || cmd.Name() == "help" {
+	if isFileOnlyCommand(cmd) || cmd == cacheStatusCmd || cmd == cacheClearCmd {
 		return false
 	}
-	return true
+	if !slices.Contains(cmdPath, "config") {
+		return true
+	}
+	return configCommandRequiresSpeaker(cmd, args)
+}
+
+func configCommandRequiresSpeaker(cmd *cobra.Command, args []string) bool {
+	switch cmd {
+	case eqProfileCmd, maxVolumeCmd, upnpServerListCmd:
+		return true
+	case upnpServerDefaultCmd:
+		return len(args) > 0 || (jsonOutput(cmd) && cmd.Flags().Changed("path"))
+	case upnpContainerBrowseCmd, upnpContainerIndexCmd:
+		return (len(args) > 0 && args[0] != "") || (jsonOutput(cmd) && cmd.Flags().Changed("path"))
+	default:
+		return false
+	}
 }

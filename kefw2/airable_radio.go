@@ -1,6 +1,7 @@
 package kefw2
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -46,6 +47,15 @@ func (a *AirableClient) GetRadioMenu() (*RowsResponse, error) {
 
 // SearchRadio searches for radio stations using direct URL pattern.
 func (a *AirableClient) SearchRadio(query string) (*RowsResponse, error) {
+	return a.SearchRadioPage(query, 0, 24)
+}
+
+// SearchRadioPage searches a bounded page of raw service rows.
+// offset is zero-based; limit must be between 1 and 100.
+func (a *AirableClient) SearchRadioPage(query string, offset, limit int) (*RowsResponse, error) {
+	if offset < 0 || offset > 1_000_000 || limit < 1 || limit > 100 {
+		return nil, fmt.Errorf("radio search requires offset 0..1000000 and limit 1..100")
+	}
 	baseURL, err := a.getServiceBaseURLPath(ServiceRadio)
 	if err != nil {
 		return nil, err
@@ -55,7 +65,7 @@ func (a *AirableClient) SearchRadio(query string) (*RowsResponse, error) {
 	// The API uses backslash escaping: search\?q\=query
 	searchPath := fmt.Sprintf("%s/airable/radios/search\\?q\\=%s", baseURL, url.QueryEscape(query))
 
-	return a.GetRows(searchPath, 0, 23)
+	return a.GetRows(searchPath, offset, offset+limit-1)
 }
 
 // GetRadioFavorites returns the user's favorite radio stations.
@@ -125,6 +135,16 @@ func (a *AirableClient) GetRadioStationDetails(stationPath string) (*ContentItem
 
 // PlayRadioStation plays a radio station using the player:player/control pattern.
 func (a *AirableClient) PlayRadioStation(station *ContentItem) error {
+	ctx := context.Background()
+	source, err := a.Speaker.Source(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get speaker source: %w", err)
+	}
+	if source != SourceWiFi {
+		if err := a.switchToWiFi(ctx, false); err != nil {
+			return fmt.Errorf("preparing radio playback: %w", err)
+		}
+	}
 	if err := a.playItem(station); err != nil {
 		return fmt.Errorf("failed to play radio station: %w", err)
 	}
@@ -143,12 +163,60 @@ func (a *AirableClient) RemoveRadioFavorite(station *ContentItem) error {
 
 // PlayRadioByPath plays a radio station by its path.
 func (a *AirableClient) PlayRadioByPath(stationPath string) error {
-	station, err := a.GetRadioStationDetails(stationPath)
+	station, err := a.GetRadioStationByPath(stationPath)
 	if err != nil {
 		return fmt.Errorf("failed to get station details: %w", err)
 	}
 
 	return a.PlayRadioStation(station)
+}
+
+// GetRadioStationByPath resolves an exact station path without changing playback.
+func (a *AirableClient) GetRadioStationByPath(path string) (*ContentItem, error) {
+	return a.resolveExactRadioPath(path)
+}
+
+func (a *AirableClient) resolveExactRadioPath(path string) (*ContentItem, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, fmt.Errorf("radio station path must not be empty")
+	}
+	visited := make(map[string]bool)
+	for range 5 {
+		if visited[path] {
+			return nil, fmt.Errorf("radio station path resolution loop at %q", path)
+		}
+		visited[path] = true
+		resp, err := a.GetRows(path, 0, 19)
+		if err != nil {
+			return nil, err
+		}
+		if resp.Roles != nil && resp.Roles.MediaData != nil && len(resp.Roles.MediaData.Resources) > 0 {
+			if resp.Roles.Path != "" && resp.Roles.Path != path {
+				return nil, fmt.Errorf("station details do not match requested path %q", path)
+			}
+			return resp.Roles, nil
+		}
+		var candidate *ContentItem
+		for i := range resp.Rows {
+			if resp.Rows[i].Path == path {
+				if candidate != nil {
+					return nil, fmt.Errorf("ambiguous radio station path %q", path)
+				}
+				candidate = &resp.Rows[i]
+			}
+		}
+		if candidate == nil && len(resp.Rows) == 1 && resp.RowsCount <= 1 {
+			candidate = &resp.Rows[0]
+		}
+		if candidate == nil || candidate.Path == "" {
+			return nil, fmt.Errorf("no unambiguous station details for path %q; search again", path)
+		}
+		if candidate.MediaData != nil && len(candidate.MediaData.Resources) > 0 {
+			return candidate, nil
+		}
+		path = candidate.Path
+	}
+	return nil, fmt.Errorf("radio station path resolution exceeded 5 levels")
 }
 
 // ResolveAndPlayRadioStation resolves a station to its playable form and plays it.

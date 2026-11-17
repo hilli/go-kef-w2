@@ -2,15 +2,127 @@ package kefw2
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
+
+func TestSwitchToWiFiHonorsDeadline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/setData" {
+			t.Errorf("unexpected request during bounded wake: %s %s", r.Method, r.URL)
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := client.switchToWiFi(ctx, true); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("wake did not honor deadline: %v", err)
+	}
+}
+
+func TestSwitchToWiFiWaitsUntilSourceReady(t *testing.T) {
+	var reads atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		source := "standby"
+		if reads.Add(1) > 1 {
+			source = "wifi"
+		}
+		_, _ = fmt.Fprintf(w, `[{"type":"kefPhysicalSource","kefPhysicalSource":%q}]`, source)
+	}))
+	defer server.Close()
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	if err := client.switchToWiFi(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	if reads.Load() < 2 {
+		t.Fatal("returned before observing the asynchronous source change")
+	}
+}
+
+func TestSwitchToWiFiPropagatesPollFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	if err := client.switchToWiFi(context.Background(), false); err == nil || !strings.Contains(err.Error(), "503") {
+		t.Fatalf("wake ignored source poll failure: %v", err)
+	}
+}
+
+func TestPlayOrResumeFromQueueRecoversTransientWakeRead(t *testing.T) {
+	var reads, sourceWrites, controlWrites atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var payload struct {
+				Path string `json:"path"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Error(err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			switch payload.Path {
+			case "settings:/kef/play/physicalSource":
+				sourceWrites.Add(1)
+			case "player:player/control":
+				controlWrites.Add(1)
+			default:
+				t.Errorf("unexpected mutation: %s", payload.Path)
+			}
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		switch r.URL.Query().Get("path") {
+		case "settings:/kef/play/physicalSource":
+			source := "wifi"
+			switch reads.Add(1) {
+			case 1:
+				source = "standby"
+			case 2:
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			_, _ = fmt.Fprintf(w, `[{"type":"kefPhysicalSource","kefPhysicalSource":%q}]`, source)
+		case "player:player/data":
+			_, _ = w.Write([]byte(`[{"state":"paused"}]`))
+		default:
+			t.Errorf("unexpected read: %s", r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	result, err := client.PlayOrResumeFromQueue(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Action != PlayActionResumed || !result.WokeFromStandby ||
+		sourceWrites.Load() != 1 || controlWrites.Load() != 1 {
+		t.Fatalf("wake did not recover without retrying mutations: %+v sources=%d controls=%d",
+			result, sourceWrites.Load(), controlWrites.Load())
+	}
+}
 
 func TestAirableClient_PlayItemLogging(t *testing.T) {
 	for _, level := range []slog.Level{slog.LevelInfo, slog.LevelDebug} {
@@ -96,12 +208,96 @@ func TestAirableClient_GetRows(t *testing.T) {
 		t.Fatalf("GetRows failed: %v", err)
 	}
 
-	// Validate response
 	if rows.RowsCount != 1 {
 		t.Errorf("Expected RowsCount 1, got %d", rows.RowsCount)
 	}
 	if rows.Rows[0].Title != "Test Item" {
 		t.Errorf("Expected Title 'Test Item', got '%s'", rows.Rows[0].Title)
+	}
+}
+
+func TestAirableClient_RejectsHTTPFailures(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	if _, err := client.GetRows("test:path", 0, 19); err == nil {
+		t.Error("GetRows accepted HTTP failure")
+	}
+	if _, err := client.SetData(map[string]string{"path": "test:path"}); err == nil {
+		t.Error("SetData accepted HTTP failure")
+	}
+	if _, err := client.GetData("test:path"); err == nil {
+		t.Error("GetData accepted HTTP failure")
+	}
+}
+
+func TestAirableClient_SearchRadioPage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("from") != "24" || q.Get("to") != "33" ||
+			q.Get("path") != `airable:https://radio.example/airable/radios/search\?q\=Jazz+%26+Blues` {
+			t.Errorf("unexpected pagination/search request: %s", r.URL)
+		}
+		_, _ = w.Write([]byte(`{"rowsCount":100,"rows":[]}`))
+	}))
+	defer server.Close()
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	client.RadioBaseURL = "airable:https://radio.example"
+	if _, err := client.SearchRadioPage("Jazz & Blues", 24, 10); err != nil {
+		t.Fatal(err)
+	}
+	for _, pair := range [][2]int{{-1, 24}, {0, 0}, {0, 101}, {1_000_001, 24}} {
+		if _, err := client.SearchRadioPage("Jazz", pair[0], pair[1]); err == nil {
+			t.Errorf("accepted invalid pagination %v", pair)
+		}
+	}
+}
+
+func TestAirableClient_PlayRadioByPath(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		details string
+		wantErr bool
+	}{
+		{"roles", `{"roles":{"path":"station:chosen","type":"audio","mediaData":{"resources":[{"uri":"stream:chosen"}]}}}`, false},
+		{"matching row", `{"rowsCount":1,"rows":[{"path":"station:chosen","type":"audio",` +
+			`"mediaData":{"resources":[{"uri":"stream:chosen"}]}}]}`, false},
+		{"ambiguous children", `{"rowsCount":2,"rows":[{"path":"station:a",` +
+			`"mediaData":{"resources":[{"uri":"stream:wrong"}]}},{"path":"station:b"}]}`, true},
+		{"mismatched roles", `{"roles":{"path":"station:other","mediaData":{"resources":[{"uri":"stream:other"}]}}}`, true},
+		{"missing station", `{"rowsCount":0,"rows":[]}`, true},
+		{"loop", `{"rowsCount":1,"rows":[{"path":"station:chosen"}]}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var posts int
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					posts++
+					_, _ = w.Write([]byte(`{}`))
+					return
+				}
+				if r.URL.Path == "/api/getData" {
+					_, _ = w.Write([]byte(`[{"type":"kefPhysicalSource","kefPhysicalSource":"wifi"}]`))
+					return
+				}
+				if r.URL.Query().Get("path") != "station:chosen" {
+					t.Errorf("resolved unrelated path: %s", r.URL)
+				}
+				_, _ = w.Write([]byte(tc.details))
+			}))
+			defer server.Close()
+			client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+			err := client.PlayRadioByPath("station:chosen")
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("PlayRadioByPath: %v, wantErr=%v", err, tc.wantErr)
+			}
+			if tc.wantErr && posts != 0 || !tc.wantErr && posts != 2 {
+				t.Errorf("unexpected mutations: %d", posts)
+			}
+		})
 	}
 }
 

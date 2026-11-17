@@ -234,6 +234,13 @@ errorPrinter.Println("Error message")
 taskConpletedPrinter.Printf("Success message\n")
 ```
 
+### Agent Skill Documentation
+
+When adding, removing, or changing CLI commands, flags, or JSON behavior, update
+`cmd/kefw2/cmd/skillassets/guide.md` in the same change. This guide is embedded in
+the binary and printed by `kefw2 skill show`; keep its examples, options, and
+response contracts consistent with the implemented commands.
+
 ### Testing
 
 **Test file naming:** `*_test.go` in the same package

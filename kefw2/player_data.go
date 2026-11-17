@@ -105,6 +105,9 @@ func (s *KEFSpeaker) PlayerData(ctx context.Context) (PlayerData, error) {
 	if err != nil {
 		return PlayerData{}, fmt.Errorf("error unmarshaling player data: %w", err)
 	}
+	if len(playersData) == 0 {
+		return PlayerData{}, fmt.Errorf("speaker returned no player data")
+	}
 	playerData := playersData[0]
 	return playerData, nil
 }

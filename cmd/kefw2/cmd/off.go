@@ -22,6 +22,8 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -31,17 +33,22 @@ var offCmd = &cobra.Command{
 	Short: "Turns the speakers off",
 	Long:  `Turns the speakers off`,
 	Args:  cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx := cmd.Context()
 		err := currentSpeaker.PowerOff(ctx)
 		if err != nil {
-			errorPrinter.Println(err)
+			return fmt.Errorf("powering off: %w", err)
+		}
+		if jsonOutput(cmd) {
+			return writeSpeakerJSON(cmd, actionResult{"off", true})
 		}
 		taskConpletedPrinter.Print("Speakers are now ")
 		contentPrinter.Println("off")
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(offCmd)
+	addJSONFlag(offCmd)
 }

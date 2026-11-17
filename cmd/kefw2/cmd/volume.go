@@ -23,6 +23,8 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -34,29 +36,47 @@ var volumeCmd = &cobra.Command{
 	Short:   "Get or adjust the volume of the speakers",
 	Long:    `Get or adjust the volume of the speakers`,
 	Args:    cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if len(args) != 1 {
-			volume, _ := currentSpeaker.GetVolume(ctx)
+			volume, err := currentSpeaker.GetVolume(ctx)
+			if err != nil {
+				return fmt.Errorf("getting volume: %w", err)
+			}
+			if jsonOutput(cmd) {
+				return writeSpeakerJSON(cmd, struct {
+					Volume int `json:"volume"`
+				}{volume})
+			}
 			headerPrinter.Printf("Volume is: ")
 			contentPrinter.Printf("%d%%\n", volume)
-			return
+			return nil
 		}
 		volume, err := parseVolume(args[0])
-		exitOnError(err, "Invalid volume")
-		err = currentSpeaker.SetVolume(ctx, volume)
-		exitOnError(err, "Failed to set volume")
+		if err != nil {
+			return fmt.Errorf("invalid volume: %w", err)
+		}
+		if err := currentSpeaker.SetVolume(ctx, volume); err != nil {
+			return fmt.Errorf("setting volume: %w", err)
+		}
+		if jsonOutput(cmd) {
+			return writeSpeakerJSON(cmd, struct {
+				actionResult
+				Volume int `json:"volume"`
+			}{actionResult{"set_volume", true}, volume})
+		}
+		return nil
 	},
 	ValidArgsFunction: VolumeCompletion,
 }
 
 func init() {
 	rootCmd.AddCommand(volumeCmd)
+	addJSONFlag(volumeCmd)
 }
 
 func parseVolume(volume string) (int, error) {
-	var v int
-	_, err := fmt.Sscanf(volume, "%d", &v)
+	v, err := strconv.Atoi(strings.TrimSuffix(volume, "%"))
 	if err != nil {
 		return 0, err
 	}

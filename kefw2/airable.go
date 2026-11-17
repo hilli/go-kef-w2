@@ -204,6 +204,9 @@ func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
 
 	var rowsResp RowsResponse
 	if err := json.Unmarshal(body, &rowsResp); err != nil {
@@ -249,21 +252,22 @@ func (a *AirableClient) GetAllRows(path string) (*RowsResponse, error) {
 	// Use actual returned count as batch size (API limits to ~30)
 	batchSize := len(resp.Rows)
 	if batchSize == 0 {
-		batchSize = 30 // Fallback
+		return nil, fmt.Errorf("incomplete rows: expected %d rows but received none", resp.RowsCount)
 	}
 
 	// Paginate to get remaining rows
 	allRows := resp.Rows
-	for from := batchSize; from < resp.RowsCount; from += batchSize {
-		to := from + batchSize
+	for from := batchSize; from < resp.RowsCount; {
+		to := min(from+batchSize, resp.RowsCount) - 1
 		batch, err := a.GetRows(path, from, to)
 		if err != nil {
-			break // Return what we have so far
+			return nil, fmt.Errorf("fetching rows at offset %d: %w", from, err)
 		}
 		if len(batch.Rows) == 0 {
-			break // No more rows
+			return nil, fmt.Errorf("incomplete rows at offset %d: expected %d total rows", from, resp.RowsCount)
 		}
 		allRows = append(allRows, batch.Rows...)
+		from += len(batch.Rows)
 	}
 
 	resp.Rows = allRows
@@ -300,6 +304,15 @@ func (a *AirableClient) SetData(payload interface{}) (*SetDataResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
+	// Only an explicit rejection is safe to retry through the authenticated API.
+	if resp.StatusCode == http.StatusUnauthorized {
+		body, err = a.Speaker.authenticatedSetData(req.Context(), payloadJSON)
+		if err != nil {
+			return nil, err
+		}
+	} else if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
 
 	var setDataResp SetDataResponse
 	if err := json.Unmarshal(body, &setDataResp); err != nil {
@@ -332,6 +345,9 @@ func (a *AirableClient) GetData(path string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
 	return body, nil
 }
 

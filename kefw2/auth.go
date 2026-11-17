@@ -47,6 +47,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -147,7 +148,10 @@ func (s *KEFSpeaker) provisionAuthUser(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read addUser response: %w", err)
+	}
 	if authDebug {
 		fmt.Fprintf(os.Stderr, "[auth] provision addUser status=%d resp=%s\n",
 			resp.StatusCode, truncate(respBody, 300))
@@ -160,7 +164,7 @@ func (s *KEFSpeaker) provisionAuthUser(ctx context.Context) error {
 	if bytes.Contains(bytes.ToLower(respBody), []byte("exist")) {
 		return nil
 	}
-	return fmt.Errorf("addUser: HTTP %d: %s", resp.StatusCode, string(respBody))
+	return fmt.Errorf("addUser: HTTP %d", resp.StatusCode)
 }
 
 // signAuthHeader builds the HMAC_SHA256 Authorization header value.
@@ -200,49 +204,66 @@ func signAuthHeader(username, password, fullURL string, body []byte, isPOST bool
 	return "HMAC_SHA256 " + usernameB64 + "." + nonceB64 + "." + timestamp + "." + signature, nil
 }
 
+func (s *KEFSpeaker) authenticatedSetData(ctx context.Context, body []byte) ([]byte, error) {
+	if authDebug {
+		return nil, fmt.Errorf("disable KEFW2_AUTH_DEBUG for authenticated control operations")
+	}
+	status, raw, err := s.doAuthenticatedPOST(ctx, authPathSetData, body)
+	if err != nil {
+		return nil, fmt.Errorf("authenticated setData: %w", err)
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("authenticated setData: HTTP %d", status)
+	}
+	return raw, nil
+}
+
 // doAuthenticatedPOST issues a signed POST to the 4430 endpoint, provisioning
-// the auth user on first 401.
-func (s *KEFSpeaker) doAuthenticatedPOST(ctx context.Context, path string, body []byte) (*http.Response, []byte, error) {
+// the auth user on first 401. It consumes and closes the response body.
+func (s *KEFSpeaker) doAuthenticatedPOST(ctx context.Context, path string, body []byte) (int, []byte, error) {
 	username, password := authCredentials()
 
 	url := fmt.Sprintf("https://%s:%d%s", s.IPAddress, authPort, path)
 
-	send := func() (*http.Response, []byte, error) {
+	send := func() (int, []byte, error) {
 		auth, err := signAuthHeader(username, password, url, body, true)
 		if err != nil {
-			return nil, nil, err
+			return 0, nil, err
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 		if err != nil {
-			return nil, nil, fmt.Errorf("build request: %w", err)
+			return 0, nil, fmt.Errorf("build request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", auth)
 
 		resp, err := authHTTPClient().Do(req)
 		if err != nil {
-			return nil, nil, err
+			return 0, nil, err
 		}
-		raw, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		raw, readErr := io.ReadAll(resp.Body)
+		closeErr := resp.Body.Close()
+		if err := errors.Join(readErr, closeErr); err != nil {
+			return 0, nil, fmt.Errorf("read authenticated response: %w", err)
+		}
 		if authDebug {
 			fmt.Fprintf(os.Stderr, "[auth] POST %s status=%d canonical-len=%d body-len=%d resp=%s\n",
 				url, resp.StatusCode, len(auth), len(body), truncate(raw, 200))
 		}
-		return resp, raw, nil
+		return resp.StatusCode, raw, nil
 	}
 
-	resp, raw, err := send()
+	status, raw, err := send()
 	if err != nil {
-		return nil, nil, err
+		return 0, nil, err
 	}
-	if resp.StatusCode != http.StatusUnauthorized {
-		return resp, raw, nil
+	if status != http.StatusUnauthorized {
+		return status, raw, nil
 	}
 
 	// Likely first-run: user not yet provisioned. Provision and retry once.
 	if err := s.provisionAuthUser(ctx); err != nil {
-		return nil, nil, fmt.Errorf("provision after 401: %w", err)
+		return 0, nil, fmt.Errorf("provision after 401: %w", err)
 	}
 	return send()
 }

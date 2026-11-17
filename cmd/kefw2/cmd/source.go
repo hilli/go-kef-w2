@@ -36,24 +36,43 @@ var sourceCmd = &cobra.Command{
 	Short:   "Get or change the source of the speakers",
 	Long:    `Get or change the source of the speakers`,
 	Args:    cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if len(args) != 1 {
-			source, _ := currentSpeaker.Source(ctx)
+			source, err := currentSpeaker.Source(ctx)
+			if err != nil {
+				return fmt.Errorf("getting source: %w", err)
+			}
+			if jsonOutput(cmd) {
+				return writeSpeakerJSON(cmd, struct {
+					Source kefw2.Source `json:"source"`
+				}{source})
+			}
 			headerPrinter.Print("Source: ")
 			contentPrinter.Printf("%s\n", source.String())
-			return
+			return nil
 		}
 		source, err := parseSource(args[0])
-		exitOnError(err, "Invalid source")
-		err = currentSpeaker.SetSource(ctx, source)
-		exitOnError(err, "Failed to set source")
+		if err != nil {
+			return fmt.Errorf("invalid source: %w", err)
+		}
+		if err := currentSpeaker.SetSource(ctx, source); err != nil {
+			return fmt.Errorf("setting source: %w", err)
+		}
+		if jsonOutput(cmd) {
+			return writeSpeakerJSON(cmd, struct {
+				actionResult
+				Source kefw2.Source `json:"source"`
+			}{actionResult{"set_source", true}, source})
+		}
+		return nil
 	},
 	ValidArgsFunction: SourceCompletion,
 }
 
 func init() {
 	rootCmd.AddCommand(sourceCmd)
+	addJSONFlag(sourceCmd)
 }
 
 func parseSource(source string) (kefw2.Source, error) {

@@ -13,11 +13,26 @@ import (
 // Entry point: airable:linkService_airable.feeds.
 // Follows multiple redirects until reaching the actual menu content.
 func (a *AirableClient) GetPodcastMenu() (*RowsResponse, error) {
+	return a.getPodcastMenu(false)
+}
+
+// GetPodcastMenuAll returns the complete menu, following podcast redirects.
+func (a *AirableClient) GetPodcastMenuAll() (*RowsResponse, error) {
+	return a.getPodcastMenu(true)
+}
+
+func (a *AirableClient) getPodcastMenu(all bool) (*RowsResponse, error) {
 	path := "airable:linkService_airable.feeds"
 
 	// Follow redirects (up to 5 to prevent infinite loops)
 	for i := 0; i < 5; i++ {
-		resp, err := a.GetRows(path, 0, 100)
+		var resp *RowsResponse
+		var err error
+		if all {
+			resp, err = a.GetAllRows(path)
+		} else {
+			resp, err = a.GetRows(path, 0, 100)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -55,6 +70,56 @@ func (a *AirableClient) SearchPodcasts(query string) (*RowsResponse, error) {
 	searchPath := fmt.Sprintf("%s/airable/feeds/search\\?q\\=%s", baseURL, url.QueryEscape(query))
 
 	return a.GetRows(searchPath, 0, 23)
+}
+
+// SearchPodcastsAll searches every result page, failing rather than returning
+// incomplete results that could make name selection ambiguous.
+func (a *AirableClient) SearchPodcastsAll(query string) (*RowsResponse, error) {
+	baseURL, err := a.getServiceBaseURLPath(ServicePodcast)
+	if err != nil {
+		return nil, err
+	}
+	return a.GetAllRows(fmt.Sprintf("%s/airable/feeds/search\\?q\\=%s", baseURL, url.QueryEscape(query)))
+}
+
+// GetPodcastDetailsExact resolves only the requested path. Unlike generic item
+// lookup, a container's first child is never treated as the requested item.
+func (a *AirableClient) GetPodcastDetailsExact(path string) (*ContentItem, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, fmt.Errorf("podcast path must not be empty")
+	}
+	resp, err := a.GetAllRows(path)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Roles != nil && resp.Roles.Path == path {
+		return resp.Roles, nil
+	}
+	var match *ContentItem
+	for i := range resp.Rows {
+		if resp.Rows[i].Path == path {
+			if match != nil {
+				return nil, fmt.Errorf("duplicate podcast details for path: %s", path)
+			}
+			match = &resp.Rows[i]
+		}
+	}
+	if match == nil {
+		return nil, fmt.Errorf("no exact podcast details for path: %s", path)
+	}
+	return match, nil
+}
+
+// PlayPodcastEpisodeExact requests the selected audio item, never its parent
+// container (which could start a different episode). Acceptance is not proof
+// that the speaker has resolved the stream or started physical playback.
+func (a *AirableClient) PlayPodcastEpisodeExact(episode *ContentItem) error {
+	if episode == nil || episode.Type != ContentTypeAudio || strings.TrimSpace(episode.Path) == "" {
+		return fmt.Errorf("an exact audio episode with a nonempty path is required")
+	}
+	item := *episode
+	item.ContainerPlayable = true
+	return a.playItem(&item)
 }
 
 // GetPodcastFavorites returns the user's favorite podcasts.
@@ -102,6 +167,11 @@ func (a *AirableClient) GetPodcastFilter() (*RowsResponse, error) {
 	return a.getServiceEndpoint(ServicePodcast, "filter")
 }
 
+// GetPodcastFilterAll returns every podcast filter menu row.
+func (a *AirableClient) GetPodcastFilterAll() (*RowsResponse, error) {
+	return a.getAllServiceEndpoint(ServicePodcast, "filter")
+}
+
 // GetPodcastEpisodesAll returns all episodes for a podcast (paginated and cached).
 func (a *AirableClient) GetPodcastEpisodesAll(podcastPath string) (*RowsResponse, error) {
 	// If path already ends with /episodes, use it directly
@@ -110,16 +180,26 @@ func (a *AirableClient) GetPodcastEpisodesAll(podcastPath string) (*RowsResponse
 	}
 
 	// Otherwise, fetch the podcast content to find the Episodes container
-	resp, err := a.GetRows(podcastPath, 0, 10)
+	resp, err := a.GetAllRows(podcastPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get podcast content: %w", err)
 	}
 
 	// Find the Episodes container
+	var episodesPath string
 	for _, item := range resp.Rows {
 		if item.Title == "Episodes" && item.Type == ContentTypeContainer {
-			return a.GetAllRows(item.Path)
+			if strings.TrimSpace(item.Path) == "" {
+				return nil, fmt.Errorf("episodes container has an empty path for podcast: %s", podcastPath)
+			}
+			if episodesPath != "" {
+				return nil, fmt.Errorf("multiple Episodes containers for podcast at path: %s", podcastPath)
+			}
+			episodesPath = item.Path
 		}
+	}
+	if episodesPath != "" {
+		return a.GetAllRows(episodesPath)
 	}
 
 	return nil, fmt.Errorf("no Episodes container found for podcast at path: %s", podcastPath)

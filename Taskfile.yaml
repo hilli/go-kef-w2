@@ -26,6 +26,7 @@ tasks:
     aliases: [b]
     sources:
       - cmd/kefw2/**/*.go
+      - cmd/kefw2/cmd/skillassets/*.md
       - kefw2/*.go
     generates:
       - bin/kefw2
