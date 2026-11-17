@@ -151,12 +151,12 @@ func (s *KEFSpeaker) setAuthenticatedTypedValue(ctx context.Context, path string
 		return fmt.Errorf("marshaling request: %w", err)
 	}
 
-	resp, raw, err := s.doAuthenticatedPOST(ctx, authPathSetData, reqBody)
+	status, raw, err := s.doAuthenticatedPOST(ctx, authPathSetData, reqBody)
 	if err != nil {
 		return fmt.Errorf("authenticated setData %s: %w", path, err)
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("authenticated setData %s: HTTP %d: %s", path, resp.StatusCode, strings.TrimSpace(string(raw)))
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("authenticated setData %s: HTTP %d: %s", path, status, strings.TrimSpace(string(raw)))
 	}
 	return nil
 }
@@ -173,17 +173,17 @@ func (s *KEFSpeaker) setAuthenticatedTypedValue(ctx context.Context, path string
 func (s *KEFSpeaker) Reboot(ctx context.Context) error {
 	body := []byte(`{"path":"powermanager:goReboot","role":"activate","value":"{}"}`)
 
-	resp, raw, err := s.doAuthenticatedPOST(ctx, authPathSetData, body)
+	status, raw, err := s.doAuthenticatedPOST(ctx, authPathSetData, body)
 	if err != nil {
-		if isRebootDisconnect(err) {
+		if (status == 0 || (status >= 200 && status < 300)) && isRebootDisconnect(err) {
 			return nil
 		}
 		return fmt.Errorf("reboot request: %w", err)
 	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if status >= 200 && status < 300 {
 		return nil
 	}
-	return fmt.Errorf("reboot: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	return fmt.Errorf("reboot: HTTP %d: %s", status, strings.TrimSpace(string(raw)))
 }
 
 // isRebootDisconnect reports whether the error looks like the speaker

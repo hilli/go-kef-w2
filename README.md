@@ -162,6 +162,147 @@ kefw2 config maxvol 65
 
 All with tab completion available of the options, where applicable.
 
+### AI agents and scripting
+
+Install the bundled agent skill:
+
+```shell
+kefw2 skill setup
+```
+
+This installs `~/.agents/skills/kefw2/SKILL.md`. The small bootstrap tells agents
+to run `kefw2 skill show`, which prints the guide bundled with the installed
+binary, so instructions stay aligned with that version. No network or speaker
+configuration is needed. Setup is repeatable and refuses to overwrite an
+unrecognized or modified skill.
+Rerun setup to upgrade an unmodified earlier bootstrap to the current
+description, including music/UPnP, podcast, radio, queue, and favorites workflows.
+
+Setup also installs into the following agents' skill directories when their
+configuration directories already exist (the `skills` subdirectory may be new):
+
+| Agent | Skills root |
+| --- | --- |
+| Claude Code | `~/.claude/skills` |
+| GitHub Copilot | `~/.copilot/skills` |
+| Codex (legacy location) | `~/.codex/skills` |
+| Cursor | `~/.cursor/skills` |
+| Gemini CLI | `~/.gemini/skills` |
+| OpenCode | `$XDG_CONFIG_HOME/opencode/skills`, or `~/.config/opencode/skills` |
+
+Current Codex and other agents supporting the shared directory can use the
+`~/.agents/skills` install directly. Setup does not create configuration
+directories for absent agents or install into project-local directories.
+
+```shell
+kefw2 skill show
+kefw2 skill setup --skills-dir /path/to/skills
+kefw2 skill setup -v
+kefw2 skill remove
+```
+
+`--skills-dir` disables automatic detection and uses only that skills root;
+the installer appends `kefw2/SKILL.md`. Removal checks the same detected locations,
+preserves unrelated files, and refuses to delete a modified skill. Symlink paths
+are refused. A conflict at one skills root is reported without preventing
+other selected roots from being processed; the command exits nonzero if any fail.
+Both setup and removal accept `-v`/`--verbose` to show each selected skill path
+and its progress. They remain quiet by default.
+
+Machine-readable output is available on these commands:
+
+| Commands | Behavior with `--json` |
+| --- | --- |
+| `config speaker list` | Configured speakers and effective default |
+| `config speaker discover` | Discovered speakers; only saves with `--save` |
+| `status` | Source, power, volume, mute, and applicable playback metadata |
+| `volume`, `mute`, `source` | Read a value or request an absolute setting |
+| `play`, `pause`, `stop`, `off` | Request playback/power actions or report a no-op |
+| `radio search QUERY` | Return candidates without opening a picker or playing |
+| `radio play --path PATH` | Play an exact path returned by search on the same speaker |
+| `radio`, categories, favorites, `browse` | List content; explicit selections can play or change favorites |
+| `podcast`, search, categories, filter, browse, episodes | List shows/episodes without playing; explicit playback/queue/favorite actions |
+| `upnp`, browse, play, search, index | Browse/play exact paths, queue tracks, and inspect/rebuild/search the local index |
+| `queue`, list, play, remove, move, clear | Inspect or explicitly change the queue using 1-based positions |
+| `queue mode`, shuffle, repeat | Inspect or set playback modes |
+| `queue save`, load, saved, delete-saved | Save/replace queues or manage local saved queues |
+| `info`, version, next, previous, seek | Structured metadata and navigation |
+| Remaining speaker/UPnP/cache configuration, EQ, maxvolume, reboot/schedule | Structured getters and explicit validated actions |
+
+These finite commands emit one JSON object with a `data` field, plus `speaker`
+identity for speaker-specific operations. JSON mode does not prompt, render
+artwork, or print progress or ANSI colors. Failures exit with status 1 and send
+diagnostics to stderr rather than returning fabricated values. Operational
+commands support `--json`; help-only command groups, shell completion and skill
+installation/display are not JSON APIs. Existing human-facing commands remain
+interactive by default; `events --json` remains a separate, unbounded JSON Lines
+stream.
+
+For example:
+
+```shell
+kefw2 config speaker list --json
+kefw2 --speaker "Office" status --json
+kefw2 --speaker "Office" volume 25 --json
+kefw2 --speaker "Office" volume --json
+kefw2 --speaker "Office" radio search "BBC Radio 6" --json
+# Copy an exact data.items[].path from the search response:
+kefw2 --speaker "Office" radio play --path 'PATH_FROM_SEARCH' --json
+```
+
+A volume request returns:
+
+```json
+{"speaker":{"name":"Office","ip_address":"192.0.2.10","model":"KEF LS60 Wireless"},"data":{"action":"set_volume","accepted":true,"volume":25}}
+```
+
+`accepted: true` means the request was accepted, not that the physical transition
+has completed. Read the relevant state afterward; allow time for asynchronous
+changes. `accepted: false` indicates a no-op. Status uses percent volume and
+millisecond playback times; `playback` is `null` on standby/physical inputs and
+unknown or inapplicable playback times are `null`.
+
+Radio search supports `--offset` (default 0) and `--limit` (default 24, maximum
+100). `total_rows` and offsets refer to raw service rows, not just playable
+stations. Continue with `next_offset` while `has_more` is true; stop if the offset
+does not advance. Paths are speaker-specific and may expire. JSON name-based
+radio playback rejects ambiguous or incomplete search results; prefer exact
+paths. Radio playback replaces the current queue, so do not blindly retry it
+after a failure: the queue may already have been cleared.
+
+On speakers that reject plain-HTTP control writes with HTTP 401, the CLI uses
+the existing authenticated TLS channel. This applies to both the picker and
+JSON commands; Airable paths remain unchanged.
+
+More content workflows:
+
+```shell
+kefw2 --speaker "Office" podcast search "science" --json
+kefw2 --speaker "Office" podcast episodes --path 'SHOW_PATH' --json
+kefw2 --speaker "Office" podcast play --episode-path 'EPISODE_PATH' --json
+kefw2 --speaker "Office" upnp --json
+kefw2 --speaker "Office" upnp browse --path 'CONTAINER_PATH' --json
+kefw2 --speaker "Office" upnp play --path 'TRACK_PATH' --queue --json
+kefw2 upnp search "artist or track" --json
+kefw2 --speaker "Office" queue list --json
+kefw2 --speaker "Office" queue move 3 before 1 --json
+kefw2 queue saved --json
+```
+
+Podcast show-only playback requires explicit `--latest`. Podcast `--queue`
+appends without starting playback; UPnP `--queue` starts only if the queue was
+empty. UPnP search/index inspection and saved-queue listing/deletion are local
+and need no configured speaker. Rebuild the UPnP index explicitly with
+`upnp index --rebuild --json` on the intended speaker.
+
+Lists use content summaries and, where paginated, expose `next_offset` and
+`has_more`. Duplicate-name selections fail instead of choosing the first item.
+Queue positions are 1-based snapshots: read the queue again after edits.
+Loading a saved queue replaces the queue and starts playback.
+
+Use `kefw2 skill show` for response shapes, exact-path selection, action flags,
+pagination, and retry guidance.
+
 ### Internet Radio
 
 Play internet radio stations via KEF's Airable integration:

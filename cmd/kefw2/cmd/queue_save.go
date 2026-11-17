@@ -116,10 +116,6 @@ func getQueuesDir() (string, error) {
 	}
 
 	queuesDir := filepath.Join(configDir, "kefw2", "queues")
-	if err := os.MkdirAll(queuesDir, 0750); err != nil {
-		return "", fmt.Errorf("failed to create queues directory: %w", err)
-	}
-
 	return queuesDir, nil
 }
 
@@ -214,6 +210,8 @@ Examples:
 		// Get file path
 		filePath, err := getSavedQueuePath(name)
 		exitOnError(err, "Failed to get queue file path")
+		err = os.MkdirAll(filepath.Dir(filePath), 0750)
+		exitOnError(err, "Failed to create queues directory")
 
 		// Write to file
 		err = os.WriteFile(filePath, data, 0600)

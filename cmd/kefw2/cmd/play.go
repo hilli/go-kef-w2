@@ -41,22 +41,37 @@ the queue has tracks, playback starts from the top of the queue (or a
 random track if shuffle is enabled). If the queue is empty, a message is
 shown.`,
 	Args: cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx := cmd.Context()
 
 		// Check current source - refuse if on a non-streamable physical input
 		// (optical, coaxial, etc.) but allow standby since PlayOrResumeFromQueue
 		// will wake the speaker by switching to WiFi.
 		source, err := currentSpeaker.Source(ctx)
-		exitOnError(err, "Can't query source")
+		if err != nil {
+			return fmt.Errorf("checking source: %w", err)
+		}
 		if source != kefw2.SourceWiFi && source != kefw2.SourceBluetooth && source != kefw2.SourceStandby {
-			headerPrinter.Printf("Can only play on WiFi/BT source (current: %s).\n", source)
-			return
+			return fmt.Errorf("can only play on WiFi/BT source (current: %s)", source)
 		}
 
 		client := kefw2.NewAirableClient(currentSpeaker)
 		result, err := client.PlayOrResumeFromQueue(ctx)
-		exitOnError(err, "Can't play")
+		if err != nil {
+			return fmt.Errorf("playing: %w", err)
+		}
+		if jsonOutput(cmd) {
+			return writeSpeakerJSON(cmd, struct {
+				actionResult
+				Outcome         kefw2.PlayAction `json:"outcome"`
+				WokeFromStandby bool             `json:"woke_from_standby"`
+				Shuffled        bool             `json:"shuffled"`
+			}{
+				actionResult: actionResult{"play", result.WokeFromStandby ||
+					result.Action == kefw2.PlayActionResumed || result.Action == kefw2.PlayActionStartedFromQueue},
+				Outcome: result.Action, WokeFromStandby: result.WokeFromStandby, Shuffled: result.Shuffled,
+			})
+		}
 
 		switch result.Action {
 		case kefw2.PlayActionStartedFromQueue:
@@ -76,9 +91,11 @@ shown.`,
 		case kefw2.PlayActionNothingToPlay:
 			headerPrinter.Println("Nothing to play - queue is empty.")
 		}
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(playCmd)
+	addJSONFlag(playCmd)
 }

@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -109,7 +110,7 @@ func parseTimePosition(s string) (int64, error) {
 		if sec < 0 {
 			return 0, fmt.Errorf("time cannot be negative")
 		}
-		return sec * 1000, nil
+		return checkedPositionMS(sec, 1, 0)
 
 	case 2:
 		// mm:ss
@@ -127,7 +128,7 @@ func parseTimePosition(s string) (int64, error) {
 		if sec < 0 || sec >= 60 {
 			return 0, fmt.Errorf("seconds must be 0-59")
 		}
-		return (mins*60 + sec) * 1000, nil
+		return checkedPositionMS(mins, 60, sec)
 
 	case 3:
 		// hh:mm:ss
@@ -152,11 +153,18 @@ func parseTimePosition(s string) (int64, error) {
 		if sec < 0 || sec >= 60 {
 			return 0, fmt.Errorf("seconds must be 0-59")
 		}
-		return (hours*3600 + mins*60 + sec) * 1000, nil
+		return checkedPositionMS(hours, 3600, mins*60+sec)
 
 	default:
 		return 0, fmt.Errorf("invalid time format: %s (use hh:mm:ss, mm:ss, or seconds)", s)
 	}
+}
+
+func checkedPositionMS(majorUnits, secondsPerUnit, extraSeconds int64) (int64, error) {
+	if majorUnits > (math.MaxInt64/1000-extraSeconds)/secondsPerUnit {
+		return 0, fmt.Errorf("time is too large")
+	}
+	return (majorUnits*secondsPerUnit + extraSeconds) * 1000, nil
 }
 
 // formatDuration formats milliseconds to a human-readable time string.

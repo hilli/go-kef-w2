@@ -17,13 +17,13 @@ var (
 // The message is formatted as "<msg>: <error>".
 func exitOnError(err error, msg string) {
 	if err != nil {
-		errorPrinter.Printf("%s: %v\n", msg, err)
+		errorPrinter.Fprintf(os.Stderr, "%s: %v\n", msg, err)
 		os.Exit(1)
 	}
 }
 
 // exitWithError prints an error message and exits unconditionally.
 func exitWithError(format string, args ...interface{}) {
-	errorPrinter.Printf(format+"\n", args...)
+	errorPrinter.Fprintf(os.Stderr, format+"\n", args...)
 	os.Exit(1)
 }

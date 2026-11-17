@@ -906,4 +906,5 @@ func init() {
 	podcastFavoritesCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
 	podcastFilterCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
 	podcastBrowseCmd.Flags().BoolP("queue", "q", false, "Add to queue instead of playing immediately")
+	initPodcastJSON()
 }

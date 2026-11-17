@@ -3,7 +3,6 @@ package kefw2
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -71,9 +70,11 @@ func (a *AirableClient) SearchMediaServers(query string, searchFields ...string)
 	return resp, nil
 }
 
-// GetPlayQueue returns the current play queue items.
+// GetPlayQueue returns fresh play queue items, bypassing the browsing cache.
 func (a *AirableClient) GetPlayQueue() (*RowsResponse, error) {
-	return a.GetRows("playlists:pq/getitems", 0, 32766)
+	uncached := *a
+	uncached.Cache = nil
+	return uncached.GetRows("playlists:pq/getitems", 0, 32766)
 }
 
 // PlayUPnPContainer plays all tracks from a container (album/folder).
@@ -416,25 +417,45 @@ func (a *AirableClient) BrowseUPnPByDisplayPathAll(displayPath string, serverPat
 // GetContainerTracksRecursive returns all audio tracks from a container, recursively.
 // It traverses sub-containers (albums within an artist folder, etc.) to find all tracks.
 func (a *AirableClient) GetContainerTracksRecursive(containerPath string) ([]ContentItem, error) {
+	return a.getContainerTracksRecursive(containerPath, make(map[string]bool))
+}
+
+// Keep playback in server row order, including interleaved tracks and folders.
+func (a *AirableClient) getContainerTracksRecursive(containerPath string, active map[string]bool) ([]ContentItem, error) {
+	if containerPath == "" {
+		return nil, fmt.Errorf("empty UPnP container path")
+	}
+	if active[containerPath] {
+		return nil, fmt.Errorf("UPnP container cycle at %q", containerPath)
+	}
+	active[containerPath] = true
+	defer delete(active, containerPath)
 	resp, err := a.BrowseContainerAll(containerPath)
 	if err != nil {
 		return nil, err
 	}
-
+	if resp.Roles != nil && resp.Roles.Type == ContentTypeAudio {
+		if resp.Roles.Path == "" {
+			return nil, fmt.Errorf("audio track at %q is missing its API path", containerPath)
+		}
+		return []ContentItem{*resp.Roles}, nil
+	}
 	var tracks []ContentItem
 	for _, item := range resp.Rows {
-		if item.Type == "audio" {
+		switch item.Type {
+		case ContentTypeAudio:
+			if item.Path == "" {
+				return nil, fmt.Errorf("audio track %q in %q is missing its API path", item.Title, containerPath)
+			}
 			tracks = append(tracks, item)
-		} else if item.Type == "container" {
-			// Recurse into sub-containers
-			subTracks, err := a.GetContainerTracksRecursive(item.Path)
+		case ContentTypeContainer:
+			subTracks, err := a.getContainerTracksRecursive(item.Path, active)
 			if err != nil {
-				continue // Skip failed sub-containers
+				return nil, fmt.Errorf("failed to scan container %q: %w", item.Path, err)
 			}
 			tracks = append(tracks, subTracks...)
 		}
 	}
-
 	return tracks, nil
 }
 
@@ -468,20 +489,35 @@ type IndexProgress func(containersScanned, tracksFound int, currentContainer str
 type indexState struct {
 	containersScanned int
 	tracksFound       int
+	active            map[string]bool
 }
 
 // GetAllServerTracks returns ALL audio tracks from a server, recursively scanning all containers.
 // The optional progress callback is called periodically to report progress.
 func (a *AirableClient) GetAllServerTracks(serverPath string, progress IndexProgress) ([]ContentItem, error) {
-	state := &indexState{}
+	state := &indexState{active: make(map[string]bool)}
 	return a.getAllTracksRecursive(serverPath, progress, state)
 }
 
 // getAllTracksRecursive is the internal recursive function for getting all tracks.
 func (a *AirableClient) getAllTracksRecursive(containerPath string, progress IndexProgress, state *indexState) ([]ContentItem, error) {
+	if containerPath == "" {
+		return nil, fmt.Errorf("empty UPnP container path")
+	}
+	if state.active[containerPath] {
+		return nil, fmt.Errorf("UPnP container cycle at %q", containerPath)
+	}
+	state.active[containerPath] = true
+	defer delete(state.active, containerPath)
 	resp, err := a.BrowseContainerAll(containerPath)
 	if err != nil {
 		return nil, err
+	}
+	if resp.Roles != nil && resp.Roles.Type == ContentTypeAudio {
+		if resp.Roles.Path == "" {
+			return nil, fmt.Errorf("audio track at %q is missing its API path", containerPath)
+		}
+		return []ContentItem{*resp.Roles}, nil
 	}
 
 	state.containersScanned++
@@ -497,6 +533,9 @@ func (a *AirableClient) getAllTracksRecursive(containerPath string, progress Ind
 	for _, item := range resp.Rows {
 		switch item.Type {
 		case "audio":
+			if item.Path == "" {
+				return nil, fmt.Errorf("audio track %q in %q is missing its API path", item.Title, containerPath)
+			}
 			tracks = append(tracks, item)
 		case "container":
 			subContainers = append(subContainers, item)
@@ -513,8 +552,7 @@ func (a *AirableClient) getAllTracksRecursive(containerPath string, progress Ind
 	for _, container := range subContainers {
 		subTracks, err := a.getAllTracksRecursive(container.Path, progress, state)
 		if err != nil {
-			log.Printf("Warning: failed to scan container %q: %v", container.Path, err)
-			continue
+			return nil, fmt.Errorf("failed to scan container %q: %w", container.Path, err)
 		}
 		tracks = append(tracks, subTracks...)
 	}

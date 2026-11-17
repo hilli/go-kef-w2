@@ -79,7 +79,7 @@ Examples:
 		switch setting {
 		case "enable":
 			viper.Set("cache.enabled", true)
-			if err := viper.WriteConfig(); err != nil {
+			if err := saveConfig(); err != nil {
 				errorPrinter.Printf("Failed to save config: %v\n", err)
 				return
 			}
@@ -87,7 +87,7 @@ Examples:
 
 		case "disable":
 			viper.Set("cache.enabled", false)
-			if err := viper.WriteConfig(); err != nil {
+			if err := saveConfig(); err != nil {
 				errorPrinter.Printf("Failed to save config: %v\n", err)
 				return
 			}
@@ -110,7 +110,7 @@ Examples:
 				return
 			}
 			viper.Set(key, seconds)
-			if err := viper.WriteConfig(); err != nil {
+			if err := saveConfig(); err != nil {
 				errorPrinter.Printf("Failed to save config: %v\n", err)
 				return
 			}

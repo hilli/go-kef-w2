@@ -109,6 +109,17 @@ func TestNewSpeaker(t *testing.T) {
 	})
 }
 
+func TestPlayerDataRejectsEmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+	speaker := &KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")}
+	if _, err := speaker.PlayerData(context.Background()); err == nil {
+		t.Fatal("empty player data accepted")
+	}
+}
+
 func TestNewSpeakerWithOptions(t *testing.T) {
 	server := createMockSpeakerServer(t)
 	defer server.Close()

@@ -229,13 +229,13 @@ func (a *AirableClient) browseByDisplayPath(service AirableServiceType, displayP
 
 	// Empty path = top-level menu
 	if displayPath == "" {
-		return a.GetRows(baseURL, 0, 100)
+		return a.GetAllRows(baseURL)
 	}
 
 	// Parse the display path into segments
 	segments := parseDisplayPath(displayPath)
 	if len(segments) == 0 {
-		return a.GetRows(baseURL, 0, 100)
+		return a.GetAllRows(baseURL)
 	}
 
 	// Walk the hierarchy, resolving each segment
@@ -243,7 +243,7 @@ func (a *AirableClient) browseByDisplayPath(service AirableServiceType, displayP
 
 	for _, segment := range segments {
 		// Get items at current level
-		resp, err := a.GetRows(currentPath, 0, 100)
+		resp, err := a.GetAllRows(currentPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to browse %s: %w", currentPath, err)
 		}
@@ -252,9 +252,14 @@ func (a *AirableClient) browseByDisplayPath(service AirableServiceType, displayP
 		found := false
 		for _, item := range resp.Rows {
 			if item.Title == segment {
+				if found {
+					return nil, fmt.Errorf("ambiguous item %q; use an exact API path", segment)
+				}
+				if item.Path == "" {
+					return nil, fmt.Errorf("item %q has no API path", segment)
+				}
 				currentPath = item.Path
 				found = true
-				break
 			}
 		}
 
@@ -264,7 +269,7 @@ func (a *AirableClient) browseByDisplayPath(service AirableServiceType, displayP
 	}
 
 	// Return items at the resolved path
-	return a.GetRows(currentPath, 0, 100)
+	return a.GetAllRows(currentPath)
 }
 
 // buildMediaRoles constructs the mediaRoles payload for playback.

@@ -22,6 +22,8 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -31,19 +33,27 @@ var stopCmd = &cobra.Command{
 	Short: "Stop playback when on WiFi/BT source",
 	Long:  `Stop playback entirely. Unlike pause, this ends the current stream and is particularly useful for radio and live streams.`,
 	Args:  cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx := cmd.Context()
 		canControlPlayback, err := currentSpeaker.CanControlPlayback(ctx)
-		exitOnError(err, "Can't stop speaker")
+		if err != nil {
+			return fmt.Errorf("checking source: %w", err)
+		}
 		if !canControlPlayback {
-			headerPrinter.Println("Can't stop speaker: Not on WiFi/BT source.")
-			return
+			return fmt.Errorf("can't stop speaker: not on WiFi/BT source")
 		}
 		err = currentSpeaker.Stop(ctx)
-		exitOnError(err, "Can't stop playback")
+		if err != nil {
+			return fmt.Errorf("stopping playback: %w", err)
+		}
+		if jsonOutput(cmd) {
+			return writeSpeakerJSON(cmd, actionResult{"stop", true})
+		}
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(stopCmd)
+	addJSONFlag(stopCmd)
 }

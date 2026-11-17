@@ -441,9 +441,12 @@ Keyboard shortcuts:
 
 // radioSearchCmd handles direct search from command line.
 var radioSearchCmd = &cobra.Command{
-	Use:               "search [query]",
-	Short:             "Search for radio stations",
-	Long:              `Search for radio stations by name or keyword. Shows an interactive picker to select and play.`,
+	Use:   "search [query]",
+	Short: "Search for radio stations",
+	Long: `Search for radio stations by name or keyword.
+
+By default, opens an interactive picker to select and play.
+Use --json to return a page of results without changing playback.`,
 	Args:              cobra.MinimumNArgs(1),
 	ValidArgsFunction: DynamicRadioSearchCompletion,
 	Run: func(_ *cobra.Command, args []string) {
@@ -545,8 +548,14 @@ var radioFavoritesCmd = &cobra.Command{
 
 // radioPlayCmd plays a station by name.
 var radioPlayCmd = &cobra.Command{
-	Use:               "play [station name]",
-	Short:             "Play a radio station by searching and playing the first match, or select from results",
+	Use:   "play [station name]",
+	Short: "Play a radio station by name or exact path",
+	Long: `Search for a station by name, or play an exact --path returned by radio search.
+
+By default, ambiguous name searches open an interactive picker.
+With --json, ambiguous or incomplete name searches fail instead of prompting.
+Radio playback replaces the current queue. An accepted request is not a
+guarantee that the speaker has finished changing playback.`,
 	Args:              cobra.MinimumNArgs(1),
 	ValidArgsFunction: RadioPlayCompletion,
 	Run: func(_ *cobra.Command, args []string) {
@@ -818,7 +827,7 @@ func RadioSearchCompletion(_ *cobra.Command, _ []string, _ string) ([]string, co
 // RadioPlayCompletion provides dynamic completion for radio play command.
 // It fetches popular stations from the speaker for suggestions.
 func RadioPlayCompletion(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if currentSpeaker.IPAddress == "" {
+	if currentSpeaker == nil || currentSpeaker.IPAddress == "" {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 

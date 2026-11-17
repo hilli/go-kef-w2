@@ -22,9 +22,12 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -48,22 +51,72 @@ func init() {
 	speakerCmd.AddCommand(speakerListCmd)
 	speakerCmd.AddCommand(speakerSetDefaultCmd)
 	speakerCmd.AddCommand(speakerDiscoverCmd)
-	speakerDiscoverCmd.PersistentFlags().BoolP("save", "", false, "Save the discovered speakers to config file")
-	speakerDiscoverCmd.PersistentFlags().IntP("timeout", "t", 1, "Set the timeout for speaker discovery (seconds)")
+	speakerDiscoverCmd.Flags().Bool("save", false, "Save the discovered speakers to config file")
+	speakerDiscoverCmd.Flags().IntP("timeout", "t", 1, "Set the timeout for speaker discovery (seconds)")
+	addJSONFlag(speakerListCmd)
+	addJSONFlag(speakerDiscoverCmd)
+}
+
+var discoverSpeakers = kefw2.DiscoverSpeakers
+
+type listedSpeaker struct {
+	speakerIdentity
+	Configured bool `json:"configured"`
+	Default    bool `json:"default"`
+}
+
+func describeSpeakers(items []*kefw2.KEFSpeaker) []listedSpeaker {
+	result := make([]listedSpeaker, 0, len(items))
+	for _, s := range items {
+		result = append(result, listedSpeaker{
+			speakerIdentity: identifySpeaker(s),
+			Configured:      speakerDefined(s.IPAddress),
+			Default:         defaultSpeaker != nil && defaultSpeaker.IPAddress == s.IPAddress,
+		})
+	}
+	return result
 }
 
 var speakerDiscoverCmd = &cobra.Command{
 	Use:   "discover",
 	Short: "Discover speakers",
 	Long:  `Discover speakers with mDNS`,
-	Run: func(cmd *cobra.Command, _ []string) {
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		save, _ := cmd.Flags().GetBool("save")
 		timeout, _ := cmd.Flags().GetInt("timeout")
+		if timeout < 1 || timeout > 300 {
+			return fmt.Errorf("discovery timeout must be between 1 and 300 seconds")
+		}
 
-		newSpeakers, err := kefw2.DiscoverSpeakers(context.Background(), time.Duration(timeout)*time.Second)
+		newSpeakers, err := discoverSpeakers(cmd.Context(), time.Duration(timeout)*time.Second)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("discovering speakers: %w", err)
+		}
+		slices.SortFunc(newSpeakers, func(a, b *kefw2.KEFSpeaker) int {
+			return strings.Compare(a.IPAddress, b.IPAddress)
+		})
+		if save && len(newSpeakers) > 0 {
+			preserveImplicitSpeakerDefault()
+			for _, s := range newSpeakers {
+				if !speakerDefined(s.IPAddress) {
+					speakers = append(speakers, *s)
+				}
+			}
+			viper.Set("speakers", speakers)
+			if len(speakers) == 1 && viper.GetString("defaultSpeaker") == "" {
+				defaultSpeaker = &speakers[0]
+				viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
+			}
+			if err := saveConfig(); err != nil {
+				return err
+			}
+		}
+		if jsonOutput(cmd) {
+			return writeJSON(cmd, struct {
+				Items []listedSpeaker `json:"items"`
+				Saved bool            `json:"saved"`
+			}{describeSpeakers(newSpeakers), save && len(newSpeakers) > 0})
 		}
 		if len(newSpeakers) == 0 {
 			fmt.Println("No new speakers found.")
@@ -71,22 +124,18 @@ var speakerDiscoverCmd = &cobra.Command{
 			fmt.Println("Try extending the discovery timeout with the --timeout flag.")
 			fmt.Println("Ie:")
 			fmt.Println()
-			fmt.Println("    kefw2 speaker discover --timeout 5 [--save]")
+			fmt.Println("    kefw2 config speaker discover --timeout 5 [--save]")
 			fmt.Println()
 			fmt.Println("Or try adding the speaker manually with:")
 			fmt.Println()
 			fmt.Println("    kefw2 config speaker add <ip-address>")
-			return
+			return nil
 		}
 		for _, speaker := range newSpeakers {
 			_, _ = headerPrinter.Print("Found speaker: ")
 			_, _ = contentPrinter.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
-			if save {
-				if err := addSpeaker(speaker.IPAddress); err != nil {
-					_, _ = errorPrinter.Printf("Error adding speaker (%s): %s\n", speaker.IPAddress, err)
-				}
-			}
 		}
+		return nil
 	},
 }
 
@@ -94,10 +143,9 @@ var speakerAddCmd = &cobra.Command{
 	Use:   "add <ip-address>",
 	Short: "Add a speaker",
 	Long:  `Add a speaker`,
-	Run: func(_ *cobra.Command, args []string) {
-		if err := addSpeaker(args[0]); err != nil {
-			_, _ = errorPrinter.Printf("Error adding speaker (%s): %s\n", args[0], err)
-		}
+	Args:  cobra.ExactArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
+		return addSpeaker(args[0])
 	},
 }
 
@@ -120,15 +168,25 @@ var speakerListCmd = &cobra.Command{
 	Aliases: []string{"ls"},
 	Short:   "List speakers",
 	Long:    `List speakers`,
-	Run: func(_ *cobra.Command, _ []string) {
-		defaultSpeakerIP := viper.GetString("defaultSpeaker")
+	Args:    cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		if jsonOutput(cmd) {
+			items := make([]*kefw2.KEFSpeaker, 0, len(speakers))
+			for i := range speakers {
+				items = append(items, &speakers[i])
+			}
+			return writeJSON(cmd, struct {
+				Items []listedSpeaker `json:"items"`
+			}{describeSpeakers(items)})
+		}
 		for _, speaker := range speakers {
-			if speaker.IPAddress == defaultSpeakerIP {
+			if defaultSpeaker != nil && speaker.IPAddress == defaultSpeaker.IPAddress {
 				_, _ = contentPrinter.Printf("%s (%s) [default]\n", speaker.Name, speaker.IPAddress)
 			} else {
 				_, _ = contentPrinter.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
 			}
 		}
+		return nil
 	},
 	ValidArgsFunction: cobra.NoFileCompletions,
 }
@@ -137,17 +195,25 @@ var speakerSetDefaultCmd = &cobra.Command{
 	Use:   "default",
 	Short: "Set default speaker",
 	Long:  "Set default speaker",
-	Run: func(_ *cobra.Command, args []string) {
+	Args:  cobra.MaximumNArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
 		if len(args) != 1 {
+			if defaultSpeaker == nil {
+				return fmt.Errorf("no default speaker configured")
+			}
 			_, _ = headerPrinter.Print("Default speaker: ")
 			_, _ = contentPrinter.Printf("%s (%s)\n", defaultSpeaker.Name, defaultSpeaker.IPAddress)
-			return
+			return nil
 		}
-		if err := setDefaultSpeaker(args[0]); err != nil {
-			_, _ = errorPrinter.Printf("Error setting default speaker (%s): %s\n", args[0], err)
-		}
+		return setDefaultSpeaker(args[0])
 	},
 	ValidArgsFunction: ConfiguredSpeakersCompletion,
+}
+
+func preserveImplicitSpeakerDefault() {
+	if defaultSpeaker != nil && viper.GetString("defaultSpeaker") == "" {
+		viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
+	}
 }
 
 func addSpeaker(host string) (err error) {
@@ -158,18 +224,29 @@ func addSpeaker(host string) (err error) {
 	if speakerDefined(speaker.IPAddress) {
 		return nil
 	}
+	preserveImplicitSpeakerDefault()
 	speakers = append(speakers, *speaker)
 	viper.Set("speakers", speakers)
-	_, _ = taskConpletedPrinter.Print("Added speaker: ")
-	_, _ = contentPrinter.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
 
 	if len(speakers) == 1 {
 		viper.Set("defaultSpeaker", speaker.IPAddress)
-		_, _ = taskConpletedPrinter.Printf("Saved default speaker: ")
-		_, _ = contentPrinter.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
 	}
-	_ = viper.WriteConfig()
-	return
+	if err := saveConfig(); err != nil {
+		return err
+	}
+	_, _ = taskConpletedPrinter.Print("Added speaker: ")
+	_, _ = contentPrinter.Printf("%s (%s)\n", speaker.Name, speaker.IPAddress)
+	return nil
+}
+
+func saveConfig() error {
+	if err := os.MkdirAll(filepath.Dir(viper.ConfigFileUsed()), 0750); err != nil {
+		return fmt.Errorf("creating config directory: %w", err)
+	}
+	if err := viper.WriteConfig(); err != nil {
+		return fmt.Errorf("saving configuration: %w", err)
+	}
+	return nil
 }
 
 func removeSpeaker(host string) {
@@ -188,8 +265,7 @@ func setDefaultSpeaker(host string) (err error) {
 	for _, speaker := range speakers {
 		if speaker.IPAddress == host || speaker.Name == host {
 			viper.Set("defaultSpeaker", speaker.IPAddress)
-			_ = viper.WriteConfig()
-			return nil
+			return saveConfig()
 		}
 	}
 	return errors.New("speaker not found")

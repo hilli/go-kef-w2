@@ -782,5 +782,6 @@ func init() {
 	upnpIndexCmd.Flags().String("container", "", "Container path to index (e.g., 'Music/Hilli's Music/By Folder')")
 
 	// Register tab completion for --container flag
-	_ = upnpIndexCmd.RegisterFlagCompletionFunc("container", UPnPContainerCompletion)
+	_ = upnpIndexCmd.RegisterFlagCompletionFunc("container",
+		withCompletionContext(UPnPContainerCompletion, func(*cobra.Command, []string) bool { return true }))
 }

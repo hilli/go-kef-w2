@@ -98,6 +98,14 @@ var statusCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
+	addJSONFlag(statusCmd)
+	statusCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if jsonOutput(cmd) {
+			return runStatusJSON(cmd)
+		}
+		statusCmd.Run(cmd, args)
+		return nil
+	}
 	statusCmd.PersistentFlags().BoolP("minimal", "m", false, "Minimalistic output")
 	statusCmd.PersistentFlags().BoolP("ascii", "a", false, "Force ASCII cover art output")
 }
