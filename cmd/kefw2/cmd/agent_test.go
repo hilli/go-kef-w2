@@ -510,6 +510,22 @@ func TestAgentDiscovery(t *testing.T) {
 	if _, err := os.Stat(config); err != nil {
 		t.Fatalf("discovery did not persist configuration: %v", err)
 	}
+	viper.Set("defaultSpeaker", "")
+	discoverSpeakers = func(context.Context, time.Duration) ([]*kefw2.KEFSpeaker, error) {
+		return []*kefw2.KEFSpeaker{{Name: "Another", IPAddress: "192.0.2.2"}}, nil
+	}
+	output.Reset()
+	if err := speakerDiscoverCmd.RunE(speakerDiscoverCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	reloaded := viper.New()
+	reloaded.SetConfigFile(config)
+	if err := reloaded.ReadInConfig(); err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.GetString("defaultSpeaker") != "192.0.2.1" {
+		t.Fatalf("discovery lost the existing implicit default: %q", reloaded.GetString("defaultSpeaker"))
+	}
 }
 
 func TestAgentHumanControlsRemainAvailable(t *testing.T) {

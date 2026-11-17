@@ -9,6 +9,7 @@ capabilities when help or the speaker rejects an operation.
 1. List configured targets: `kefw2 config speaker list --json`.
    To discover reachable speakers: `kefw2 config speaker discover --json`.
    Discovery saves configuration only with explicit `--save`.
+   Saving discovery preserves the existing effective default speaker.
    Do not silently change configuration or guess which speaker the user means.
 2. Select a target explicitly with `--speaker NAME_OR_IP` on every
    speaker command. Ask if the target or intended action is ambiguous.
@@ -124,7 +125,8 @@ player to initialize before clearing/replacing the current queue and playing.
 It does not change volume or mute settings. A source-read or source-switch
 failure stops the operation before queue mutation.
 Some speakers require authenticated control writes. The CLI handles an explicit
-HTTP 401 using its authenticated TLS channel; keep the station path unchanged.
+HTTP 401 using TLS port 4430 on the same host, even for host-and-port targets;
+keep the station path unchanged.
 Other control failures are not automatically retried.
 Failure after the clear can leave the queue changed. A timeout can also occur
 after a mutation was accepted. Never automatically retry radio play or blindly

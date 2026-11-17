@@ -50,6 +50,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -117,6 +118,17 @@ func authCredentials() (username, password string) {
 	return username, password
 }
 
+func (s *KEFSpeaker) authEndpoint(path string) string {
+	host, _, err := net.SplitHostPort(s.IPAddress)
+	if err != nil {
+		host = s.IPAddress
+		if len(host) > 1 && host[0] == '[' && host[len(host)-1] == ']' {
+			host = host[1 : len(host)-1]
+		}
+	}
+	return "https://" + net.JoinHostPort(host, strconv.Itoa(authPort)) + path
+}
+
 // provisionAuthUser performs an idempotent webserver:addUser POST so that
 // subsequent signed requests are accepted. Mirrors C9/s.java.
 func (s *KEFSpeaker) provisionAuthUser(ctx context.Context) error {
@@ -135,7 +147,7 @@ func (s *KEFSpeaker) provisionAuthUser(ctx context.Context) error {
 		return fmt.Errorf("marshal addUser body: %w", err)
 	}
 
-	url := fmt.Sprintf("https://%s:%d%s", s.IPAddress, authPort, authPathSetData)
+	url := s.authEndpoint(authPathSetData)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(raw))
 	if err != nil {
 		return fmt.Errorf("build addUser request: %w", err)
@@ -223,7 +235,7 @@ func (s *KEFSpeaker) authenticatedSetData(ctx context.Context, body []byte) ([]b
 func (s *KEFSpeaker) doAuthenticatedPOST(ctx context.Context, path string, body []byte) (int, []byte, error) {
 	username, password := authCredentials()
 
-	url := fmt.Sprintf("https://%s:%d%s", s.IPAddress, authPort, path)
+	url := s.authEndpoint(path)
 
 	send := func() (int, []byte, error) {
 		auth, err := signAuthHeader(username, password, url, body, true)

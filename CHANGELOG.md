@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve opaque UPnP container selections and reject index rebuild paths outside the configured default server in both CLI modes and the library.
 - Preserve exact-path radio playback for broadcasts whose streams are resolved by the speaker rather than embedded in station metadata.
 - Honor explicit configuration and speaker selection in flag completions and empty UPnP container completions.
+- Preserve an existing implicit default speaker when saving newly discovered speakers.
+- Route authenticated control and provisioning correctly for host-and-port speaker targets.
 - Support first-run configuration writes and honor explicit configuration files and speaker targets in shell completions.
 - Preserve HTTP rejection errors when a reboot response disconnects early instead of reporting a successful reboot.
 

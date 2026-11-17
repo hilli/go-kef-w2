@@ -97,6 +97,9 @@ var speakerDiscoverCmd = &cobra.Command{
 			return strings.Compare(a.IPAddress, b.IPAddress)
 		})
 		if save && len(newSpeakers) > 0 {
+			if defaultSpeaker != nil && viper.GetString("defaultSpeaker") == "" {
+				viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
+			}
 			for _, s := range newSpeakers {
 				if !speakerDefined(s.IPAddress) {
 					speakers = append(speakers, *s)

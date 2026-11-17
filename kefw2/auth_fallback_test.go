@@ -51,6 +51,47 @@ func fallbackTestClients(transport authFallbackTransport) (*AirableClient, *KEFS
 	return client, speaker
 }
 
+func TestAuthenticatedFallbackUsesSpeakerHost(t *testing.T) {
+	for _, tc := range []struct {
+		address string
+		want    string
+	}{
+		{"192.0.2.1:8080", "192.0.2.1:4430"},
+		{"speaker.local:8080", "speaker.local:4430"},
+		{"[2001:db8::1]:8080", "[2001:db8::1]:4430"},
+		{"[2001:db8::1]", "[2001:db8::1]:4430"},
+	} {
+		for _, api := range []string{"speaker", "airable"} {
+			t.Run(tc.address+"/"+api, func(t *testing.T) {
+				attempts := 0
+				mockAuthenticatedControl(t, func(r *http.Request) (*http.Response, error) {
+					if r.URL.Host != tc.want {
+						return nil, fmt.Errorf("unexpected authenticated host %q", r.URL.Host)
+					}
+					attempts++
+					if attempts == 1 {
+						return authFallbackResponse(http.StatusUnauthorized), nil
+					}
+					return authFallbackResponse(http.StatusOK), nil
+				})
+				client, speaker := fallbackTestClients(func(*http.Request) (*http.Response, error) {
+					return authFallbackResponse(http.StatusUnauthorized), nil
+				})
+				speaker.IPAddress = tc.address
+				var err error
+				if api == "speaker" {
+					err = speaker.Stop(context.Background())
+				} else {
+					err = client.ClearPlaylist()
+				}
+				if err != nil || attempts != 3 {
+					t.Fatalf("authenticated control/provisioning failed: err=%v attempts=%d", err, attempts)
+				}
+			})
+		}
+	}
+}
+
 func TestRadioPlaybackAuthenticatesRejectedMutations(t *testing.T) {
 	var pending []byte
 	var publicWrites int
