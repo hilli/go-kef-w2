@@ -67,6 +67,32 @@ func noFileCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.S
 func disableFileCompletionRecursive(cmd *cobra.Command) {
 	if cmd.ValidArgsFunction == nil {
 		cmd.ValidArgsFunction = noFileCompletion
+	} else {
+		complete := cmd.ValidArgsFunction
+		cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if !isUtilityCommand(cmd) && cfgFile != "" && cfgFile != viper.ConfigFileUsed() {
+				if err := initConfig(); err != nil {
+					cobra.CompErrorln(err.Error())
+					return nil, cobra.ShellCompDirectiveError
+				}
+			}
+			if commandRequiresSpeaker(cmd, append(slices.Clone(args), toComplete)) {
+				target := currentSpeakerParam
+				if target == "" {
+					target = viper.GetString("speaker")
+				}
+				if target != "" {
+					if err := resolveSpeaker(target); err != nil {
+						cobra.CompErrorln(err.Error())
+						return nil, cobra.ShellCompDirectiveError
+					}
+				}
+				if currentSpeaker == nil {
+					return nil, cobra.ShellCompDirectiveNoFileComp
+				}
+			}
+			return complete(cmd, args, toComplete)
+		}
 	}
 	for _, child := range cmd.Commands() {
 		disableFileCompletionRecursive(child)

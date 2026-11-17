@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Retry explicitly rejected HTTP 401 control writes through the existing authenticated TLS channel, fixing radio playback and other protected controls without changing Airable paths.
 - Propagate speaker read, content resolution, and pagination errors instead of reporting success or silently returning incomplete results.
 - Allow local skill, saved-queue, and index operations without speaker access; honor explicit speaker targets without a configuration file.
+- Read fresh queue state when caching is enabled and preserve repeat-one settings when toggling shuffle.
+- Preserve opaque UPnP container selections and reject index rebuild paths outside the configured default server.
+- Support first-run configuration writes and honor explicit configuration files and speaker targets in shell completions.
 
 ## [0.4.2] - 2026-11-12
 

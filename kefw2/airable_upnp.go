@@ -70,9 +70,11 @@ func (a *AirableClient) SearchMediaServers(query string, searchFields ...string)
 	return resp, nil
 }
 
-// GetPlayQueue returns the current play queue items.
+// GetPlayQueue returns fresh play queue items, bypassing the browsing cache.
 func (a *AirableClient) GetPlayQueue() (*RowsResponse, error) {
-	return a.GetRows("playlists:pq/getitems", 0, 32766)
+	uncached := *a
+	uncached.Cache = nil
+	return uncached.GetRows("playlists:pq/getitems", 0, 32766)
 }
 
 // PlayUPnPContainer plays all tracks from a container (album/folder).

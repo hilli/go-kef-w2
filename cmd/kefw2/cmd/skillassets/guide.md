@@ -230,6 +230,8 @@ network. Inspect that index with `upnp index --json`; rebuild explicitly on a
 selected speaker if missing or stale. Search reports index provenance: do not
 assume an index/path came from another selected speaker. A failed recursive
 scan returns an error; a failed rebuild preserves the previous index.
+Opaque rebuild paths must belong to the configured default UPnP server; select
+that server first rather than rebuilding an index with misleading provenance.
 
 The existing `config upnp server default` and `config upnp container browse`
 or `index` commands support JSON getters/setters. Opaque setters use `--path`;
@@ -261,6 +263,8 @@ Move accepts numeric positions, unique names, `top`, `bottom`, `up`, `down`,
 `next`, or `before|after TARGET`. A no-op move returns `accepted:false`.
 Mutation responses identify the position, or `from`/`to`, using 1-based units.
 Mode getters return `mode`, `shuffle`, and `repeat`; repeat is `off|one|all`.
+The speaker's `shuffleRepeatOne` mode reports `shuffle:true` and `repeat:"one"`;
+changing shuffle preserves the current repeat setting.
 
 Saved-queue listing/deletion is local and needs no configured speaker.
 Saved names cannot contain path separators or colons in JSON mode. Saving

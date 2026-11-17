@@ -107,7 +107,7 @@ var speakerDiscoverCmd = &cobra.Command{
 				defaultSpeaker = &speakers[0]
 				viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
 			}
-			if err := saveSpeakerConfig(); err != nil {
+			if err := saveConfig(); err != nil {
 				return err
 			}
 		}
@@ -223,7 +223,7 @@ func addSpeaker(host string) (err error) {
 	if len(speakers) == 1 {
 		viper.Set("defaultSpeaker", speaker.IPAddress)
 	}
-	if err := saveSpeakerConfig(); err != nil {
+	if err := saveConfig(); err != nil {
 		return err
 	}
 	_, _ = taskConpletedPrinter.Print("Added speaker: ")
@@ -231,12 +231,12 @@ func addSpeaker(host string) (err error) {
 	return nil
 }
 
-func saveSpeakerConfig() error {
+func saveConfig() error {
 	if err := os.MkdirAll(filepath.Dir(viper.ConfigFileUsed()), 0750); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 	if err := viper.WriteConfig(); err != nil {
-		return fmt.Errorf("saving speaker configuration: %w", err)
+		return fmt.Errorf("saving configuration: %w", err)
 	}
 	return nil
 }
@@ -257,7 +257,7 @@ func setDefaultSpeaker(host string) (err error) {
 	for _, speaker := range speakers {
 		if speaker.IPAddress == host || speaker.Name == host {
 			viper.Set("defaultSpeaker", speaker.IPAddress)
-			return saveSpeakerConfig()
+			return saveConfig()
 		}
 	}
 	return errors.New("speaker not found")

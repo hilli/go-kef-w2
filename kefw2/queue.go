@@ -16,6 +16,7 @@ const (
 	PlayModeRepeatOne        = "repeatOne"
 	PlayModeRepeatAll        = "repeatAll"
 	PlayModeShuffle          = "shuffle"
+	PlayModeShuffleRepeatOne = "shuffleRepeatOne"
 	PlayModeShuffleRepeatAll = "shuffleRepeatAll"
 )
 
@@ -175,7 +176,7 @@ func (a *AirableClient) PlayQueueIndex(index int, track *ContentItem) error {
 	return nil
 }
 
-// GetPlayMode returns the current play mode (normal, repeatOne, repeatAll, shuffle, shuffleRepeatAll).
+// GetPlayMode returns the current shuffle/repeat combination.
 func (a *AirableClient) GetPlayMode() (string, error) {
 	data, err := a.GetData("settings:/mediaPlayer/playMode")
 	if err != nil {
@@ -197,14 +198,15 @@ func (a *AirableClient) GetPlayMode() (string, error) {
 	}
 	mode := response[0].PlayerPlayMode
 	switch mode {
-	case PlayModeNormal, PlayModeRepeatOne, PlayModeRepeatAll, PlayModeShuffle, PlayModeShuffleRepeatAll:
+	case PlayModeNormal, PlayModeRepeatOne, PlayModeRepeatAll,
+		PlayModeShuffle, PlayModeShuffleRepeatOne, PlayModeShuffleRepeatAll:
 		return mode, nil
 	default:
 		return "", fmt.Errorf("speaker returned unsupported play mode %q", mode)
 	}
 }
 
-// SetPlayMode sets the play mode (normal, repeatOne, repeatAll, shuffle, shuffleRepeatAll).
+// SetPlayMode sets the shuffle/repeat combination.
 func (a *AirableClient) SetPlayMode(mode string) error {
 	// Validate mode
 	validModes := map[string]bool{
@@ -212,11 +214,12 @@ func (a *AirableClient) SetPlayMode(mode string) error {
 		PlayModeRepeatOne:        true,
 		PlayModeRepeatAll:        true,
 		PlayModeShuffle:          true,
+		PlayModeShuffleRepeatOne: true,
 		PlayModeShuffleRepeatAll: true,
 	}
 
 	if !validModes[mode] {
-		return fmt.Errorf("invalid play mode: %s (valid: normal, repeatOne, repeatAll, shuffle, shuffleRepeatAll)", mode)
+		return fmt.Errorf("invalid play mode: %s (valid: normal, repeatOne, repeatAll, shuffle, shuffleRepeatOne, shuffleRepeatAll)", mode)
 	}
 
 	payload := map[string]interface{}{
@@ -244,13 +247,16 @@ func (a *AirableClient) SetShuffle(enabled bool) error {
 
 	// Determine current repeat state
 	hasRepeatAll := strings.Contains(currentMode, "RepeatAll") || currentMode == PlayModeRepeatAll
-	hasRepeatOne := currentMode == PlayModeRepeatOne
+	hasRepeatOne := currentMode == PlayModeRepeatOne || currentMode == PlayModeShuffleRepeatOne
 
 	var newMode string
 	if enabled {
-		if hasRepeatAll {
+		switch {
+		case hasRepeatAll:
 			newMode = PlayModeShuffleRepeatAll
-		} else {
+		case hasRepeatOne:
+			newMode = PlayModeShuffleRepeatOne
+		default:
 			newMode = PlayModeShuffle
 		}
 	} else {
@@ -319,7 +325,7 @@ func (a *AirableClient) GetRepeatMode() (string, error) {
 	}
 
 	switch mode {
-	case PlayModeRepeatOne:
+	case PlayModeRepeatOne, PlayModeShuffleRepeatOne:
 		return "one", nil
 	case PlayModeRepeatAll, PlayModeShuffleRepeatAll:
 		return "all", nil

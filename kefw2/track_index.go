@@ -320,7 +320,7 @@ func FindContainerByPath(client *AirableClient, serverPath, containerPath string
 			if resp.Roles.Type == ContentTypeAudio {
 				return "", "", fmt.Errorf("expected a container, got an audio track")
 			}
-			return containerPath, resp.Roles.Title, nil
+			return containerPath, containerPath, nil
 		}
 		return containerPath, containerPath, nil
 	}

@@ -324,7 +324,7 @@ func runConfigCacheJSON(cmd *cobra.Command, args []string) error {
 	}
 	old := viper.Get(key)
 	viper.Set(key, value)
-	if err := saveSpeakerConfig(); err != nil {
+	if err := saveConfig(); err != nil {
 		viper.Set(key, old)
 		return err
 	}
@@ -379,7 +379,7 @@ func persistSpeakersJSON(items []kefw2.KEFSpeaker, defaultIP string) error {
 	oldSpeakers, oldDefault := viper.Get("speakers"), viper.Get("defaultSpeaker")
 	viper.Set("speakers", items)
 	viper.Set("defaultSpeaker", defaultIP)
-	if err := saveSpeakerConfig(); err != nil {
+	if err := saveConfig(); err != nil {
 		viper.Set("speakers", oldSpeakers)
 		viper.Set("defaultSpeaker", oldDefault)
 		return err

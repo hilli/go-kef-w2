@@ -256,7 +256,7 @@ func runQueueModeJSON(cmd *cobra.Command, args []string) error {
 	}
 	repeat := PlayModeOff
 	switch mode {
-	case kefw2.PlayModeRepeatOne:
+	case kefw2.PlayModeRepeatOne, kefw2.PlayModeShuffleRepeatOne:
 		repeat = queueRepeatOne
 	case kefw2.PlayModeRepeatAll, kefw2.PlayModeShuffleRepeatAll:
 		repeat = queueRepeatAll

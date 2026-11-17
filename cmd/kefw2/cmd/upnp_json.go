@@ -5,6 +5,7 @@ package cmd
 import (
 	"fmt"
 	"math"
+	"net/url"
 	"strings"
 	"time"
 
@@ -156,6 +157,24 @@ func upnpDefaultServerPath() (string, error) {
 		return "", fmt.Errorf("no default UPnP server configured; run 'kefw2 config upnp server default <name>'")
 	}
 	return path, validateUPnPAPIPath(path)
+}
+
+func validateUPnPIndexServer(serverPath, path string) error {
+	server, err := url.Parse(serverPath)
+	if err != nil {
+		return fmt.Errorf("invalid configured UPnP server path: %w", err)
+	}
+	item, err := url.Parse(path)
+	if err != nil {
+		return fmt.Errorf("invalid UPnP index path: %w", err)
+	}
+	root := strings.TrimSuffix(server.EscapedPath(), "/")
+	child := item.EscapedPath()
+	if root == "" || server.Scheme != item.Scheme || server.Host != item.Host ||
+		(child != root && !strings.HasPrefix(child, root+"/")) {
+		return fmt.Errorf("index path must belong to the configured default UPnP server")
+	}
+	return nil
 }
 
 // Resolve every title uniquely, including the final track. Never select the first match.
@@ -328,6 +347,25 @@ func upnpSearchJSON(cmd *cobra.Command, args []string) error {
 	})
 }
 
+func upnpIndexStartPath(cmd *cobra.Command, client *kefw2.AirableClient, serverPath string) (string, string, error) {
+	if cmd.Flags().Changed("path") {
+		path, _, err := upnpPathArg(cmd, nil)
+		if err == nil {
+			err = validateUPnPIndexServer(serverPath, path)
+		}
+		return path, "", err
+	}
+	container, _ := cmd.Flags().GetString("container")
+	if !cmd.Flags().Changed("container") {
+		container = viper.GetString("upnp.index_container")
+	}
+	if strings.HasPrefix(container, "upnp:/") {
+		return container, container, validateUPnPIndexServer(serverPath, container)
+	}
+	path, err := resolveUPnPJSONPath(client, container, true)
+	return path, container, err
+}
+
 func upnpIndexJSON(cmd *cobra.Command, args []string) error {
 	if err := cobra.NoArgs(cmd, args); err != nil {
 		return err
@@ -358,19 +396,7 @@ func upnpIndexJSON(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	var startPath string
-	if cmd.Flags().Changed("path") {
-		startPath, _, err = upnpPathArg(cmd, nil)
-	} else {
-		if !cmd.Flags().Changed("container") {
-			container = viper.GetString("upnp.index_container")
-		}
-		if strings.HasPrefix(container, "upnp:/") {
-			startPath = container
-		} else {
-			startPath, err = resolveUPnPJSONPath(client, container, true)
-		}
-	}
+	startPath, container, err := upnpIndexStartPath(cmd, client, serverPath)
 	if err != nil {
 		return err
 	}
@@ -427,7 +453,7 @@ func upnpDefaultJSON(cmd *cobra.Command, args []string) error {
 		}
 		viper.Set("upnp.default_server", server.Title)
 		viper.Set("upnp.default_server_path", server.Path)
-		if err := viper.WriteConfig(); err != nil {
+		if err := saveConfig(); err != nil {
 			return fmt.Errorf("saving UPnP default: %w", err)
 		}
 	}
@@ -475,7 +501,7 @@ func upnpContainerJSON(cmd *cobra.Command, args []string) error {
 			}
 		}
 		viper.Set(key, path)
-		if err := viper.WriteConfig(); err != nil {
+		if err := saveConfig(); err != nil {
 			return fmt.Errorf("saving UPnP container: %w", err)
 		}
 	}

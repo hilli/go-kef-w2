@@ -67,7 +67,7 @@ func TestUPnPStrictQueueStartsOnlyWhenEmpty(t *testing.T) {
 			}))
 			defer server.Close()
 			speaker := &KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")}
-			err := NewAirableClient(speaker).AddToQueue(
+			err := NewAirableClient(speaker, WithDefaultCache()).AddToQueue(
 				[]ContentItem{{Title: "Song", Type: "audio", Path: "upnp:/track"}}, true)
 			if err != nil {
 				t.Fatal(err)

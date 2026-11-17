@@ -64,7 +64,9 @@ func runStatusJSON(cmd *cobra.Command) error {
 			if err != nil {
 				return fmt.Errorf("getting playback position: %w", err)
 			}
-			result.Playback.PositionMS = &position
+			if position >= 0 {
+				result.Playback.PositionMS = &position
+			}
 			if pd.Status.Duration > 0 {
 				result.Playback.DurationMS = &pd.Status.Duration
 			}

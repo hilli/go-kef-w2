@@ -433,7 +433,7 @@ func TestSettingsJSONLocalWriteFailure(t *testing.T) {
 				t.Fatal(err)
 			}
 			stdout, stderr, err := runCLI(t, home, config, append(args, "--json")...)
-			requireCLIFailure(t, stdout, stderr, err, "saving speaker configuration")
+			requireCLIFailure(t, stdout, stderr, err, "saving configuration")
 			after, err := os.ReadFile(config)
 			if err != nil || !bytes.Equal(before, after) {
 				t.Fatalf("config altered on save failure: %q %v", after, err)

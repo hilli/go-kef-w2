@@ -86,7 +86,7 @@ Examples:
 		// Save to config
 		viper.Set("upnp.default_server", server.Title)
 		viper.Set("upnp.default_server_path", server.Path)
-		err = viper.WriteConfig()
+		err = saveConfig()
 		exitOnError(err, "Error saving config")
 
 		taskConpletedPrinter.Print("Default UPnP server set: ")
@@ -217,7 +217,7 @@ Examples:
 
 		// Save to config
 		viper.Set("upnp.browse_container", containerPath)
-		err := viper.WriteConfig()
+		err := saveConfig()
 		exitOnError(err, "Error saving config")
 
 		if containerPath == "" {
@@ -285,7 +285,7 @@ Examples:
 
 		// Save to config
 		viper.Set("upnp.index_container", containerPath)
-		err := viper.WriteConfig()
+		err := saveConfig()
 		exitOnError(err, "Error saving config")
 
 		if containerPath == "" {
