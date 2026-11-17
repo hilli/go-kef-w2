@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve an existing implicit default speaker when saving newly discovered speakers or adding a speaker through the human CLI.
 - Continue skill setup/removal at valid roots when another detected agent directory is unsafe, while reporting failures and preserving symlink targets.
 - Route authenticated control and provisioning correctly for host-and-port speaker targets.
+- Include track duration from resource metadata in JSON status when playback status omits it.
 - Support first-run configuration writes and honor explicit configuration files and speaker targets in shell completions.
 - Preserve HTTP rejection errors when a reboot response disconnects early instead of reporting a successful reboot.
 

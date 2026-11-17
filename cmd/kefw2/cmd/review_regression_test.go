@@ -32,6 +32,43 @@ func TestStatusUnavailablePositionIsNull(t *testing.T) {
 	}
 }
 
+func TestStatusUsesAvailableTrackDuration(t *testing.T) {
+	for _, tc := range []struct {
+		status   int
+		resource int
+		want     int
+	}{
+		{0, 180000, 180000},
+		{-1, 180000, 180000},
+		{120000, 180000, 120000},
+		{0, 0, 0},
+	} {
+		f, speaker := newCLIFixture(t)
+		body, err := json.Marshal([]any{map[string]any{
+			"state": "playing", "status": map[string]int{"duration": tc.status},
+			"trackRoles": map[string]any{"mediaData": map[string]any{
+				"resources": []any{map[string]int{"duration": tc.resource}},
+			}},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.mu.Lock()
+		f.data["player:player/data"] = string(body)
+		f.mu.Unlock()
+		home := t.TempDir()
+		config := writeCLIConfig(t, home, speaker)
+		stdout, stderr, err := runCLI(t, home, config, "status", "--json")
+		result := decodeCLI[struct {
+			Data statusResponse `json:"data"`
+		}](t, stdout, stderr, err)
+		duration := result.Data.Playback.DurationMS
+		if tc.want == 0 && duration != nil || tc.want > 0 && (duration == nil || *duration != tc.want) {
+			t.Errorf("status=%d resource=%d returned duration=%v; want %d", tc.status, tc.resource, duration, tc.want)
+		}
+	}
+}
+
 func TestHumanSpeakerAddPreservesImplicitDefault(t *testing.T) {
 	_, original := newCLIFixture(t)
 	_, added := newCLIFixture(t)

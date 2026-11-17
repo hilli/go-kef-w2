@@ -67,8 +67,12 @@ func runStatusJSON(cmd *cobra.Command) error {
 			if position >= 0 {
 				result.Playback.PositionMS = &position
 			}
-			if pd.Status.Duration > 0 {
-				result.Playback.DurationMS = &pd.Status.Duration
+			duration := pd.Status.Duration
+			if duration <= 0 && len(pd.TrackRoles.MediaData.Resources) > 0 {
+				duration = pd.TrackRoles.MediaData.Resources[0].Duration
+			}
+			if duration > 0 {
+				result.Playback.DurationMS = &duration
 			}
 			result.Playback.Track = &trackStatus{
 				Title: pd.TrackRoles.Title, Artist: pd.TrackRoles.MediaData.MetaData.Artist,

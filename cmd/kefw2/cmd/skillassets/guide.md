@@ -77,6 +77,7 @@ types, not literal JSON):
   `powerOn`, `networkSetup`, or `firmwareUpgrade`. For physical sources or
   standby, `playback` is `null`. Otherwise it may be
   `{state,position_ms:null|int,duration_ms:null|int,track:null|{title,artist,album}}`.
+  Duration uses playback status or track resource metadata; unknown values remain `null`.
 - Volume read: `{volume}`; write:
   `{action:"set_volume",accepted:true,volume}`.
 - Mute read: `{muted}`; write:
