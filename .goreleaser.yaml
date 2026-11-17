@@ -154,4 +154,5 @@ announce:
     server: https://mastodon.social
 
 changelog:
-  disable: true
+  # Disabling changelogs also discards files supplied with --release-notes.
+  disable: false

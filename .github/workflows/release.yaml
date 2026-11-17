@@ -34,30 +34,47 @@ jobs:
           awk -v ver="$VERSION" '
             /^## \[/ {
               if (found) exit
-              if ($0 ~ "\\[" ver "\\]") { found=1; next }
+              if ($2 == "[" ver "]") { found=1; next }
             }
-            found { print }
-          ' CHANGELOG.md > /tmp/release-notes.md
-          
-          # Remove leading blank lines
-          sed -i '/./,$!d' /tmp/release-notes.md
+            found {
+              if (!started && $0 ~ /^[[:space:]]*$/) next
+              started=1
+              print
+            }
+          ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
           
           # Check if we found anything
-          if [ ! -s /tmp/release-notes.md ]; then
-            echo "Warning: No changelog entry found for version $VERSION"
-            echo "See [CHANGELOG.md](https://github.com/hilli/go-kef-w2/blob/main/CHANGELOG.md) for details." > /tmp/release-notes.md
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/release-notes.md"; then
+            echo "::error::Missing or empty CHANGELOG.md entry for version $VERSION"
+            exit 1
           fi
           
           echo "--- Release notes ---"
-          cat /tmp/release-notes.md
+          cat "$RUNNER_TEMP/release-notes.md"
           echo "--- End release notes ---"
       - name: Release
         uses: goreleaser/goreleaser-action@v7
         with:
           version: latest
-          args: release --clean --release-notes=/tmp/release-notes.md
+          args: release --clean --release-notes=${{ runner.temp }}/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
           MASTODON_CLIENT_ID: ${{ secrets.MASTODON_CLIENT_ID }}
           MASTODON_CLIENT_SECRET: ${{ secrets.MASTODON_CLIENT_SECRET }}
           MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+      - name: Verify published release notes
+        env:
+          GH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --json body --jq '.body' > "$RUNNER_TEMP/published-release-notes.md"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"])
+          expected = (root / "release-notes.md").read_text().strip()
+          published = (root / "published-release-notes.md").read_text().strip()
+          if not expected or expected not in published:
+              raise SystemExit("::error::Published release notes do not contain the expected changelog entry")
+          PY
