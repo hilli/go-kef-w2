@@ -505,6 +505,9 @@ func TestSkillDetectionRefusesSymlinks(t *testing.T) {
 			if err := os.Symlink(outside, link); err != nil {
 				t.Fatal(err)
 			}
+			if err := os.Mkdir(filepath.Join(home, ".copilot"), 0o700); err != nil {
+				t.Fatal(err)
+			}
 			for _, action := range []string{"setup", skillRemoveAction} {
 				command := newSkillCommand()
 				command.SilenceErrors, command.SilenceUsage = true, true
@@ -513,6 +516,14 @@ func TestSkillDetectionRefusesSymlinks(t *testing.T) {
 					t.Fatalf("expected symlink refusal: %v", err)
 				}
 				assertSkillFile(t, sentinel, skillBootstrap)
+				for _, agent := range []string{".agents", ".copilot"} {
+					path := filepath.Join(home, agent, "skills", "kefw2", skillFilename)
+					if action == "setup" {
+						assertSkillFile(t, path, skillBootstrap)
+					} else if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+						t.Fatalf("valid skill was not removed: %s: %v", path, err)
+					}
+				}
 			}
 			t.Setenv("XDG_CONFIG_HOME", "relative-invalid-path")
 			override := filepath.Join(home, "explicit-skills")

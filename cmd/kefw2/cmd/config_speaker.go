@@ -97,9 +97,7 @@ var speakerDiscoverCmd = &cobra.Command{
 			return strings.Compare(a.IPAddress, b.IPAddress)
 		})
 		if save && len(newSpeakers) > 0 {
-			if defaultSpeaker != nil && viper.GetString("defaultSpeaker") == "" {
-				viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
-			}
+			preserveImplicitSpeakerDefault()
 			for _, s := range newSpeakers {
 				if !speakerDefined(s.IPAddress) {
 					speakers = append(speakers, *s)
@@ -212,6 +210,12 @@ var speakerSetDefaultCmd = &cobra.Command{
 	ValidArgsFunction: ConfiguredSpeakersCompletion,
 }
 
+func preserveImplicitSpeakerDefault() {
+	if defaultSpeaker != nil && viper.GetString("defaultSpeaker") == "" {
+		viper.Set("defaultSpeaker", defaultSpeaker.IPAddress)
+	}
+}
+
 func addSpeaker(host string) (err error) {
 	speaker, err := kefw2.NewSpeaker(host)
 	if err != nil {
@@ -220,6 +224,7 @@ func addSpeaker(host string) (err error) {
 	if speakerDefined(speaker.IPAddress) {
 		return nil
 	}
+	preserveImplicitSpeakerDefault()
 	speakers = append(speakers, *speaker)
 	viper.Set("speakers", speakers)
 

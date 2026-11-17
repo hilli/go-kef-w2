@@ -32,6 +32,26 @@ func TestStatusUnavailablePositionIsNull(t *testing.T) {
 	}
 }
 
+func TestHumanSpeakerAddPreservesImplicitDefault(t *testing.T) {
+	_, original := newCLIFixture(t)
+	_, added := newCLIFixture(t)
+	home := t.TempDir()
+	config := writeCLIConfig(t, home, original)
+	stdout, stderr, err := runCLI(t, home, config, "config", "speaker", "add", added.IPAddress)
+	if err != nil {
+		t.Fatalf("add speaker: %v stdout=%q stderr=%q", err, stdout, stderr)
+	}
+	stdout, stderr, err = runCLI(t, home, config, "config", "speaker", "default", "--json")
+	result := decodeCLI[struct {
+		Data struct {
+			Default speakerIdentity `json:"default"`
+		} `json:"data"`
+	}](t, stdout, stderr, err)
+	if result.Data.Default.IPAddress != original.IPAddress {
+		t.Fatalf("adding a speaker changed the implicit default: %+v", result.Data.Default)
+	}
+}
+
 func TestConfigWritersCreateParentDirectories(t *testing.T) {
 	for _, args := range [][]string{
 		{"config", "cache", "disable"},

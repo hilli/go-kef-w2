@@ -84,11 +84,11 @@ func newSkillCommand() *cobra.Command {
 
 func runSkillAction(cmd *cobra.Command, action string) error {
 	directories, err := skillDirectories(cmd)
+	var failures []error
 	if err != nil {
-		return err
+		failures = append(failures, err)
 	}
 	verbose, _ := cmd.Flags().GetBool("verbose")
-	var failures []error
 	for _, directory := range directories {
 		target := filepath.Join(directory, "kefw2", skillFilename)
 		if verbose {

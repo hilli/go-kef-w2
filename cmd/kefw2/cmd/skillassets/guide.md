@@ -326,7 +326,9 @@ and accepts the same override. Both
 operations are repeatable, refuse symlink paths and foreign/modified bootstrap
 files, and preserve other contents. A conflict at one selected skills root
 does not prevent processing the others, but returns nonzero and identifies
-the failing root(s). Detection errors stop the command before any changes.
+the failing root(s). An unsafe agent directory is reported and skipped without
+blocking other roots. Global detection errors, such as a relative
+`XDG_CONFIG_HOME`, stop the command before any changes.
 Use `-v`/`--verbose` with setup or removal to see selected paths and progress;
 the default is quiet.
 Skill commands do not read application

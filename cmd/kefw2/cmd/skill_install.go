@@ -36,6 +36,7 @@ const skillFilename = "SKILL.md"
 
 func detectSkillDirectories(home string) ([]string, error) {
 	directories := []string{filepath.Join(home, ".agents", "skills")}
+	var failures []error
 	configHome := os.Getenv("XDG_CONFIG_HOME")
 	if configHome == "" {
 		configHome = filepath.Join(home, ".config")
@@ -54,21 +55,23 @@ func detectSkillDirectories(home string) ([]string, error) {
 	for _, directory := range agentDirectories {
 		exists, err := skillDirectoryExists(directory)
 		if err != nil {
-			return nil, fmt.Errorf("inspect agent directory %s: %w", directory, err)
+			failures = append(failures, fmt.Errorf("inspect agent directory %s: %w", directory, err))
+			continue
 		}
 		if !exists {
 			continue
 		}
 		root, err := openSkillPath(directory, false)
 		if err != nil {
-			return nil, fmt.Errorf("detect agent directory %s: %w", directory, err)
+			failures = append(failures, fmt.Errorf("detect agent directory %s: %w", directory, err))
+			continue
 		}
 		if root != nil {
 			_ = root.Close()
 			directories = append(directories, filepath.Join(directory, "skills"))
 		}
 	}
-	return directories, nil
+	return directories, errors.Join(failures...)
 }
 
 func skillDirectoryExists(directory string) (bool, error) {
