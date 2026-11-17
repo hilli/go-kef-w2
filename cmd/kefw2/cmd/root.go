@@ -62,37 +62,42 @@ func noFileCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.S
 	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
+func withCompletionContext(complete cobra.CompletionFunc, needsSpeaker func(*cobra.Command, []string) bool) cobra.CompletionFunc {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if !isUtilityCommand(cmd) && cfgFile != "" && cfgFile != viper.ConfigFileUsed() {
+			if err := initConfig(); err != nil {
+				cobra.CompErrorln(err.Error())
+				return nil, cobra.ShellCompDirectiveError
+			}
+		}
+		if needsSpeaker != nil && needsSpeaker(cmd, append(slices.Clone(args), toComplete)) {
+			target := currentSpeakerParam
+			if target == "" {
+				target = viper.GetString("speaker")
+			}
+			if target != "" {
+				if err := resolveSpeaker(target); err != nil {
+					cobra.CompErrorln(err.Error())
+					return nil, cobra.ShellCompDirectiveError
+				}
+			}
+			if currentSpeaker == nil {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+		}
+		return complete(cmd, args, toComplete)
+	}
+}
+
 // disableFileCompletionRecursive disables file completion on all commands
 // that don't have a custom ValidArgsFunction set.
 func disableFileCompletionRecursive(cmd *cobra.Command) {
 	if cmd.ValidArgsFunction == nil {
 		cmd.ValidArgsFunction = noFileCompletion
 	} else {
-		complete := cmd.ValidArgsFunction
-		cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			if !isUtilityCommand(cmd) && cfgFile != "" && cfgFile != viper.ConfigFileUsed() {
-				if err := initConfig(); err != nil {
-					cobra.CompErrorln(err.Error())
-					return nil, cobra.ShellCompDirectiveError
-				}
-			}
-			if commandRequiresSpeaker(cmd, append(slices.Clone(args), toComplete)) {
-				target := currentSpeakerParam
-				if target == "" {
-					target = viper.GetString("speaker")
-				}
-				if target != "" {
-					if err := resolveSpeaker(target); err != nil {
-						cobra.CompErrorln(err.Error())
-						return nil, cobra.ShellCompDirectiveError
-					}
-				}
-				if currentSpeaker == nil {
-					return nil, cobra.ShellCompDirectiveNoFileComp
-				}
-			}
-			return complete(cmd, args, toComplete)
-		}
+		cmd.ValidArgsFunction = withCompletionContext(cmd.ValidArgsFunction, func(cmd *cobra.Command, args []string) bool {
+			return cmd == upnpContainerBrowseCmd || cmd == upnpContainerIndexCmd || commandRequiresSpeaker(cmd, args)
+		})
 	}
 	for _, child := range cmd.Commands() {
 		disableFileCompletionRecursive(child)
@@ -156,7 +161,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&currentSpeakerParam, "speaker", "s", "", "speaker to operate on (name or IP). Default speaker will be used if not specified")
 
 	// Register completion function for the speaker flag
-	_ = rootCmd.RegisterFlagCompletionFunc("speaker", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+	_ = rootCmd.RegisterFlagCompletionFunc("speaker", withCompletionContext(func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		var completions []string
 		for _, s := range speakers {
 			// Add name as completion option with description
@@ -167,7 +172,7 @@ func init() {
 			completions = append(completions, fmt.Sprintf("%s\t%s", s.IPAddress, s.Name))
 		}
 		return completions, cobra.ShellCompDirectiveNoFileComp
-	})
+	}, nil))
 }
 
 func prepareCommand(cmd *cobra.Command, args []string) error {

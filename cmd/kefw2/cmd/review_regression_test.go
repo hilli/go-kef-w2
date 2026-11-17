@@ -92,10 +92,48 @@ func TestCompletionHonorsExplicitConfig(t *testing.T) {
 	for _, args := range [][]string{
 		{"--config", selected, "__complete", "config", "speaker", "default", ""},
 		{"__complete", "config", "speaker", "default", "--config", selected, ""},
+		{"--config", selected, "__complete", "status", "--speaker", ""},
+		{"__complete", "status", "--config", selected, "--speaker", ""},
 	} {
 		stdout, stderr, err := runCLI(t, home, filepath.Join(home, "missing.yaml"), args...)
 		if err != nil || !strings.Contains(stdout, speaker.Name) {
 			t.Fatalf("completion ignored selected config: %v stdout=%q stderr=%q", err, stdout, stderr)
+		}
+	}
+}
+
+func TestContainerCompletionsHonorExplicitSpeaker(t *testing.T) {
+	first, defaultSpeaker := newCLIFixture(t)
+	second, target := newCLIFixture(t)
+	target.Name = "Target"
+	first.mu.Lock()
+	first.rows["upnp:/server"] = `{"rowsCount":1,"rows":[{"title":"Default folder","type":"container","path":"upnp:/server/default"}]}`
+	first.mu.Unlock()
+	second.mu.Lock()
+	second.rows["upnp:/server"] = `{"rowsCount":1,"rows":[{"title":"Target folder","type":"container","path":"upnp:/server/target"}]}`
+	second.mu.Unlock()
+	home := t.TempDir()
+	data, err := json.Marshal(map[string]any{
+		"speakers":       []any{defaultSpeaker, target},
+		"defaultSpeaker": defaultSpeaker.IPAddress,
+		"upnp":           map[string]string{"default_server_path": "upnp:/server"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := filepath.Join(home, "kefw2.yaml")
+	if err := os.WriteFile(config, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"__complete", "upnp", "index", "--speaker", target.Name, "--container", ""},
+		{"__complete", "config", "upnp", "container", "browse", "--speaker", target.Name, ""},
+		{"__complete", "config", "upnp", "container", "index", "--speaker", target.Name, ""},
+	} {
+		stdout, stderr, err := runCLI(t, home, config, args...)
+		if err != nil || !strings.Contains(stdout, "Target folder") || strings.Contains(stdout, "Default folder") {
+			t.Errorf("container completion used wrong speaker: args=%q err=%v stdout=%q stderr=%q",
+				args, err, stdout, stderr)
 		}
 	}
 }

@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read fresh queue state when caching is enabled and preserve repeat-one settings when toggling shuffle.
 - Preserve opaque UPnP container selections and reject index rebuild paths outside the configured default server in both CLI modes and the library.
 - Preserve exact-path radio playback for broadcasts whose streams are resolved by the speaker rather than embedded in station metadata.
+- Honor explicit configuration and speaker selection in flag completions and empty UPnP container completions.
 - Support first-run configuration writes and honor explicit configuration files and speaker targets in shell completions.
 - Preserve HTTP rejection errors when a reboot response disconnects early instead of reporting a successful reboot.
 
