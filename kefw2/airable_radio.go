@@ -1,7 +1,6 @@
 package kefw2
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -75,6 +74,12 @@ func (a *AirableClient) GetRadioFavorites() (*RowsResponse, error) {
 	return a.getServiceEndpoint(ServiceRadio, "favorites")
 }
 
+// GetRadioFavoritesPage returns a bounded page of favorite radio stations.
+// offset must be between 0 and 1,000,000; limit must be between 1 and 100.
+func (a *AirableClient) GetRadioFavoritesPage(offset, limit int) (*RowsResponse, error) {
+	return a.getServiceEndpointPage(ServiceRadio, "favorites", offset, limit)
+}
+
 // GetRadioFavoritesAll returns all favorite radio stations (paginated and cached).
 func (a *AirableClient) GetRadioFavoritesAll() (*RowsResponse, error) {
 	return a.getAllServiceEndpoint(ServiceRadio, "favorites")
@@ -137,10 +142,10 @@ func (a *AirableClient) GetRadioStationDetails(stationPath string) (*ContentItem
 
 // PlayRadioStation plays a radio station using the player:player/control pattern.
 func (a *AirableClient) PlayRadioStation(station *ContentItem) error {
-	ctx := context.Background()
+	ctx := a.context()
 	source, err := a.Speaker.Source(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get speaker source: %w", err)
+		return fmt.Errorf("failed to get speaker source: %w", airableSpeakerError(ctx, err))
 	}
 	if source != SourceWiFi {
 		if err := a.switchToWiFi(ctx, false); err != nil {

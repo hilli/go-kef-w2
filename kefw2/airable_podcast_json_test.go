@@ -7,10 +7,66 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 )
+
+func TestAirableClient_SearchPodcastsPage(t *testing.T) {
+	requests := make(chan [3]string, 3)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		requests <- [3]string{q.Get("path"), q.Get("from"), q.Get("to")}
+		_, _ = w.Write([]byte(`{"rowsCount":100,"rows":[]}`))
+	}))
+	defer server.Close()
+
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	client.PodcastBaseURL = "airable:https://podcast.example/airable/feeds"
+	for _, tc := range []struct {
+		name      string
+		offset    int
+		limit     int
+		wantTo    int
+		firstPage bool
+	}{
+		{name: "default first page", wantTo: 23, firstPage: true},
+		{name: "minimum", offset: 0, limit: 1, wantTo: 0},
+		{name: "maximum", offset: 1_000_000, limit: 100, wantTo: 1_000_099},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var err error
+			if tc.firstPage {
+				_, err = client.SearchPodcasts("Jazz & Blues")
+			} else {
+				_, err = client.SearchPodcastsPage("Jazz & Blues", tc.offset, tc.limit)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := <-requests
+			want := [3]string{
+				`airable:https://podcast.example/airable/feeds/search\?q\=Jazz+%26+Blues`,
+				strconv.Itoa(tc.offset), strconv.Itoa(tc.wantTo),
+			}
+			if got != want {
+				t.Fatalf("request = %q, want %q", got, want)
+			}
+		})
+	}
+
+	for _, pair := range [][2]int{{-1, 24}, {0, 0}, {0, 101}, {1_000_001, 24}} {
+		if _, err := client.SearchPodcastsPage("Jazz", pair[0], pair[1]); err == nil {
+			t.Errorf("accepted invalid pagination %v", pair)
+		}
+	}
+	select {
+	case got := <-requests:
+		t.Fatalf("invalid pagination sent a request: %q", got)
+	default:
+	}
+}
 
 func TestPodcastJSONPagination(t *testing.T) {
 	for _, failSecondPage := range []bool{false, true} {
@@ -164,6 +220,77 @@ func TestPodcastJSONExactPlaybackValidation(t *testing.T) {
 		if err := client.PlayPodcastEpisodeExact(item); err == nil {
 			t.Fatalf("invalid exact episode accepted: %+v", item)
 		}
+		if err := client.RequestPodcastEpisodeExact(item); err == nil {
+			t.Fatalf("invalid exact episode request accepted: %+v", item)
+		}
+	}
+}
+
+func TestPodcastExactPlaybackDoesNotClearQueue(t *testing.T) {
+	type playbackRequest struct {
+		Path  string `json:"path"`
+		Role  string `json:"role"`
+		Value struct {
+			Type       string      `json:"type"`
+			Control    string      `json:"control"`
+			MediaRoles ContentItem `json:"mediaRoles"`
+		} `json:"value"`
+	}
+	requests := make(chan playbackRequest, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/setData" {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL)
+			http.Error(w, "unexpected request", http.StatusNotFound)
+			return
+		}
+		var payload playbackRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Error(err)
+		}
+		requests <- payload
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	episode := &ContentItem{Path: "episode:42", Title: "Episode", Type: ContentTypeAudio}
+	if err := client.RequestPodcastEpisodeExact(episode); err != nil {
+		t.Fatal(err)
+	}
+	got := <-requests
+	if got.Path != pathPlayerControl || got.Role != roleActivate || got.Value.Type != playbackTypeNone ||
+		got.Value.Control != controlPlay || got.Value.MediaRoles.Path != episode.Path ||
+		got.Value.MediaRoles.Type != ContentTypeAudio || !got.Value.MediaRoles.ContainerPlayable {
+		t.Fatalf("unexpected exact episode play request: %+v", got)
+	}
+	select {
+	case extra := <-requests:
+		t.Fatalf("exact podcast playback sent an extra request (including queue clear): %+v", extra)
+	default:
+	}
+	if episode.ContainerPlayable {
+		t.Fatal("exact playback modified the caller's episode")
+	}
+}
+
+func TestPodcastExactLegacyPlaybackClearsQueue(t *testing.T) {
+	requests := make(chan string, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			Path string `json:"path"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Error(err)
+		}
+		requests <- payload.Path
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	if err := client.PlayPodcastEpisodeExact(&ContentItem{Path: "episode:42", Type: ContentTypeAudio}); err != nil {
+		t.Fatal(err)
+	}
+	if first, second := <-requests, <-requests; first != "playlists:pl/clear" || second != pathPlayerControl {
+		t.Fatalf("legacy exact playback requests = %q, %q", first, second)
 	}
 }
 

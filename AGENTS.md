@@ -262,7 +262,7 @@ defer mockServer.Close()
 
 ## Additional Notes
 
-- **Go version:** 1.26.0 (see go.mod)
+- **Go version:** 1.27.3 (see go.mod)
 - **License:** MIT (include license header in new files)
 - **Configuration:** Uses Viper with YAML config at `~/.config/kefw2/kefw2.yaml`
 - **Environment variables:** Prefix with `KEFW2_` (e.g., `KEFW2_SPEAKER`)

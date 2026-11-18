@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+	"weak"
 )
 
 // AirableClient handles communication with the Airable API on KEF speakers.
@@ -27,6 +29,76 @@ type AirableClient struct {
 
 // AirableClientOption configures an AirableClient.
 type AirableClientOption func(*AirableClient)
+
+// WithContext binds requests and dependent speaker operations to ctx for the
+// lifetime of the configured HTTP transport. A nil context uses
+// context.Background. Set custom transports using constructor options; replacing
+// HTTPClient or its Transport after construction discards the bound context.
+// Reapply WithContext(ctx) before use after such a replacement. Methods without
+// an explicit context parameter require a separate client for each independently
+// cancellable operation or session. Custom transports must honor request
+// contexts to support cancellation.
+func WithContext(ctx context.Context) AirableClientOption {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return func(a *AirableClient) {
+		a.bindContext(ctx, true)
+	}
+}
+
+// airableContextTransport carries context without changing AirableClient's
+// public struct layout.
+type airableContextTransport struct {
+	context    context.Context
+	transport  http.RoundTripper
+	contextSet bool
+	// Identify the option's client without retaining it through reused transports.
+	optionOwner weak.Pointer[AirableClient]
+}
+
+func (t *airableContextTransport) roundTripper() http.RoundTripper {
+	if t.transport == nil {
+		return http.DefaultTransport
+	}
+	return t.transport
+}
+
+func (t *airableContextTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return t.roundTripper().RoundTrip(req)
+}
+
+func (t *airableContextTransport) CloseIdleConnections() {
+	if closer, ok := t.roundTripper().(interface{ CloseIdleConnections() }); ok {
+		closer.CloseIdleConnections()
+	}
+}
+
+func (t *airableContextTransport) CancelRequest(req *http.Request) {
+	if canceler, ok := t.roundTripper().(interface{ CancelRequest(*http.Request) }); ok {
+		canceler.CancelRequest(req)
+	}
+}
+
+func (a *AirableClient) bindContext(ctx context.Context, contextSet bool) {
+	httpClient := *a.HTTPClient
+	var owner weak.Pointer[AirableClient]
+	if contextSet {
+		owner = weak.Make(a)
+	}
+	if existing, ok := httpClient.Transport.(*airableContextTransport); ok {
+		wrapped := *existing
+		wrapped.context = ctx
+		wrapped.contextSet = contextSet
+		wrapped.optionOwner = owner
+		httpClient.Transport = &wrapped
+	} else {
+		httpClient.Transport = &airableContextTransport{
+			context: ctx, transport: httpClient.Transport, contextSet: contextSet, optionOwner: owner,
+		}
+	}
+	a.HTTPClient = &httpClient
+}
 
 // WithCache enables caching with the given configuration.
 func WithCache(config CacheConfig) AirableClientOption {
@@ -54,7 +126,9 @@ func WithDiskCache() AirableClientOption {
 // Default is 10 seconds. Use longer timeouts for operations like indexing large libraries.
 func WithHTTPTimeout(timeout time.Duration) AirableClientOption {
 	return func(a *AirableClient) {
-		a.HTTPClient.Timeout = timeout
+		httpClient := *a.HTTPClient
+		httpClient.Timeout = timeout
+		a.HTTPClient = &httpClient
 	}
 }
 
@@ -161,11 +235,51 @@ func NewAirableClient(speaker *KEFSpeaker, opts ...AirableClientOption) *Airable
 		QueueID: "{8b2c3eca-b4ce-4c6f-9f63-fc29928150f4}", // Default queue ID
 	}
 
+	var boundContext context.Context
 	for _, opt := range opts {
 		opt(client)
+		if client.HTTPClient == nil {
+			continue
+		}
+		transport, ok := client.HTTPClient.Transport.(*airableContextTransport)
+		if !ok || !transport.contextSet || transport.optionOwner.Value() != client {
+			continue
+		}
+		boundContext = transport.context
+		httpClient := *client.HTTPClient
+		wrapped := *transport
+		wrapped.contextSet = false
+		wrapped.optionOwner = weak.Pointer[AirableClient]{}
+		httpClient.Transport = &wrapped
+		client.HTTPClient = &httpClient
+	}
+
+	if boundContext != nil && client.HTTPClient != nil {
+		client.bindContext(boundContext, false)
 	}
 
 	return client
+}
+
+// context also supports clients constructed directly with a struct literal.
+func (a *AirableClient) context() context.Context {
+	if a.HTTPClient != nil {
+		if transport, ok := a.HTTPClient.Transport.(*airableContextTransport); ok && transport.context != nil {
+			return transport.context
+		}
+	}
+	return context.Background()
+}
+
+// Speaker methods translate some timeout errors, so retain the context error as
+// well when the caller's context ended during a speaker request.
+func airableSpeakerError(ctx context.Context, err error) error {
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil && !errors.Is(err, ctxErr) {
+			return errors.Join(err, ctxErr)
+		}
+	}
+	return err
 }
 
 // SetQueueID sets a custom queue ID for event polling.
@@ -176,6 +290,11 @@ func (a *AirableClient) SetQueueID(queueID string) {
 // GetRows retrieves content rows from the specified path.
 // Results are cached if caching is enabled.
 func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error) {
+	ctx := a.context()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	// Build cache key including pagination
 	cacheKey := fmt.Sprintf("rows:%s:%d:%d", path, from, to)
 
@@ -189,7 +308,7 @@ func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error
 	requestURL := fmt.Sprintf("http://%s/api/getRows?path=%s&roles=@all&from=%d&to=%d",
 		a.Speaker.IPAddress, url.QueryEscape(path), from, to)
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, requestURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -225,6 +344,10 @@ func (a *AirableClient) GetRows(path string, from, to int) (*RowsResponse, error
 // It dynamically determines batch size based on what the API returns (typically ~30).
 // Results are cached if caching is enabled.
 func (a *AirableClient) GetAllRows(path string) (*RowsResponse, error) {
+	if err := a.context().Err(); err != nil {
+		return nil, err
+	}
+
 	cacheKey := "all:" + path
 
 	// Check cache first
@@ -282,13 +405,18 @@ func (a *AirableClient) GetAllRows(path string) (*RowsResponse, error) {
 
 // SetData sends a setData request to the speaker API.
 func (a *AirableClient) SetData(payload interface{}) (*SetDataResponse, error) {
+	ctx := a.context()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	requestURL := fmt.Sprintf("http://%s/api/setData", a.Speaker.IPAddress)
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, requestURL, bytes.NewBuffer(payloadJSON))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewBuffer(payloadJSON))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -329,7 +457,7 @@ func (a *AirableClient) GetData(path string) ([]byte, error) {
 	requestURL := fmt.Sprintf("http://%s/api/getData?path=%s&roles=value",
 		a.Speaker.IPAddress, url.QueryEscape(path))
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, requestURL, nil)
+	req, err := http.NewRequestWithContext(a.context(), http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -369,7 +497,7 @@ func (a *AirableClient) PollEvents(timeout int) ([]interface{}, error) {
 	requestURL := fmt.Sprintf("http://%s/api/event/pollQueue?queueId=%s&timeout=%d",
 		a.Speaker.IPAddress, url.QueryEscape(a.QueueID), timeout)
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, requestURL, nil)
+	req, err := http.NewRequestWithContext(a.context(), http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
