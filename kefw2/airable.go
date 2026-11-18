@@ -354,10 +354,10 @@ func (a *AirableClient) GetData(path string) ([]byte, error) {
 // ClearPlaylist clears the current playlist.
 func (a *AirableClient) ClearPlaylist() error {
 	payload := map[string]interface{}{
-		"path": "playlists:pl/clear",
-		"role": "activate",
-		"value": map[string]interface{}{
-			"plid": 0,
+		fieldPath: "playlists:pl/clear",
+		fieldRole: roleActivate,
+		fieldValue: map[string]interface{}{
+			fieldPlaylistID: 0,
 		},
 	}
 	_, err := a.SetData(payload)
@@ -455,11 +455,11 @@ func (a *AirableClient) GetTidalMenu() (*RowsResponse, error) {
 func (a *AirableClient) SearchTidal(query string) (*RowsResponse, error) {
 	// Set the search query
 	queryPayload := map[string]interface{}{
-		"path": "airable:form7:q",
-		"role": "value",
-		"value": map[string]string{
-			"type":    "string_",
-			"string_": query,
+		fieldPath: "airable:form7:q",
+		fieldRole: roleValue,
+		fieldValue: map[string]string{
+			fieldType:      typeNameString,
+			typeNameString: query,
 		},
 	}
 	if _, err := a.SetData(queryPayload); err != nil {
@@ -468,9 +468,9 @@ func (a *AirableClient) SearchTidal(query string) (*RowsResponse, error) {
 
 	// Submit the search
 	submitPayload := map[string]interface{}{
-		"path":  "airable:form7:submit",
-		"role":  "activate",
-		"value": true,
+		fieldPath:  "airable:form7:submit",
+		fieldRole:  roleActivate,
+		fieldValue: true,
 	}
 	resp, err := a.SetData(submitPayload)
 	if err != nil {

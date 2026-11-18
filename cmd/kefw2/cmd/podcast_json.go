@@ -16,8 +16,6 @@ const (
 	podcastJSONPlay     = "play"
 	podcastJSONFavorite = "favorite"
 	podcastJSONRemove   = "remove"
-	podcastJSONHistory  = "history"
-	podcastJSONFav      = "fav"
 )
 
 // These options are local to each command: a parent --json is not inherited.
@@ -257,9 +255,9 @@ func fetchPodcastJSONCategory(client *kefw2.AirableClient, category string) (*ke
 		return client.GetPodcastPopularAll()
 	case ModeTrending:
 		return client.GetPodcastTrendingAll()
-	case podcastJSONHistory:
+	case podcastModeHistory:
 		return client.GetPodcastHistoryAll()
-	case ModeFavorites, podcastJSONFav:
+	case ModeFavorites, favoriteAlias:
 		return client.GetPodcastFavoritesAll()
 	}
 	return nil, fmt.Errorf("unknown podcast category %q", category)
@@ -267,7 +265,7 @@ func fetchPodcastJSONCategory(client *kefw2.AirableClient, category string) (*ke
 
 func podcastJSONCategory(category string) bool {
 	switch strings.ToLower(category) {
-	case ModePopular, ModeTrending, podcastJSONHistory, ModeFavorites, podcastJSONFav:
+	case ModePopular, ModeTrending, podcastModeHistory, ModeFavorites, favoriteAlias:
 		return true
 	}
 	return false

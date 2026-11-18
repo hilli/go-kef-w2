@@ -59,7 +59,7 @@ func DefaultDiskCacheConfig() CacheConfig {
 	return CacheConfig{
 		Enabled:    true,
 		TTL:        24 * time.Hour,
-		PersistDir: "auto",
+		PersistDir: cacheDirAuto,
 	}
 }
 
@@ -87,7 +87,7 @@ func NewRowsCache(config CacheConfig) *RowsCache {
 	}
 
 	// Resolve persist directory
-	if config.PersistDir == "auto" {
+	if config.PersistDir == cacheDirAuto {
 		cacheDir, err := os.UserCacheDir()
 		if err != nil {
 			cacheDir = os.TempDir()
@@ -312,7 +312,7 @@ func (c *RowsCache) Search(query string, pathPrefix string, maxResults int) []Co
 			}
 
 			// Only include audio items (skip containers)
-			if item.Type != "audio" {
+			if item.Type != ContentTypeAudio {
 				continue
 			}
 

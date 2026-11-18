@@ -101,7 +101,7 @@ func parseTypedString(data []byte, err error) (string, error) {
 	}
 
 	val := values[0]
-	if val.Type != "string_" {
+	if val.Type != typeNameString {
 		return "", fmt.Errorf("%w: expected string_ type, got %s", ErrInvalidJSONResponse, val.Type)
 	}
 

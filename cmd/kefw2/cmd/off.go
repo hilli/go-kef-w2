@@ -29,7 +29,7 @@ import (
 
 // muteCmd toggles the mute state of the speakers.
 var offCmd = &cobra.Command{
-	Use:   "off",
+	Use:   switchOff,
 	Short: "Turns the speakers off",
 	Long:  `Turns the speakers off`,
 	Args:  cobra.MaximumNArgs(0),
@@ -40,10 +40,10 @@ var offCmd = &cobra.Command{
 			return fmt.Errorf("powering off: %w", err)
 		}
 		if jsonOutput(cmd) {
-			return writeSpeakerJSON(cmd, actionResult{"off", true})
+			return writeSpeakerJSON(cmd, actionResult{switchOff, true})
 		}
 		taskConpletedPrinter.Print("Speakers are now ")
-		contentPrinter.Println("off")
+		contentPrinter.Println(switchOff)
 		return nil
 	},
 }

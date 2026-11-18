@@ -188,7 +188,7 @@ func (a *AirableClient) GetPodcastEpisodesAll(podcastPath string) (*RowsResponse
 	// Find the Episodes container
 	var episodesPath string
 	for _, item := range resp.Rows {
-		if item.Title == "Episodes" && item.Type == ContentTypeContainer {
+		if item.Title == episodesTitle && item.Type == ContentTypeContainer {
 			if strings.TrimSpace(item.Path) == "" {
 				return nil, fmt.Errorf("episodes container has an empty path for podcast: %s", podcastPath)
 			}
@@ -215,7 +215,7 @@ func (a *AirableClient) GetLatestEpisode(podcast *ContentItem) (*ContentItem, er
 	// Find the Episodes container in the response
 	var episodesPath string
 	for _, item := range resp.Rows {
-		if item.Title == "Episodes" && item.Type == ContentTypeContainer {
+		if item.Title == episodesTitle && item.Type == ContentTypeContainer {
 			episodesPath = item.Path
 			break
 		}
@@ -271,7 +271,7 @@ func (a *AirableClient) PlayPodcastEpisode(episode *ContentItem) error {
 	// Play the episodes container - the speaker will resolve streams through Airable
 	container := &ContentItem{
 		Path:              containerPath,
-		Title:             "Episodes",
+		Title:             episodesTitle,
 		Type:              ContentTypeContainer,
 		ContainerPlayable: true,
 		MediaData: &MediaData{

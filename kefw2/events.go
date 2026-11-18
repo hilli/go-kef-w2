@@ -18,32 +18,34 @@ type EventSubscription struct {
 	Type string `json:"type"` // "itemWithValue", "item", or "rows"
 }
 
+const eventItemWithValue = "itemWithValue"
+
 // DefaultEventSubscriptions are the paths we subscribe to for common events.
 var DefaultEventSubscriptions = []EventSubscription{
 	// Player events
-	{Path: pathPlayerVolume, Type: "itemWithValue"},
-	{Path: pathPlayerData, Type: "itemWithValue"}, // Use itemWithValue to get state transitions
-	{Path: pathPlayTime, Type: "itemWithValue"},
+	{Path: pathPlayerVolume, Type: eventItemWithValue},
+	{Path: pathPlayerData, Type: eventItemWithValue}, // Include state transitions.
+	{Path: pathPlayTime, Type: eventItemWithValue},
 
 	// Source and power
-	{Path: pathPhysicalSource, Type: "itemWithValue"},
-	{Path: pathSpeakerStatus, Type: "itemWithValue"},
+	{Path: pathPhysicalSource, Type: eventItemWithValue},
+	{Path: pathSpeakerStatus, Type: eventItemWithValue},
 
 	// Audio settings
-	{Path: pathMute, Type: "itemWithValue"},
-	{Path: pathPlayMode, Type: "itemWithValue"},
-	{Path: pathEQProfile, Type: "itemWithValue"},
+	{Path: pathMute, Type: eventItemWithValue},
+	{Path: pathPlayMode, Type: eventItemWithValue},
+	{Path: pathEQProfile, Type: eventItemWithValue},
 
 	// Playlist
 	{Path: pathPlaylist, Type: "rows"},
 
 	// Network and system
-	{Path: pathNetwork, Type: "itemWithValue"},
-	{Path: pathFirmware, Type: "itemWithValue"},
+	{Path: pathNetwork, Type: eventItemWithValue},
+	{Path: pathFirmware, Type: eventItemWithValue},
 	{Path: pathNotification, Type: "rows"},
 
 	// Bluetooth
-	{Path: pathBluetooth, Type: "itemWithValue"},
+	{Path: pathBluetooth, Type: eventItemWithValue},
 }
 
 // EventClient manages event subscriptions and delivers events via channels.

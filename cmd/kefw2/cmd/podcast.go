@@ -116,7 +116,7 @@ func initialPodcastModel(client *kefw2.AirableClient) podcastModel {
 		client:      client,
 		searchInput: ti,
 		list:        l,
-		mode:        "search",
+		mode:        modeSearch,
 	}
 }
 
@@ -129,80 +129,8 @@ func (m podcastModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case KeyCtrlC, "q":
-			if !m.searchInput.Focused() || msg.String() == KeyCtrlC {
-				m.quitting = true
-				return m, tea.Quit
-			}
-		case KeyEnter:
-			if m.searchInput.Focused() && m.searchInput.Value() != "" {
-				m.loading = true
-				query := m.searchInput.Value()
-				return m, m.searchPodcasts(query)
-			} else if !m.searchInput.Focused() {
-				if item, ok := m.list.SelectedItem().(podcastItem); ok {
-					switch item.item.Type {
-					case TypeContainer:
-						// It's a podcast, load episodes
-						m.currentPodcast = &item.item
-						m.mode = TypeEpisodes
-						m.loading = true
-						return m, m.loadEpisodes(item.item.Path)
-					case TypeAudio:
-						// It's an episode, play it
-						return m, m.playEpisode(&item.item)
-					}
-				}
-			}
-		case "tab":
-			if m.searchInput.Focused() {
-				m.searchInput.Blur()
-			} else {
-				m.searchInput.Focus()
-			}
-		case KeyEsc:
-			switch {
-			case m.mode == TypeEpisodes:
-				// Go back to search/browse mode
-				m.mode = "search"
-				m.currentPodcast = nil
-				m.list.SetItems([]list.Item{})
-			case m.searchInput.Focused():
-				m.searchInput.Blur()
-			default:
-				m.searchInput.Focus()
-			}
-		case "backspace":
-			if !m.searchInput.Focused() && m.mode == TypeEpisodes {
-				m.mode = "search"
-				m.currentPodcast = nil
-				m.list.SetItems([]list.Item{})
-			}
-		case "f":
-			if !m.searchInput.Focused() {
-				m.mode = ModeFavorites
-				m.loading = true
-				return m, m.loadFavorites()
-			}
-		case "p":
-			if !m.searchInput.Focused() {
-				m.mode = ModePopular
-				m.loading = true
-				return m, m.loadPopular()
-			}
-		case "t":
-			if !m.searchInput.Focused() {
-				m.mode = ModeTrending
-				m.loading = true
-				return m, m.loadTrending()
-			}
-		case "h":
-			if !m.searchInput.Focused() {
-				m.mode = "history"
-				m.loading = true
-				return m, m.loadHistory()
-			}
+		if command, handled := m.handlePodcastKey(msg); handled {
+			return m, command
 		}
 
 	case tea.WindowSizeMsg:
@@ -253,6 +181,87 @@ func (m podcastModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+func (m *podcastModel) handlePodcastKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
+	switch msg.String() {
+	case KeyCtrlC, "q":
+		if !m.searchInput.Focused() || msg.String() == KeyCtrlC {
+			m.quitting = true
+			return tea.Quit, true
+		}
+	case KeyEnter:
+		return m.handlePodcastEnter()
+	case "tab":
+		if m.searchInput.Focused() {
+			m.searchInput.Blur()
+		} else {
+			m.searchInput.Focus()
+		}
+	case KeyEsc:
+		switch {
+		case m.mode == TypeEpisodes:
+			m.mode = modeSearch
+			m.currentPodcast = nil
+			m.list.SetItems([]list.Item{})
+		case m.searchInput.Focused():
+			m.searchInput.Blur()
+		default:
+			m.searchInput.Focus()
+		}
+	case "backspace":
+		if !m.searchInput.Focused() && m.mode == TypeEpisodes {
+			m.mode = modeSearch
+			m.currentPodcast = nil
+			m.list.SetItems([]list.Item{})
+		}
+	default:
+		return m.handlePodcastShortcut(msg.String())
+	}
+	return nil, false
+}
+
+func (m *podcastModel) handlePodcastEnter() (tea.Cmd, bool) {
+	if m.searchInput.Focused() {
+		if m.searchInput.Value() != "" {
+			m.loading = true
+			return m.searchPodcasts(m.searchInput.Value()), true
+		}
+		return nil, false
+	}
+	if item, ok := m.list.SelectedItem().(podcastItem); ok {
+		switch item.item.Type {
+		case TypeContainer:
+			m.currentPodcast = &item.item
+			m.mode = TypeEpisodes
+			m.loading = true
+			return m.loadEpisodes(item.item.Path), true
+		case TypeAudio:
+			return m.playEpisode(&item.item), true
+		}
+	}
+	return nil, false
+}
+
+func (m *podcastModel) handlePodcastShortcut(key string) (tea.Cmd, bool) {
+	if m.searchInput.Focused() {
+		return nil, false
+	}
+	switch key {
+	case "f":
+		m.mode, m.loading = ModeFavorites, true
+		return m.loadFavorites(), true
+	case "p":
+		m.mode, m.loading = ModePopular, true
+		return m.loadPopular(), true
+	case "t":
+		m.mode, m.loading = ModeTrending, true
+		return m.loadTrending(), true
+	case "h":
+		m.mode, m.loading = podcastModeHistory, true
+		return m.loadHistory(), true
+	}
+	return nil, false
 }
 
 func (m podcastModel) View() tea.View {
@@ -471,7 +480,7 @@ var podcastSearchCmd = &cobra.Command{
 // podcastFavoritesCmd lists favorite podcasts.
 var podcastFavoritesCmd = &cobra.Command{
 	Use:               "favorites [show[/episode]]",
-	Aliases:           []string{"fav"},
+	Aliases:           []string{favoriteAlias},
 	Short:             "Browse and play favorite podcasts",
 	ValidArgsFunction: PodcastFavoritesCompletion,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -596,7 +605,7 @@ var podcastHistoryCmd = MakePodcastCategoryCommand(PodcastCategoryConfig{
 	ValidArgsFunction: PodcastHistoryCompletion,
 	Fetcher:           func(c *kefw2.AirableClient) (*kefw2.RowsResponse, error) { return c.GetPodcastHistoryAll() },
 	EmptyMessage:      "No podcasts in history.",
-	NotFoundMessage:   "history",
+	NotFoundMessage:   podcastModeHistory,
 	Title:             "Podcast History",
 	Callbacks:         DefaultPodcastCallbacks,
 })
@@ -836,10 +845,10 @@ Use the fuzzy filter to quickly find what you're looking for.`,
 		case "trending":
 			resp, err = client.GetPodcastTrending()
 			title = "Trending Podcasts"
-		case "history":
+		case podcastModeHistory:
 			resp, err = client.GetPodcastHistory()
 			title = "Podcast History"
-		case "favorites", "fav":
+		case "favorites", favoriteAlias:
 			resp, err = client.GetPodcastFavorites()
 			title = "Favorite Podcasts"
 		default:

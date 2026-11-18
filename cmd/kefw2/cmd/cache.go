@@ -349,7 +349,7 @@ var cacheClearCmd = &cobra.Command{
 
 // cacheStatusCmd shows cache status.
 var cacheStatusCmd = &cobra.Command{
-	Use:   "status",
+	Use:   commandStatus,
 	Short: "Show cache statistics",
 	Run: func(_ *cobra.Command, _ []string) {
 		// Get cache directory

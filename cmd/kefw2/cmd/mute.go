@@ -83,14 +83,14 @@ func init() {
 }
 
 func MuteCompletion(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-	return []string{"on", "off", "true", "false", "0", "1", "muted", "unmute", "unmuted"}, cobra.ShellCompDirectiveNoFileComp
+	return []string{"on", switchOff, booleanTrue, booleanFalse, "0", "1", "muted", "unmute", "unmuted"}, cobra.ShellCompDirectiveNoFileComp
 }
 
 func parseMuteArg(mute string) (bool, error) {
 	switch mute {
-	case "on", "true", "1", "muted":
+	case "on", booleanTrue, "1", "muted":
 		return true, nil
-	case PlayModeOff, "false", "0", "unmute", "unmuted":
+	case PlayModeOff, booleanFalse, "0", "unmute", "unmuted":
 		return false, nil
 	default:
 		return false, fmt.Errorf("mute must be one of: on, off, true, false, 0, 1, muted, unmute, unmuted")

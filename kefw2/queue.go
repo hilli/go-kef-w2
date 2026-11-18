@@ -52,12 +52,12 @@ func (a *AirableClient) AddToQueue(tracks []ContentItem, startIfEmpty bool) erro
 
 	// Add tracks to queue
 	addPayload := map[string]interface{}{
-		"path": "playlists:pl/addexternalitems",
-		"role": "activate",
-		"value": map[string]interface{}{
-			"items": items,
-			"plid":  "0",
-			"mode":  "append",
+		fieldPath: "playlists:pl/addexternalitems",
+		fieldRole: roleActivate,
+		fieldValue: map[string]interface{}{
+			fieldItems:      items,
+			fieldPlaylistID: "0",
+			"mode":          "append",
 		},
 	}
 
@@ -93,11 +93,11 @@ func (a *AirableClient) RemoveFromQueue(indices []int) error {
 	}
 
 	payload := map[string]interface{}{
-		"path": "playlists:pl/removeitems",
-		"role": "activate",
-		"value": map[string]interface{}{
-			"plid":  0,
-			"items": indices,
+		fieldPath: "playlists:pl/removeitems",
+		fieldRole: roleActivate,
+		fieldValue: map[string]interface{}{
+			fieldPlaylistID: 0,
+			fieldItems:      indices,
 		},
 	}
 
@@ -112,12 +112,12 @@ func (a *AirableClient) RemoveFromQueue(indices []int) error {
 // Both fromIndex and toIndex are 0-based.
 func (a *AirableClient) MoveQueueItem(fromIndex, toIndex int) error {
 	payload := map[string]interface{}{
-		"path": "playlists:pl/moveitem",
-		"role": "activate",
-		"value": map[string]interface{}{
-			"plid":  0,
-			"items": []int{fromIndex},
-			"to":    toIndex,
+		fieldPath: "playlists:pl/moveitem",
+		fieldRole: roleActivate,
+		fieldValue: map[string]interface{}{
+			fieldPlaylistID: 0,
+			fieldItems:      []int{fromIndex},
+			"to":            toIndex,
 		},
 	}
 
@@ -148,23 +148,23 @@ func (a *AirableClient) PlayQueueIndex(index int, track *ContentItem) error {
 	// Use player:player/control with itemInContainer to play from queue context
 	// This preserves the queue so the speaker advances to next track
 	playPayload := map[string]interface{}{
-		"path": "player:player/control",
-		"role": "activate",
-		"value": map[string]interface{}{
+		fieldPath: pathPlayerControl,
+		fieldRole: roleActivate,
+		fieldValue: map[string]interface{}{
 			"trackRoles": trackRoles,
-			"type":       "itemInContainer",
+			fieldType:    "itemInContainer",
 			"index":      index,
-			"control":    "play",
-			"mediaRoles": map[string]interface{}{
-				"type":          "container",
-				"containerType": "none",
-				"title":         "PlayQueue tracks",
+			fieldControl: controlPlay,
+			fieldMediaRoles: map[string]interface{}{
+				fieldType:          ContentTypeContainer,
+				fieldContainerType: containerTypeNone,
+				fieldTitle:         "PlayQueue tracks",
 				"mediaData": map[string]interface{}{
-					"metaData": map[string]interface{}{
+					fieldMetaData: map[string]interface{}{
 						"playLogicPath": "playlists:playlogic",
 					},
 				},
-				"path": "playlists:pq/getitems",
+				fieldPath: "playlists:pq/getitems",
 			},
 		},
 	}
@@ -223,10 +223,10 @@ func (a *AirableClient) SetPlayMode(mode string) error {
 	}
 
 	payload := map[string]interface{}{
-		"path": "settings:/mediaPlayer/playMode",
-		"role": "value",
-		"value": map[string]interface{}{
-			"type":           "playerPlayMode",
+		fieldPath: "settings:/mediaPlayer/playMode",
+		fieldRole: roleValue,
+		fieldValue: map[string]interface{}{
+			fieldType:        "playerPlayMode",
 			"playerPlayMode": mode,
 		},
 	}
@@ -492,7 +492,7 @@ func (a *AirableClient) PlayOrResumeFromQueue(ctx context.Context) (PlayResult, 
 
 		index := 0
 		if shuffled {
-			index = rand.Intn(len(queue.Rows))
+			index = rand.Intn(len(queue.Rows)) //nolint:gosec // Queue shuffling is not security-sensitive.
 		}
 
 		track := queue.Rows[index]
