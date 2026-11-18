@@ -476,10 +476,7 @@ func playerDiscoveryPlayWithWait(
 		}
 		resolved, err = client.GetRadioStationByPath(item.Path)
 	case playerDiscoveryPodcast:
-		if item.Type != kefw2.ContentTypeAudio {
-			return errors.New("only a podcast episode can be played")
-		}
-		resolved, err = client.GetPodcastDetailsExact(item.Path)
+		resolved, err = playerDiscoveryResolvePodcast(client, item)
 	default:
 		return fmt.Errorf("direct playback is not supported for %q", service)
 	}
@@ -515,6 +512,33 @@ func playerDiscoveryPlayWithWait(
 		return fmt.Errorf("playing %s item %q: %w", service, item.Path, err)
 	}
 	return nil
+}
+
+func playerDiscoveryResolvePodcast(
+	client playerDiscoveryPlayClient, item kefw2.ContentItem,
+) (*kefw2.ContentItem, error) {
+	if item.Type != kefw2.ContentTypeAudio {
+		return nil, errors.New("only a podcast episode can be played")
+	}
+	// Episode paths may be playable but not browsable. Listing rows already
+	// carrying the service metadata and stream must not be resolved again.
+	if playerDiscoveryPodcastHasPlaybackData(item) {
+		return &item, nil
+	}
+	return client.GetPodcastDetailsExact(item.Path)
+}
+
+func playerDiscoveryPodcastHasPlaybackData(item kefw2.ContentItem) bool {
+	if item.MediaData == nil || strings.TrimSpace(item.MediaData.MetaData.ServiceID) == "" ||
+		len(item.MediaData.Resources) == 0 {
+		return false
+	}
+	for _, resource := range item.MediaData.Resources {
+		if strings.TrimSpace(resource.URI) == "" || strings.TrimSpace(resource.MimeType) == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func playerDiscoveryPlayableRadio(item kefw2.ContentItem) bool {

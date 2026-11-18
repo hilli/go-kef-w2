@@ -358,6 +358,9 @@ func buildMediaDataRoles(data *MediaData) map[string]interface{} {
 	if data.MetaData.Live {
 		metaData["live"] = true
 	}
+	if data.MetaData.PlayLogicPath != "" {
+		metaData["playLogicPath"] = data.MetaData.PlayLogicPath
+	}
 	if data.MetaData.ContentPlayContextPath != "" {
 		metaData["contentPlayContextPath"] = data.MetaData.ContentPlayContextPath
 	}

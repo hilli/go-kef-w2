@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -252,14 +253,31 @@ func TestPodcastExactPlaybackDoesNotClearQueue(t *testing.T) {
 	}))
 	defer server.Close()
 	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
-	episode := &ContentItem{Path: "episode:42", Title: "Episode", Type: ContentTypeAudio}
+	episode := &ContentItem{
+		Path:  "airable:https://podcast.example.test/id/airable/feed.episode/42?token=a%2Fb&lang=da",
+		Title: "1:7 - Ayatollah Khomeini",
+		Type:  ContentTypeAudio,
+		MediaData: &MediaData{
+			MetaData: MediaMetaData{
+				ServiceID:               "airablePodcasts",
+				ContentPlayContextPath:  "airable:https://podcast.example.test/airable/feed/7/episodes",
+				PrePlayPath:             "airable:prepare",
+				PlaybackStateChangePath: "airable:state",
+				MaximumRetryCount:       1,
+			},
+			Resources: []MediaResource{{
+				URI: "https://stream.example.test/episode.mp3?token=a%2Fb&lang=da", MimeType: "audio/mpeg",
+			}},
+		},
+	}
 	if err := client.RequestPodcastEpisodeExact(episode); err != nil {
 		t.Fatal(err)
 	}
 	got := <-requests
 	if got.Path != pathPlayerControl || got.Role != roleActivate || got.Value.Type != playbackTypeNone ||
 		got.Value.Control != controlPlay || got.Value.MediaRoles.Path != episode.Path ||
-		got.Value.MediaRoles.Type != ContentTypeAudio || !got.Value.MediaRoles.ContainerPlayable {
+		got.Value.MediaRoles.Type != ContentTypeAudio || !got.Value.MediaRoles.ContainerPlayable ||
+		!reflect.DeepEqual(got.Value.MediaRoles.MediaData, episode.MediaData) {
 		t.Fatalf("unexpected exact episode play request: %+v", got)
 	}
 	select {

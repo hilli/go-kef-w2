@@ -918,59 +918,130 @@ func TestPlayerDiscoveryReportsCanceledRequestsWithoutReplay(t *testing.T) {
 }
 
 func TestPlayerDiscoveryPodcastPlaybackSendsNoExplicitClear(t *testing.T) {
-	var mu sync.Mutex
-	var posts []struct {
-		Path  string `json:"path"`
-		Value struct {
-			MediaRoles struct {
-				Path string `json:"path"`
-			} `json:"mediaRoles"`
-		} `json:"value"`
+	episode := kefw2.ContentItem{
+		Path:  "airable:https://podcast.example.test/id/airable/feed.episode/42?token=a%2Fb&lang=da",
+		Type:  kefw2.ContentTypeAudio,
+		Title: "1:7 - Ayatollah Khomeini",
+		MediaData: &kefw2.MediaData{
+			MetaData: kefw2.MediaMetaData{
+				ServiceID:               "airablePodcasts",
+				ContentPlayContextPath:  "airable:https://podcast.example.test/airable/feed/7/episodes",
+				PrePlayPath:             "airable:prepare",
+				PlaybackStateChangePath: "airable:state",
+				MaximumRetryCount:       1,
+			},
+			Resources: []kefw2.MediaResource{{
+				URI: "https://stream.example.test/episode.mp3?token=a%2Fb&lang=da", MimeType: "audio/mpeg",
+			}},
+		},
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/api/getRows":
-			if r.URL.Query().Get("path") != "episode:exact" {
-				t.Errorf("resolved a different podcast path: %s", r.URL)
+	for _, tc := range []struct {
+		name        string
+		incomplete  func(*kefw2.ContentItem)
+		detailFails bool
+	}{
+		{name: "complete listing skips failing detail endpoint", detailFails: true},
+		{name: "summary resolves exact details", incomplete: func(item *kefw2.ContentItem) { item.MediaData = nil }},
+		{name: "summary surfaces detail failure", detailFails: true,
+			incomplete: func(item *kefw2.ContentItem) { item.MediaData = nil }},
+		{name: "missing service resolves", detailFails: true,
+			incomplete: func(item *kefw2.ContentItem) { item.MediaData.MetaData.ServiceID = "" }},
+		{name: "missing resources resolves", detailFails: true,
+			incomplete: func(item *kefw2.ContentItem) { item.MediaData.Resources = nil }},
+		{name: "empty resource URI resolves", detailFails: true,
+			incomplete: func(item *kefw2.ContentItem) { item.MediaData.Resources[0].URI = " " }},
+		{name: "empty resource MIME type resolves", detailFails: true,
+			incomplete: func(item *kefw2.ContentItem) { item.MediaData.Resources[0].MimeType = "" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			item := playerDiscoveryCopyItem(episode)
+			if tc.incomplete != nil {
+				tc.incomplete(&item)
 			}
-			_ = json.NewEncoder(w).Encode(kefw2.RowsResponse{
-				Roles: &kefw2.ContentItem{Path: "episode:exact", Type: kefw2.ContentTypeAudio},
-			})
-		case "/api/getData":
-			_, _ = fmt.Fprint(w, `[{"type":"kefPhysicalSource","kefPhysicalSource":"wifi"}]`)
-		case "/api/setData":
-			var payload struct {
+			original := playerDiscoveryCopyItem(item)
+			type playbackRequest struct {
 				Path  string `json:"path"`
+				Role  string `json:"role"`
 				Value struct {
-					MediaRoles struct {
-						Path string `json:"path"`
-					} `json:"mediaRoles"`
+					Type       string            `json:"type"`
+					Control    string            `json:"control"`
+					MediaRoles kefw2.ContentItem `json:"mediaRoles"`
 				} `json:"value"`
 			}
-			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-				t.Errorf("decode playback request: %v", err)
-			}
-			mu.Lock()
-			posts = append(posts, payload)
-			mu.Unlock()
-			_, _ = fmt.Fprint(w, `{}`)
-		default:
-			http.Error(w, "unexpected request", http.StatusNotFound)
-		}
-	}))
-	defer server.Close()
+			var mu sync.Mutex
+			var posts []playbackRequest
+			var details, sourceReads int
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				defer mu.Unlock()
+				switch r.URL.Path {
+				case "/api/getRows":
+					details++
+					if r.Method != http.MethodGet || r.URL.Query().Get("path") != episode.Path {
+						t.Errorf("resolved a different podcast path: %s", r.URL)
+					}
+					if tc.detailFails {
+						w.WriteHeader(http.StatusInternalServerError)
+						_, _ = fmt.Fprint(w, `{"error":{"message":"Error during communication with server"}}`)
+						return
+					}
+					_ = json.NewEncoder(w).Encode(kefw2.RowsResponse{Roles: &episode})
+				case "/api/getData":
+					sourceReads++
+					_, _ = fmt.Fprint(w, `[{"type":"kefPhysicalSource","kefPhysicalSource":"wifi"}]`)
+				case "/api/setData":
+					var payload playbackRequest
+					if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+						t.Errorf("decode playback request: %v", err)
+					}
+					posts = append(posts, payload)
+					_, _ = fmt.Fprint(w, `{}`)
+				default:
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL)
+					http.Error(w, "unexpected request", http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
 
-	ctx := context.Background()
-	speaker := &kefw2.KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")}
-	client := playerDiscoveryTestPlayClient(t, kefw2.NewAirableClient(speaker, kefw2.WithContext(ctx)))
-	item := kefw2.ContentItem{Path: "episode:exact", Type: kefw2.ContentTypeAudio}
-	if err := playerDiscoveryPlay(ctx, client, speaker, playerDiscoveryPodcast, item); err != nil {
-		t.Fatal(err)
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	if len(posts) != 1 || posts[0].Path != "player:player/control" || posts[0].Value.MediaRoles.Path != item.Path {
-		t.Fatalf("podcast playback cleared queue or selected another item: %+v", posts)
+			ctx := context.Background()
+			speaker := &kefw2.KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")}
+			client := playerDiscoveryTestPlayClient(t, kefw2.NewAirableClient(speaker, kefw2.WithContext(ctx)))
+			err := playerDiscoveryPlay(ctx, client, speaker, playerDiscoveryPodcast, item)
+			mu.Lock()
+			defer mu.Unlock()
+			if tc.incomplete != nil && tc.detailFails {
+				wantError := `HTTP 500: {"error":{"message":"Error during communication with server"}}`
+				if err == nil || !strings.Contains(err.Error(), wantError) {
+					t.Fatalf("detail failure was hidden: %v", err)
+				}
+				if got := []int{details, sourceReads, len(posts)}; !reflect.DeepEqual(got, []int{1, 0, 0}) {
+					t.Fatalf("detail failure was hidden or retried: details=%d source=%d posts=%+v err=%v",
+						details, sourceReads, posts, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantDetails := 0
+			if tc.incomplete != nil {
+				wantDetails = 1
+			}
+			if details != wantDetails {
+				t.Fatalf("unexpected detail requests: got %d, want %d", details, wantDetails)
+			}
+			want := playerDiscoveryCopyItem(episode)
+			want.ContainerPlayable = true
+			want.ContainerType = "none"
+			wantPost := playbackRequest{Path: "player:player/control", Role: "activate"}
+			wantPost.Value.Type, wantPost.Value.Control, wantPost.Value.MediaRoles = "none", "play", want
+			if !reflect.DeepEqual(posts, []playbackRequest{wantPost}) {
+				t.Fatalf("unexpected play/clear request or metadata: got %+v, want %+v", posts, wantPost)
+			}
+			if !reflect.DeepEqual(item, original) {
+				t.Fatal("playback modified the selected listing item")
+			}
+		})
 	}
 }
 
