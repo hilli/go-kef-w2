@@ -32,24 +32,27 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 	if state.ModeErr != nil {
 		status += " | Mode error: " + state.ModeErr.Error()
 	}
-	children = append(children, bloom.Fixed(1, bloom.Text(watchText(status))))
+	children = append(children, bloom.Fixed(1, playerHint(watchText(status))))
 	if !state.Ready {
 		children = append(children, bloom.Fixed(1, bloom.Text("Writes disabled: awaiting fresh speaker status")))
 	}
 	bar := bloom.Row(
-		bloom.Fixed(8, bloom.Text("[Play]").ID("queue-play").On(on.Click(func() tea.Cmd {
+		bloom.Fixed(8, bloom.Text("[Play]").Style(playerButtonStyle(false, state.Ready && !state.Busy && !state.Uncertain)).
+			ID("queue-play").On(on.Click(func() tea.Cmd {
 			if !state.Ready || state.Busy || state.Uncertain || state.Snapshot == nil {
 				return nil
 			}
 			return playerMessage(playerQueuePlayMsg{Generation: state.Generation, Snapshot: state.Snapshot, Index: uiIndex})
 		}))),
-		bloom.Fixed(9, bloom.Text("[Remove]").ID("queue-remove").On(on.Click(func() tea.Cmd {
+		bloom.Fixed(9, bloom.Text("[Remove]").Style(playerButtonStyle(false, state.Ready && !state.Busy && !state.Uncertain)).
+			ID("queue-remove").On(on.Click(func() tea.Cmd {
 			if !state.Ready || state.Busy || state.Uncertain || state.Snapshot == nil {
 				return nil
 			}
 			return playerMessage(playerQueueRemoveMsg{Generation: state.Generation, Snapshot: state.Snapshot, Index: uiIndex})
 		}))),
-		bloom.Fixed(8, bloom.Text("[Clear]").ID("queue-clear-button").On(on.Click(func() tea.Cmd {
+		bloom.Fixed(8, bloom.Text("[Clear]").Style(playerButtonStyle(false, state.Ready && !state.Busy && !state.Uncertain)).
+			ID("queue-clear-button").On(on.Click(func() tea.Cmd {
 			if state.Ready && !state.Busy && !state.Uncertain {
 				ui.openQueueClear(playerQueueClearMsg{Generation: state.Generation, Snapshot: state.Snapshot})
 			}
@@ -114,7 +117,8 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 				On(on.Drag(func(event on.Event) tea.Cmd {
 					return ui.queueRowDrag(m, state, index, event)
 				}))),
-			bloom.Fill(bloom.Text(title).ID(fmt.Sprintf("queue-row-%d", index)).Focusable().On(
+			bloom.Fill(bloom.Text(title).Style(playerSelectionStyle(index == uiIndex, ui.pane == ModeQueue)).
+				ID(fmt.Sprintf("queue-row-%d", index)).Focusable().On(
 				on.Click(func() tea.Cmd { ui.pane, ui.queueIndex = ModeQueue, index; return nil }),
 				on.DoubleClick(func() tea.Cmd {
 					if !state.Ready {

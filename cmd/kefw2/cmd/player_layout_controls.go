@@ -10,6 +10,8 @@ import (
 	"bloomfx.dev/bloom/on"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 )
 
 //nolint:gocyclo // Builds independently conditional status and controls.
@@ -58,7 +60,8 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 		if ui.focus.Is(id) {
 			label = ">" + label
 		}
-		return bloom.Fixed(ansi.StringWidth(label), bloom.Text(label).ID(id).Focusable().On(on.Click(func() tea.Cmd {
+		return bloom.Fixed(ansi.StringWidth(label), bloom.Text(label).
+			Style(playerButtonStyle(ui.focus.Is(id), reason == "")).ID(id).Focusable().On(on.Click(func() tea.Cmd {
 			if reason != "" {
 				ui.controlReason = reason
 				return nil
@@ -106,7 +109,9 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 	if ui.focus.Is("volume") {
 		marker = ">"
 	}
-	track := bloom.Text(strings.Repeat("=", filled)+strings.Repeat("-", width-filled)).
+	track := bloom.Text(playerButtonStyle(false, state.ready).Render(strings.Repeat("=", filled))+
+		playerHintStyle.Render(strings.Repeat("-", width-filled))).
+		Style(playerSelectionStyle(ui.focus.Is("volume"), true)).
 		ID("volume").Focusable().On(
 		on.ClickAt(func(event on.Event) tea.Cmd {
 			if ui.sliderBlocked {
@@ -189,10 +194,14 @@ func (ui *playerLayoutUI) sourceChooser(m *playerModel) bloom.Child {
 			marker = "> "
 		}
 		line := marker + string(choice.source)
+		if choice.source == kefw2.SourceStandby {
+			line = marker + "Off / Standby"
+		}
 		if !choice.enabled {
 			line += " — unsupported or availability unknown for this model"
 		}
-		children = append(children, bloom.Fixed(1, bloom.Text(line).ID(fmt.Sprintf("source-%d", i)).Focusable().
+		children = append(children, bloom.Fixed(1, bloom.Text(line).Style(playerSelectionStyle(i == ui.sourceIndex, true)).
+			ID(fmt.Sprintf("source-%d", i)).Focusable().
 			On(on.Click(func() tea.Cmd { ui.sourceIndex = i; return nil }))))
 	}
 	children = append(children, bloom.Fixed(1, bloom.Text("[Switch]   Enter switch · Esc cancel").

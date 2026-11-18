@@ -103,6 +103,7 @@ layouts:
 	want := playerDefaultArrangement(playerDiscoveryBrowser)
 	want.Order[0], want.Order[1] = want.Order[1], want.Order[0]
 	want.Width[playerPaneDiscover] = 50
+	want.Width[playerPaneSources] = 22
 	if err != nil || !reflect.DeepEqual(file.Layouts[playerDiscoveryBrowser], want) {
 		t.Fatalf("reset lost other valid arrangement: %+v, %v", file, err)
 	}
@@ -691,10 +692,13 @@ func assertPlayerModalFrame(t *testing.T, m *playerModel, id, kind string) {
 		if cell(rect.Min.X, y) != "│" || cell(rect.Max.X-1, y) != "│" {
 			t.Fatalf("%s modal content blends with background: %q", kind, ansi.Strip(lines[y]))
 		}
-		inside := ansi.Cut(lines[y], rect.Min.X+1, rect.Max.X-1)
-		if strings.TrimSpace(ansi.Strip(inside)) != "" &&
-			!strings.Contains(inside, "\x1b[38;2;232;241;243;48;2;16;24;32m") {
-			t.Fatalf("%s modal text lacks contrasting foreground/background: %q", kind, inside)
+		cells := playerRenderedCells(lines[y])
+		for x := rect.Min.X + 1; x < rect.Max.X-1; x++ {
+			cell := cells[x]
+			if cell.Style.Fg == nil || cell.Style.Bg == nil ||
+				playerSameColor(cell.Style.Fg, cell.Style.Bg) {
+				t.Fatalf("%s modal cell %d,%d lacks opaque contrasting colors: %#v", kind, x, y, cell)
+			}
 		}
 	}
 	rowID, want := "", ""
@@ -1435,7 +1439,7 @@ func TestPlayerDiscoveryUPnPCapabilitiesAreVisible(t *testing.T) {
 	m.ui.zoom = playerPaneDiscover
 	m.addExtension(m.ui.extension())
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
-	content := m.View().Content
+	content := ansi.Strip(m.View().Content)
 	for _, want := range []string{"no UPnP search, favorites or direct play", "play from Queue"} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("UPnP capability %q not visible in %q", want, content)

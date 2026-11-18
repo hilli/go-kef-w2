@@ -15,7 +15,8 @@ func (ui *playerLayoutUI) paneMenu() bloom.Child {
 	children := make([]bloom.Child, 0, len(choices)+7)
 	children = append(children, bloom.Fixed(1, bloom.Text("PANE MENU")))
 	option := func(label string, action func()) bloom.Child {
-		return bloom.Fixed(1, bloom.Text(label).ID("menu-"+label).Focusable().On(on.Click(func() tea.Cmd {
+		return bloom.Fixed(1, playerHint(label).Style(playerButtonStyle(ui.focus.Is("menu-"+label), true)).
+			ID("menu-"+label).Focusable().On(on.Click(func() tea.Cmd {
 			action()
 			return nil
 		})))
@@ -49,6 +50,6 @@ func (ui *playerLayoutUI) paneMenu() bloom.Child {
 			ui.focus.Set(name)
 		}))
 	}
-	children = append(children, bloom.Fixed(1, bloom.Text("Esc closes · arrows preview · Enter commits")))
+	children = append(children, bloom.Fixed(1, playerHint("Esc closes · arrows preview · Enter commits")))
 	return bloom.Column(children...)
 }

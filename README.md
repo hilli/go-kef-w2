@@ -322,6 +322,13 @@ original target.
 The player shows the speaker's confirmed power and actual input; the input is
 not the service being browsed. Radio and Podcasts are Wi-Fi services; browsing
 them does not switch inputs.
+The narrow Sources sidebar lists physical inputs, **Off / Standby**, and Wi-Fi
+browsing shortcuts. Click a row to select, then Enter or Open to activate
+(double-click also activates). `*` marks the confirmed input; Off puts only the
+selected speaker into standby. Unsupported inputs are dimmed and marked `-`.
+Active panes use cyan double borders, selected rows have filled highlights,
+and keyboard hints are amber. Saved custom widths remain unchanged; `p`, then
+`R` restores the narrower default.
 Search stations or podcasts, open a series to browse episodes, or browse UPnP
 and add supported tracks to the active queue. Selecting a result previews it;
 playing a station or episode is explicit and can change playback. Radio play
@@ -336,6 +343,8 @@ select it in the queue and press Enter; enqueueing alone does not start playback
 | --- | --- |
 | Focus and navigate | `Tab` / `Shift+Tab`; arrows or `j` / `k` |
 | Speaker / input | `S` / `s`, then arrows and Enter; Esc cancels |
+| Sources sidebar | `Alt+1` or Tab to focus; arrows or `j` / `k` select; Enter opens/switches |
+| Confirmation dialogs | Tab/Shift+Tab or Left/Right selects; Enter activates; `y` confirms, `n`/Esc cancels; Cancel is the default |
 | Search / details | `/` to search; Enter submits or opens/plays supported results; `i` opens details |
 | Queue | `Q` focuses queue; queue focus: `Ctrl+k` / `Ctrl+j` move row |
 | Panes | `p` opens Move, Resize, Zoom and Reset; `z` toggles zoom on the focused pane |

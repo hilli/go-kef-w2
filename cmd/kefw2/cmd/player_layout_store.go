@@ -28,11 +28,11 @@ type playerLayoutFile struct {
 func playerDefaultArrangement(layout string) playerArrangement {
 	if layout == playerDiscoveryBrowser {
 		return playerArrangement{Order: []string{playerPaneSources, playerPaneDiscover, playerPaneDetails}, Width: map[string]int{
-			playerPaneSources: 22, playerPaneDiscover: 38, playerPaneDetails: 40,
+			playerPaneSources: 18, playerPaneDiscover: 38, playerPaneDetails: 40,
 		}}
 	}
 	return playerArrangement{Order: []string{playerPaneSources, playerPaneDiscover, ModeQueue}, Width: map[string]int{
-		playerPaneSources: 24, playerPaneDiscover: 42, ModeQueue: 32,
+		playerPaneSources: 18, playerPaneDiscover: 42, ModeQueue: 32,
 	}}
 }
 

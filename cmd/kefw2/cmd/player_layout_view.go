@@ -4,12 +4,10 @@ package cmd
 
 import (
 	"fmt"
-	"image/color"
 	"strings"
 	"time"
 
 	"bloomfx.dev/bloom"
-	"bloomfx.dev/bloom/canvas"
 	"bloomfx.dev/bloom/on"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -36,20 +34,9 @@ func (ui *playerLayoutUI) confirmedSnapshot(m *playerModel) *statusSnapshot {
 
 func playerModal(content bloom.Child) bloom.Child {
 	style := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#49c6d0")).Background(lipgloss.Color("#101820")).Padding(0, 1)
-	return bloom.Transition(1, bloom.Box(style, content), playerModalTextColor{})
-}
-
-type playerModalTextColor struct{}
-
-func (playerModalTextColor) Apply(surface *canvas.Surface, _ float64) {
-	for y := 1; y < surface.Height()-1; y++ {
-		for x := 1; x < surface.Width()-1; x++ {
-			if cell := surface.Cell(x, y); cell != nil {
-				cell.Style.Fg = color.RGBA{R: 232, G: 241, B: 243, A: 255}
-			}
-		}
-	}
+		BorderForeground(playerAccentColor).Background(playerSurfaceColor).Padding(0, 1)
+	return bloom.Transition(1, bloom.Box(style, content),
+		playerSurfaceColors{foreground: playerTextColor, background: playerSurfaceColor})
 }
 
 //nolint:gocyclo // Composes the independent overlays and status states.
@@ -89,21 +76,22 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		}
 		header += connection
 	}
-	speaker := bloom.Text(header).ID(playerFocusSpeaker).Focusable().On(on.Click(func() tea.Cmd {
+	speaker := bloom.Text(header).Style(playerButtonStyle(ui.focus.Is(playerFocusSpeaker), true)).
+		ID(playerFocusSpeaker).Focusable().On(on.Click(func() tea.Cmd {
 		ui.cancel()
 		return func() tea.Msg { return playerOpenChooserMsg{} }
 	}))
 	headerRow := bloom.Row(bloom.Fill(speaker),
-		bloom.Fixed(8, bloom.Text("[Queue]").ID("queue-open").Focusable().On(on.Click(func() tea.Cmd {
+		bloom.Fixed(8, bloom.Text("[Queue]").Style(playerButtonStyle(ui.focus.Is("queue-open"), true)).ID("queue-open").Focusable().On(on.Click(func() tea.Cmd {
 			ui.toggleQueue()
 			return nil
 		}))),
-		bloom.Fixed(9, bloom.Text("[Details]").ID("details-open").Focusable().On(on.Click(func() tea.Cmd {
+		bloom.Fixed(9, bloom.Text("[Details]").Style(playerButtonStyle(ui.focus.Is("details-open"), true)).ID("details-open").Focusable().On(on.Click(func() tea.Cmd {
 			ui.pane = playerPaneDetails
 			ui.focus.Set(ui.pane)
 			return nil
 		}))),
-		bloom.Fixed(7, bloom.Text("[Panes]").ID("panes-open").Focusable().On(on.Click(func() tea.Cmd {
+		bloom.Fixed(7, bloom.Text("[Panes]").Style(playerButtonStyle(ui.focus.Is("panes-open"), true)).ID("panes-open").Focusable().On(on.Click(func() tea.Cmd {
 			ui.cancelPointerInteractions()
 			ui.menu = true
 			ui.focus.Push("pane-menu")
@@ -193,7 +181,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		dockHeight = min(len(status)+extra+2, max(3, m.height/3))
 		dock = ui.transportView(m, status, dockHeight)
 	}
-	help := bloom.Text("Tab panes · / search · S speaker · s input · Q queue · p panes · ? help · q quit").
+	help := playerHint("Tab panes · / search · S speaker · s input · Q queue · p panes · ? help · q quit").
 		ID("help-open").Focusable().On(on.Click(func() tea.Cmd {
 		ui.cancelPointerInteractions()
 		ui.help = true
@@ -243,17 +231,19 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		}
 		dialogChildren = append(dialogChildren,
 			bloom.Fixed(1, bloom.Row(
-				bloom.Fixed(12, bloom.Text(playerConfirmationLabel("Confirm", ui.queueConfirmAccept)).ID("queue-clear-confirm").On(on.Click(func() tea.Cmd {
+				bloom.Fixed(12, bloom.Text(playerConfirmationLabel("Confirm", ui.queueConfirmAccept)).
+					Style(playerButtonStyle(ui.queueConfirmAccept, true)).ID("queue-clear-confirm").On(on.Click(func() tea.Cmd {
 					ui.closeQueueClear()
 					request.Confirmed = true
 					return playerMessage(request)
 				}))),
-				bloom.Fill(bloom.Text(playerConfirmationLabel("Cancel", !ui.queueConfirmAccept)).ID("queue-clear-cancel").On(on.Click(func() tea.Cmd {
+				bloom.Fill(bloom.Text(playerConfirmationLabel("Cancel", !ui.queueConfirmAccept)).
+					Style(playerButtonStyle(!ui.queueConfirmAccept, true)).ID("queue-clear-cancel").On(on.Click(func() tea.Cmd {
 					ui.closeQueueClear()
 					return nil
 				}))),
 			)),
-			bloom.Fixed(1, bloom.Text("Tab/←/→ select · Enter activate · y confirm · n/Esc cancel")))
+			bloom.Fixed(1, playerHint("Tab/←/→ select · Enter activate · y confirm · n/Esc cancel")))
 		dialog := bloom.Column(dialogChildren...)
 		content = bloom.Overlay(content, bloom.Layer(playerModal(dialog)).ID("queue-clear").Modal().
 			Anchor(bloom.Center, bloom.Center))
@@ -275,18 +265,20 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			}
 			dialogChildren = append(dialogChildren,
 				bloom.Fixed(1, bloom.Row(
-					bloom.Fixed(12, bloom.Text(playerConfirmationLabel("Confirm", ui.discoveryAccept)).ID("discovery-confirm-yes").On(on.Click(func() tea.Cmd {
+					bloom.Fixed(12, bloom.Text(playerConfirmationLabel("Confirm", ui.discoveryAccept)).
+						Style(playerButtonStyle(ui.discoveryAccept, true)).ID("discovery-confirm-yes").On(on.Click(func() tea.Cmd {
 						return playerScopedCmd(p.generation, playerMessage(playerDiscoveryConfirmMsg{
 							generation: p.generation, request: confirmation.request, accept: true,
 						}))
 					}))),
-					bloom.Fill(bloom.Text(playerConfirmationLabel("Cancel", !ui.discoveryAccept)).ID("discovery-confirm-no").On(on.Click(func() tea.Cmd {
+					bloom.Fill(bloom.Text(playerConfirmationLabel("Cancel", !ui.discoveryAccept)).
+						Style(playerButtonStyle(!ui.discoveryAccept, true)).ID("discovery-confirm-no").On(on.Click(func() tea.Cmd {
 						return playerScopedCmd(p.generation, playerMessage(playerDiscoveryConfirmMsg{
 							generation: p.generation, request: confirmation.request,
 						}))
 					}))),
 				)),
-				bloom.Fixed(1, bloom.Text("Tab/←/→ select · Enter activate · y confirm · n/Esc cancel")))
+				bloom.Fixed(1, playerHint("Tab/←/→ select · Enter activate · y confirm · n/Esc cancel")))
 			dialog := bloom.Column(dialogChildren...)
 			content = bloom.Overlay(content, bloom.Layer(playerModal(dialog)).ID("discovery-confirm").Modal().
 				Anchor(bloom.Center, bloom.Center))
@@ -299,7 +291,8 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			node := bloom.Text(watchText(line))
 			if i >= 2 && i-2 < len(rows) {
 				index := rows[i-2]
-				node = node.ID(fmt.Sprintf("speaker-%d", index)).Focusable().On(on.Click(func() tea.Cmd {
+				node = node.Style(playerSelectionStyle(index == m.chooserIndex, true)).
+					ID(fmt.Sprintf("speaker-%d", index)).Focusable().On(on.Click(func() tea.Cmd {
 					return func() tea.Msg { return playerChooseSpeakerMsg{index: index} }
 				}))
 			}
@@ -309,7 +302,8 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		content = bloom.Overlay(content, bloom.Layer(playerModal(dialog)).ID("speaker-chooser").Modal().
 			Anchor(bloom.Center, bloom.Center))
 	}
-	view := ui.root.View(m.width, m.height, content)
+	view := ui.root.View(m.width, m.height, bloom.Transition(1, content,
+		playerSurfaceColors{foreground: playerTextColor, background: playerSurfaceColor}))
 	view.AltScreen = true
 	return view
 }
@@ -376,23 +370,20 @@ func (ui *playerLayoutUI) panes(m *playerModel) bloom.Child {
 }
 
 func (ui *playerLayoutUI) framedPane(m *playerModel, pane string) bloom.Child {
-	color := lipgloss.Color("#586d78")
+	color := playerBorderColor
+	border := lipgloss.NormalBorder()
 	if ui.pane == pane {
-		color = lipgloss.Color("#49c6d0")
+		color = playerAccentColor
+		border = lipgloss.DoubleBorder()
 	}
-	return bloom.Box(lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(color), ui.paneView(m, pane))
+	return bloom.Box(lipgloss.NewStyle().Border(border).BorderForeground(color), ui.paneView(m, pane))
 }
 
 func (ui *playerLayoutUI) paneView(m *playerModel, pane string) bloom.Child {
 	var content string
 	switch pane {
 	case playerPaneSources:
-		if ui.controls != nil {
-			return bloom.Column(bloom.Fixed(1, ui.title(m, pane)),
-				bloom.Fill(bloom.Text("Physical inputs\n[Choose input]\n\ns: choose input").
-					ID("source-open").Focusable().On(on.Click(func() tea.Cmd { ui.openSource(); return nil }))))
-		}
-		content = "Physical inputs\nWi-Fi · Bluetooth · TV · Optical · Coaxial · Aux · USB\n\ns: choose input"
+		return ui.sourcesView(m)
 	case playerPaneDiscover:
 		if ui.discovery != nil {
 			return ui.discoveryView(m)

@@ -165,6 +165,17 @@ media. Player UPnP supports browsing and enqueueing, not search, favorites or
 direct playback from a result. Enqueue a track, then select it in the queue
 and press Enter to play; enqueueing alone does not start playback.
 
+The compact Sources sidebar lists physical inputs, **Off / Standby**, and
+Radio/Podcasts/UPnP browsing shortcuts. Focus it with Alt+1 (or Tab), use
+arrows or j/k to select, and Enter or the Open button to activate. A mouse
+click selects; a double-click activates. `*` marks the confirmed current input;
+unsupported inputs are dimmed and marked `-`. Off puts only the selected speaker
+into standby. Browsing a Wi-Fi service does not change the physical input.
+The `s` chooser also includes Off / Standby. Active panes have cyan double
+borders; filled rows mark selection, and amber text identifies keyboard hints.
+Custom pane widths are preserved; use `p`, then `R` to restore the narrower
+default Sources width.
+
 Use `Tab` / `Shift+Tab` to focus, arrows or `j` / `k` to navigate, `/` to
 search and Enter to submit or activate. In Discover, `1` / `2` / `3` select
 Radio / Podcasts / UPnP, `<` / `>` page results, and `e` enqueues a supported

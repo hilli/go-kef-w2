@@ -146,7 +146,9 @@ func (ui *playerLayoutUI) discoveryView(m *playerModel) bloom.Child {
 		if index == p.selection {
 			marker = "> "
 		}
-		node := bloom.Text(marker+watchText(item.Title)).ID(fmt.Sprintf("discovery-row-%d", index)).Focusable().On(
+		node := bloom.Text(marker+watchText(item.Title)).
+			Style(playerSelectionStyle(index == p.selection, ui.pane == playerPaneDiscover)).
+			ID(fmt.Sprintf("discovery-row-%d", index)).Focusable().On(
 			on.Click(func() tea.Cmd {
 				ui.pane = playerPaneDiscover
 				return playerScopedCmd(generation, playerMessage(playerDiscoverySelectMsg{
@@ -174,7 +176,7 @@ func (ui *playerLayoutUI) discoveryView(m *playerModel) bloom.Child {
 	if p.service == playerDiscoveryUPnP {
 		help = "Enter browse · e enqueue · play from Queue · < > pages"
 	}
-	children = append(children, bloom.Fixed(1, bloom.Text(help)))
+	children = append(children, bloom.Fixed(1, playerHint(help)))
 	return bloom.Column(children...).On(on.Scroll(func(_, dy int) tea.Cmd {
 		if len(p.state.page.items) == 0 {
 			return nil
@@ -234,7 +236,8 @@ func (ui *playerLayoutUI) discoverySearch() bloom.Child {
 	if ui.discovery.presentation().service == playerDiscoveryUPnP {
 		return bloom.Text("UPnP search unavailable · browse servers instead").ID("search")
 	}
-	return bloom.Text("Search: " + ui.search.View()).ID("search").Focusable().On(on.Click(func() tea.Cmd {
+	return bloom.Text("Search: " + ui.search.View()).Style(playerSelectionStyle(ui.searchActive || ui.focus.Is("search"), true)).
+		ID("search").Focusable().On(on.Click(func() tea.Cmd {
 		ui.pane, ui.searchActive = playerPaneDiscover, true
 		return ui.search.Focus()
 	}))
@@ -243,7 +246,8 @@ func (ui *playerLayoutUI) discoverySearch() bloom.Child {
 func (ui *playerLayoutUI) discoveryActions(p playerDiscoveryPresentation) bloom.Child {
 	gen, request, index := p.generation, p.state.request, p.selection
 	button := func(label string, message tea.Msg) bloom.Child {
-		return bloom.Fixed(len(label), bloom.Text(label).ID("discovery-action-"+label).On(on.Click(func() tea.Cmd {
+		return bloom.Fixed(len(label), bloom.Text(label).Style(playerButtonStyle(false, message != nil)).
+			ID("discovery-action-"+label).On(on.Click(func() tea.Cmd {
 			if message == nil {
 				return nil
 			}
@@ -320,7 +324,9 @@ func (ui *playerLayoutUI) discoveryServiceButton(label string, service playerDis
 	if ui.focus.Is("service-" + string(service)) {
 		label = ">" + label
 	}
-	return bloom.Fixed(len(label), bloom.Text(label).ID("service-"+string(service)).Focusable().On(on.Click(func() tea.Cmd {
+	return bloom.Fixed(len(label), bloom.Text(label).
+		Style(playerButtonStyle(ui.focus.Is("service-"+string(service)) || p.service == service, true)).
+		ID("service-"+string(service)).Focusable().On(on.Click(func() tea.Cmd {
 		ui.pane = playerPaneDiscover
 		ui.search.Blur()
 		ui.searchActive = false

@@ -12,6 +12,7 @@ import (
 	"bloomfx.dev/bloom/on"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 )
@@ -63,6 +64,7 @@ type playerLayoutUI struct {
 	sourceOpen          bool
 	sourceIndex         int
 	sourceEpoch         uint64
+	sourceNavIndex      int
 	sliderDragging      bool
 	sliderEpoch         uint64
 	sliderSuppressClick bool
@@ -109,6 +111,7 @@ func (ui *playerLayoutUI) extension() playerExtension {
 		ui.search.Blur()
 		ui.searchActive = false
 		ui.sourceOpen = false
+		ui.sourceNavIndex = 0
 		ui.sliderDragging = false
 		ui.controlReason = ""
 		ui.hasControlSession = false
@@ -390,7 +393,10 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 	}
 	focusID, focused := ui.focus.Current()
 	paneFocused := !focused || focusID == ui.pane || strings.HasPrefix(focusID, "queue-row-") ||
-		strings.HasPrefix(focusID, "discovery-row-")
+		strings.HasPrefix(focusID, "discovery-row-") || strings.HasPrefix(focusID, "source-nav-")
+	if paneFocused && ui.pane == playerPaneSources && ui.sourceNavKey(m, key) {
+		return true
+	}
 	if paneFocused && ui.queue != nil && ui.pane == ModeQueue && ui.queueKey(key) {
 		return true
 	}
@@ -692,7 +698,7 @@ type playerSourceChoice struct {
 func (ui *playerLayoutUI) sources() []playerSourceChoice {
 	names := []kefw2.Source{
 		kefw2.SourceWiFi, kefw2.SourceBluetooth, kefw2.SourceOptical, kefw2.SourceTV,
-		kefw2.SourceAux, kefw2.SourceUSB, kefw2.SourceCoaxial,
+		kefw2.SourceAux, kefw2.SourceUSB, kefw2.SourceCoaxial, kefw2.SourceStandby,
 	}
 	choices := make([]playerSourceChoice, 0, len(names))
 	for _, source := range names {
@@ -863,11 +869,22 @@ func (ui *playerLayoutUI) title(m *playerModel, pane string) bloom.Child {
 	if ui.pane == pane {
 		marker = "> "
 	}
-	title := marker + strings.ToUpper(pane) + " ::"
+	title := marker + strings.ToUpper(pane)
+	shortcut := "i"
+	if index := slices.Index(ui.arrangement.Order, pane); index >= 0 {
+		shortcut = fmt.Sprintf("Alt+%d", index+1)
+	} else if pane == ModeQueue {
+		shortcut = "Q"
+	}
+	title += " " + shortcut + " ::"
 	if ui.drag == playerLayoutMove && ui.pane == pane {
 		title = marker + "[DROP] " + strings.ToUpper(pane) + " ::"
 	}
-	node := bloom.Text(title).ID("title-"+pane).Focusable().On(
+	style := playerHintStyle.Bold(true)
+	if ui.pane == pane {
+		style = style.Foreground(playerAccentColor).Background(lipgloss.Color("#123447"))
+	}
+	node := bloom.Text(title).Style(style).Truncate().ID("title-"+pane).Focusable().On(
 		on.Click(func() tea.Cmd { ui.pane = pane; ui.focus.Set(pane); return nil }),
 		on.DoubleClick(func() tea.Cmd { ui.pane = pane; ui.zoomPane(); return nil }),
 	)

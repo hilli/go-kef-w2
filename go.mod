@@ -9,6 +9,7 @@ require (
 	charm.land/lipgloss/v2 v2.1.1
 	github.com/BourgeoisBear/rasterm v1.1.3-0.20261105140326-6174df9d5b0b
 	github.com/brutella/dnssd v1.2.14
+	github.com/charmbracelet/ultraviolet v0.0.0-20261023060817-a45b7c86333f
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/fatih/color v1.18.0
 	github.com/hilli/icat v0.0.8
@@ -24,7 +25,6 @@ require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20261023060817-a45b7c86333f // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
