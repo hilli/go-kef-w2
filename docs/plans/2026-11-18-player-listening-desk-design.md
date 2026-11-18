@@ -5,6 +5,10 @@ Listening Desk is the default; Discovery Browser is the search-first alternative
 Both use the same player state, components, and controls. This is a design
 proposal, not an implemented command.
 
+Delivery is broken into dependency-ordered milestones in the
+[implementation plan](2026-11-18-player-implementation-plan.md), including
+switching between configured speakers without restarting the player.
+
 ![Listening Desk, wide](../designs/player-listening-desk/wide.png)
 ![Listening Desk, compact](../designs/player-listening-desk/compact.png)
 
@@ -101,6 +105,7 @@ and layout restoration rules as Listening Desk.
 | Activate | Click Play button; double-click result | Enter; podcast series opens episodes first |
 | Search | Click search field; choose Radio/Podcasts | `/`; Tab to service selector; Enter submits |
 | Queue / details | Click Queue / Details | `Q` focuses queue or toggles its drawer; `i` opens details |
+| Speaker | Click speaker name in header | `S` opens configured-speaker chooser; arrows, Enter; Esc cancels |
 | Source | Select source, activate Switch | `s`, choose, Enter; Esc cancels |
 | Volume | Click/drag slider; wheel only over slider | `+`/`-` outside text input; slider Left/Right |
 | Mute | Click Mute | `m` outside text input |
@@ -118,6 +123,46 @@ When a slider has focus, Home/End select zero/the allowed maximum; Up/Down
 change by five points. No shortcut raises the speaker's configured maximum.
 Use these bindings in both layouts; queue reorder shortcuts apply only with
 queue focus. Layout selection must not introduce a second keymap.
+
+## Configured-speaker switching
+
+The persistent header identifies the selected speaker by name and IP. Clicking
+it, tabbing to it and pressing Enter, or pressing uppercase `S` opens a
+filterable list of configured speakers, showing name, model, IP, configured
+default, and the current selection. Lowercase `s` remains the input/source
+chooser. Use the IP to disambiguate duplicate names; only a completed probe
+justifies an online/offline indicator. Keep the chooser reachable in both layouts,
+including compact mode and when the current speaker is offline.
+
+Initial selection honors `--speaker NAME_OR_IP`, then `KEFW2_SPEAKER`/the existing
+`speaker` configuration value, then the configured default (or the sole configured
+speaker). If several speakers exist without a default, open the chooser instead
+of failing before the TUI starts. Preserve explicit name/IP selection semantics,
+including errors for ambiguous names. An explicit unconfigured address is
+session-only; it does not add a configuration entry. With no configured or
+explicit target, return actionable setup instructions.
+
+Selecting a speaker is not an audio handoff: do not stop the old speaker, start
+the new one, copy volume/source/queue, wake either speaker, or change the saved
+default. Layout customizations remain selected while speaker-specific state is
+reloaded. The initial configured speaker list is a session snapshot; adding,
+removing, grouping, or changing the default stays in `config speaker`.
+
+On confirmation, immediately identify the requested target and show Connecting.
+Disable its mutations, cancel and retire the previous speaker session, discard
+unsent actions/slider targets/queue drafts, and load fresh target state. Never
+show the old speaker's metadata, volume limit, or queue under the new name.
+Every asynchronous result, event, and action carries the originating session
+generation; ignore results from retired generations, including A -> B -> A.
+Network operations capture a fixed target, never a mutable global selection.
+
+Recreate Airable clients and speaker-scoped caches for the new session. Clear
+search results and paths; retaining query text is fine, but resubmission must
+resolve it against the new speaker. Selecting an unreachable speaker leaves an
+explicit error for that target with Retry and Choose Speaker; never silently
+fall back to controlling the previous speaker. Cancellation cannot recall a
+write already accepted by the old speaker: report an uncertain old-target action
+with its speaker identity, never replay it against the newly selected speaker.
 
 ## Volume slider: yes
 
@@ -189,8 +234,10 @@ disable unsupported transport with a reason. Bluetooth/Wi-Fi capability is not
 proof that a particular stream can seek. Show seek only with known duration and
 supported media. Unsupported physical inputs are omitted/disabled per model.
 
-Persist layout only in a proposed versioned
-`~/.config/kefw2/player-layout.yaml`, with atomic writes and visible save errors.
+Persist layout only in a proposed versioned `player-layout.yaml` alongside the
+selected `kefw2.yaml` (derive the directory from `viper.ConfigFileUsed()`, respecting
+the existing OS-specific configuration path and `--config`), with atomic writes
+and visible save errors.
 Key saved arrangements by `listening-desk` and `discovery-browser`; load only the
 selected layout's pane state, without storing a last-used/default-layout override.
 Validate IDs and widths; offer Reset for invalid files instead of silently
@@ -220,6 +267,13 @@ initialization, positional-argument rejection, and completion. Verify saved pane
 arrangements and Reset are isolated by layout ID, and that launching either
 layout issues no playback/source mutations. The default must remain Listening
 Desk after a prior Discovery Browser session.
+
+Exercise speaker switching in both layouts with two fake servers, different
+volume limits, identical service paths, delayed reads/writes, and A -> B -> A
+selection. Assert no cross-speaker state or queued commands, no default-config
+write, no playback mutation caused by selection, and chooser recovery after an
+offline target. Verify old session workers/event subscriptions terminate and
+stale artwork/search/queue replies cannot populate the new target.
 
 ## Visuals and references
 
