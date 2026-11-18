@@ -45,6 +45,8 @@ kefw2 --speaker NAME_OR_IP stop --json
 kefw2 --speaker NAME_OR_IP off --json
 kefw2 --speaker NAME_OR_IP radio search "QUERY" --json
 kefw2 --speaker NAME_OR_IP radio play --path "PATH" --json
+kefw2 --speaker NAME_OR_IP config eq_profile --json
+kefw2 --speaker NAME_OR_IP config eq_profile PROFILE.json --json
 ```
 
 Volume accepts an integer from 0 through 100. Omit the argument to read volume,
@@ -93,6 +95,8 @@ types, not literal JSON):
   `outcome` is `resumed`, `startedFromQueue`, `nothingToPlay`, or
   `alreadyPlaying`; the last two fields are booleans.
 - Radio play: `{action:"play_radio",accepted:true,path}`.
+- EQ read: `{eq_profile}`. Restore:
+  `{action:"restore_eq_profile",accepted:true,source,eq_profile}`.
 
 `accepted:true` reports HTTP acceptance, not a completed physical transition;
 `accepted:false` reports a no-op. Report what was accepted and what a bounded
@@ -334,7 +338,10 @@ The following operational commands also accept `--json`:
   mute and volume. `version`: version/build metadata, without speaker access.
 - `next`, `previous`, `seek POSITION`: explicit navigation. Seek accepts seconds,
   `mm:ss` or `hh:mm:ss`, validates playback/duration, and reports `position_ms`.
-- `config eq_profile`: typed EQ configuration, read-only.
+- `config eq_profile [PROFILE.json]`: read the current EQ profile or restore a
+  complete profile JSON file. The profile applies to the currently selected
+  audio source; select the intended source before restoring. JSON restore
+  reports the source and profile sent to the speaker.
   `config maxvolume [VALUE]`: read or set the 0..100 maximum-volume limit.
 - `config speaker add IP`, `remove SELECTOR`, `default [SELECTOR]`: explicit
   local configuration changes; add connects to the selected address.

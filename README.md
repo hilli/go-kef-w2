@@ -148,10 +148,13 @@ Turn the speakers off
 kefw2 off
 ```
 
-Backup the current EQ Profile
+Back up the current EQ profile, then restore it to a speaker with the intended
+audio source selected. EQ profiles are source-specific.
 
 ```shell
 kefw2 config eq_profile > my_profile.json
+kefw2 --speaker "Office" config eq_profile my_profile.json
+kefw2 --speaker "Office" config eq_profile my_profile.json --json
 ```
 
 Set the max volume limit
@@ -543,7 +546,7 @@ kefw2 events --json
 - [x] Play from UPnP/DLNA media servers
 - [x] Queue management
 - [x] UPnP library search with local indexing
-- [ ] Restore speaker settings/eq profiles from file
+- [x] Restore EQ profiles from file
 - [ ] Play titles from built-in music streaming services (Amazon Music, Deezer, Qobuz, Spotify, Tidal)
 
 ## Library
