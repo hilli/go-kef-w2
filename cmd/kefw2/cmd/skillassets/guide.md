@@ -156,8 +156,10 @@ The dock shows confirmed power and the actual input, not the service being
 browsed. Radio and Podcasts are Wi-Fi services; browsing alone does not switch
 inputs. Search radio/podcasts, open a series to see episodes, or browse UPnP and enqueue
 supported tracks. A selection previews; explicit playback can switch input or
-replace playback. Radio play requires confirmation (`y` to confirm) and can
-replace the queue. TV, Optical, Coaxial, Aux and USB show `external audio`
+replace playback. Radio play requires confirmation and can replace the queue.
+Radio-play and queue-clear dialogs default to Cancel: Tab/Shift+Tab or left/right
+select a button, Enter activates it, `y` confirms, and `n`/Esc cancels.
+TV, Optical, Coaxial, Aux and USB show `external audio`
 when playback data is unavailable; transport and seek depend on the source and
 media. Player UPnP supports browsing and enqueueing, not search, favorites or
 direct playback from a result. Enqueue a track, then select it in the queue

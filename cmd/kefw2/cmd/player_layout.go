@@ -69,6 +69,9 @@ type playerLayoutUI struct {
 	sliderBlocked       bool
 	queueIndex          int
 	queueClear          *playerQueueClearMsg
+	queueConfirmAccept  bool
+	discoveryConfirm    *playerDiscoveryConfirmation
+	discoveryAccept     bool
 	queueDrag           *playerQueueDrag
 	queueDragBlocked    bool
 	outbound            []tea.Cmd
@@ -227,6 +230,17 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		}
 		return true
 	}
+	if ui.queueClear != nil {
+		if decided, accept := playerConfirmationKey(key, &ui.queueConfirmAccept); decided {
+			request := *ui.queueClear
+			ui.closeQueueClear()
+			if accept {
+				request.Confirmed = true
+				ui.send(request)
+			}
+		}
+		return true
+	}
 	if ui.searchActive && ui.discovery != nil && ui.discovery.presentation().service == playerDiscoveryUPnP {
 		ui.search.Blur()
 		ui.searchActive = false
@@ -259,18 +273,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		}
 		return true
 	}
-	if ui.queueClear != nil {
-		switch key.String() {
-		case "y":
-			request := *ui.queueClear
-			request.Confirmed = true
-			ui.closeQueueClear()
-			ui.send(request)
-		case "n", KeyEsc:
-			ui.closeQueueClear()
-		}
-		return true
-	}
+
 	if key.Code == tea.KeyEsc {
 		if ui.sliderDragging {
 			ui.sliderBlocked, ui.sliderDragging = true, false
@@ -469,6 +472,38 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		}
 	}
 	return false
+}
+
+func playerConfirmationKey(key tea.KeyPressMsg, accept *bool) (bool, bool) {
+	switch key.String() {
+	case playerLayoutKeyTab, "shift+tab":
+		*accept = !*accept
+	case watchKeyLeft:
+		*accept = true
+	case playerKeyRight:
+		*accept = false
+	case KeyEnter:
+		return true, *accept
+	case "y":
+		return true, true
+	case "n", KeyEsc:
+		return true, false
+	}
+	return false, false
+}
+
+func playerConfirmationLabel(label string, selected bool) string {
+	if selected {
+		return ">[" + label + "]"
+	}
+	return " [" + label + "]"
+}
+
+func (ui *playerLayoutUI) syncDiscoveryConfirmation() {
+	if ui.discoveryConfirm != ui.discovery.confirmation {
+		ui.discoveryConfirm = ui.discovery.confirmation
+		ui.discoveryAccept = false
+	}
 }
 
 func (ui *playerLayoutUI) paneChoices() []string {

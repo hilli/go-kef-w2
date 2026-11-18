@@ -243,21 +243,23 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		}
 		dialogChildren = append(dialogChildren,
 			bloom.Fixed(1, bloom.Row(
-				bloom.Fixed(12, bloom.Text("[Confirm]").ID("queue-clear-confirm").On(on.Click(func() tea.Cmd {
+				bloom.Fixed(12, bloom.Text(playerConfirmationLabel("Confirm", ui.queueConfirmAccept)).ID("queue-clear-confirm").On(on.Click(func() tea.Cmd {
 					ui.closeQueueClear()
 					request.Confirmed = true
 					return playerMessage(request)
 				}))),
-				bloom.Fill(bloom.Text("[Cancel]").ID("queue-clear-cancel").On(on.Click(func() tea.Cmd {
+				bloom.Fill(bloom.Text(playerConfirmationLabel("Cancel", !ui.queueConfirmAccept)).ID("queue-clear-cancel").On(on.Click(func() tea.Cmd {
 					ui.closeQueueClear()
 					return nil
 				}))),
-			)))
+			)),
+			bloom.Fixed(1, bloom.Text("Tab/←/→ select · Enter activate · y confirm · n/Esc cancel")))
 		dialog := bloom.Column(dialogChildren...)
 		content = bloom.Overlay(content, bloom.Layer(playerModal(dialog)).ID("queue-clear").Modal().
 			Anchor(bloom.Center, bloom.Center))
 	}
 	if ui.discovery != nil {
+		ui.syncDiscoveryConfirmation()
 		if confirmation := ui.discovery.presentation().confirmation; confirmation != nil {
 			p := ui.discovery.presentation()
 			dialogChildren := []bloom.Child{
@@ -273,17 +275,18 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			}
 			dialogChildren = append(dialogChildren,
 				bloom.Fixed(1, bloom.Row(
-					bloom.Fixed(12, bloom.Text("[Confirm]").ID("discovery-confirm-yes").On(on.Click(func() tea.Cmd {
+					bloom.Fixed(12, bloom.Text(playerConfirmationLabel("Confirm", ui.discoveryAccept)).ID("discovery-confirm-yes").On(on.Click(func() tea.Cmd {
 						return playerScopedCmd(p.generation, playerMessage(playerDiscoveryConfirmMsg{
 							generation: p.generation, request: confirmation.request, accept: true,
 						}))
 					}))),
-					bloom.Fill(bloom.Text("[Cancel]").ID("discovery-confirm-no").On(on.Click(func() tea.Cmd {
+					bloom.Fill(bloom.Text(playerConfirmationLabel("Cancel", !ui.discoveryAccept)).ID("discovery-confirm-no").On(on.Click(func() tea.Cmd {
 						return playerScopedCmd(p.generation, playerMessage(playerDiscoveryConfirmMsg{
 							generation: p.generation, request: confirmation.request,
 						}))
 					}))),
-				)))
+				)),
+				bloom.Fixed(1, bloom.Text("Tab/←/→ select · Enter activate · y confirm · n/Esc cancel")))
 			dialog := bloom.Column(dialogChildren...)
 			content = bloom.Overlay(content, bloom.Layer(playerModal(dialog)).ID("discovery-confirm").Modal().
 				Anchor(bloom.Center, bloom.Center))

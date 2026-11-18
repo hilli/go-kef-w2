@@ -19,14 +19,10 @@ import (
 func (ui *playerLayoutUI) discoveryKey(key tea.KeyPressMsg) bool {
 	p := ui.discovery.presentation()
 	if p.confirmation != nil {
-		switch key.String() {
-		case "y":
+		ui.syncDiscoveryConfirmation()
+		if decided, accept := playerConfirmationKey(key, &ui.discoveryAccept); decided {
 			ui.sendScoped(p.generation, playerDiscoveryConfirmMsg{
-				generation: p.generation, request: p.confirmation.request, accept: true,
-			})
-		case "n", KeyEsc:
-			ui.sendScoped(p.generation, playerDiscoveryConfirmMsg{
-				generation: p.generation, request: p.confirmation.request, accept: false,
+				generation: p.generation, request: p.confirmation.request, accept: accept,
 			})
 		}
 		return true

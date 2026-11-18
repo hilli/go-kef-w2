@@ -148,6 +148,7 @@ func (ui *playerLayoutUI) openQueueClear(request playerQueueClearMsg) {
 		ui.focus.Push("queue-clear")
 	}
 	ui.queueClear = &request
+	ui.queueConfirmAccept = false
 }
 
 func (ui *playerLayoutUI) closeQueueClear() {

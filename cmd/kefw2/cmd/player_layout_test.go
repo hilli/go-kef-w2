@@ -375,6 +375,121 @@ func TestPlayerCompactRadioConfirmationMouseRetainsRequest(t *testing.T) {
 	}
 }
 
+func TestPlayerConfirmationKeyboardNavigation(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		for _, kind := range []string{"radio", "queue"} {
+			for _, test := range []struct {
+				name   string
+				keys   []tea.KeyPressMsg
+				final  tea.KeyPressMsg
+				accept bool
+			}{
+				{name: "default-cancel"},
+				{name: "tab-confirm", keys: []tea.KeyPressMsg{{Code: tea.KeyTab}}, accept: true},
+				{name: "shift-tab-confirm", keys: []tea.KeyPressMsg{{Code: tea.KeyTab, Mod: tea.ModShift}}, accept: true},
+				{name: "tab-wrap-cancel", keys: []tea.KeyPressMsg{{Code: tea.KeyTab}, {Code: tea.KeyTab}}},
+				{name: "left-confirm", keys: []tea.KeyPressMsg{{Code: tea.KeyLeft}}, accept: true},
+				{name: "right-cancel", keys: []tea.KeyPressMsg{{Code: tea.KeyLeft}, {Code: tea.KeyRight}}},
+				{name: "y-confirms", final: tea.KeyPressMsg{Code: 'y', Text: "y"}, accept: true},
+				{name: "n-cancels", keys: []tea.KeyPressMsg{{Code: tea.KeyLeft}}, final: tea.KeyPressMsg{Code: 'n', Text: "n"}},
+				{name: "escape-cancels", keys: []tea.KeyPressMsg{{Code: tea.KeyLeft}}, final: tea.KeyPressMsg{Code: tea.KeyEsc}},
+			} {
+				t.Run(layout+"/"+kind+"/"+test.name, func(t *testing.T) {
+					m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+					m.generation = 7
+					m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+					m.addExtension(m.ui.extension())
+					request := playerDiscoveryRequestID{generation: 7, sequence: 4}
+					snapshot := &playerQueueSnapshot{}
+					if kind == "radio" {
+						m.ui.discovery = newPlayerDiscoveryUI()
+						m.ui.discovery.generation = 7
+						m.ui.discovery.confirmation = &playerDiscoveryConfirmation{
+							request: request, item: kefw2.ContentItem{Title: "Station"}, clearsQueue: true,
+						}
+					} else {
+						m.ui.openQueueClear(playerQueueClearMsg{Generation: 7, Snapshot: snapshot})
+						m.ui.searchActive = true
+						m.ui.search.Focus()
+					}
+					m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+					if !strings.Contains(m.View().Content, ">[Cancel]") {
+						t.Fatal("dialog did not visibly default to Cancel")
+					}
+					for _, key := range test.keys {
+						_, command := m.Update(key)
+						if messages := playerLayoutTestMessages(command); len(messages) != 0 {
+							t.Fatalf("navigation dispatched an action: %#v", messages)
+						}
+					}
+					label := ">[Cancel]"
+					if len(test.keys) > 0 && (test.keys[len(test.keys)-1].Code == tea.KeyLeft ||
+						test.name == "tab-confirm" || test.name == "shift-tab-confirm") {
+						label = ">[Confirm]"
+					}
+					if !strings.Contains(m.View().Content, label) {
+						t.Fatalf("selected button %q was not visible", label)
+					}
+					final := test.final
+					if final.Code == 0 {
+						final = tea.KeyPressMsg{Code: tea.KeyEnter}
+					}
+					_, command := m.Update(final)
+					messages := playerLayoutTestMessages(command)
+					assertPlayerConfirmationMessages(t, m, messages, kind, test.accept, request, snapshot)
+				})
+			}
+		}
+	}
+}
+
+func assertPlayerConfirmationMessages(t *testing.T, m *playerModel, messages []tea.Msg, kind string,
+	accept bool, request playerDiscoveryRequestID, snapshot *playerQueueSnapshot,
+) {
+	t.Helper()
+	if kind == "queue" && !accept {
+		if len(messages) != 0 || m.ui.queueClear != nil {
+			t.Fatal("Cancel dispatched a queue write or left the dialog open")
+		}
+		return
+	}
+	if len(messages) != 1 {
+		t.Fatalf("activation produced %d messages", len(messages))
+	}
+	if kind == "radio" {
+		scoped, ok := messages[0].(playerScopedMsg)
+		if !ok || scoped.generation != 7 {
+			t.Fatalf("confirmation lost generation: %#v", messages[0])
+		}
+		confirm, ok := scoped.message.(playerDiscoveryConfirmMsg)
+		if !ok || confirm.request != request || confirm.accept != accept {
+			t.Fatalf("wrong confirmation: %#v", scoped.message)
+		}
+		return
+	}
+	clearRequest, ok := messages[0].(playerQueueClearMsg)
+	if !ok || !clearRequest.Confirmed || clearRequest.Generation != 7 || clearRequest.Snapshot != snapshot {
+		t.Fatalf("queue confirmation lost snapshot: %#v", messages[0])
+	}
+}
+
+func TestPlayerNewDiscoveryConfirmationResetsToCancel(t *testing.T) {
+	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+	m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+	m.ui.discovery = newPlayerDiscoveryUI()
+	m.addExtension(m.ui.extension())
+	m.ui.discovery.confirmation = &playerDiscoveryConfirmation{}
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if !strings.Contains(m.View().Content, ">[Confirm]") {
+		t.Fatal("Tab did not select Confirm")
+	}
+	m.ui.discovery.confirmation = &playerDiscoveryConfirmation{}
+	if !strings.Contains(m.View().Content, ">[Cancel]") {
+		t.Fatal("new confirmation inherited the previous Confirm selection")
+	}
+}
+
 func playerLayoutTestMessages(command tea.Cmd) []tea.Msg {
 	if command == nil {
 		return nil
