@@ -31,6 +31,7 @@ output and TUIs remain the default when `--json` is omitted.
 kefw2 config speaker list --json
 kefw2 config speaker discover --json
 kefw2 --speaker NAME_OR_IP status --json
+kefw2 --speaker NAME_OR_IP status watch --json
 kefw2 --speaker NAME_OR_IP volume --json
 kefw2 --speaker NAME_OR_IP volume 25 --json
 kefw2 --speaker NAME_OR_IP mute --json
@@ -54,7 +55,8 @@ resume the last audible content. Confirm that behavior matches the request.
 
 ## JSON results
 
-Each successful invocation above emits one object:
+Each finite successful invocation above emits one object. `status watch --json`
+instead emits a stream of complete objects, one JSON object per line:
 
 ```json
 {"speaker":{"name":"Living room","ip_address":"192.0.2.10","model":"LS50 Wireless II"},"data":{}}
@@ -76,8 +78,9 @@ types, not literal JSON):
 - Status: `{source,power,volume,muted,playback}`. `power` is `standby`,
   `powerOn`, `networkSetup`, or `firmwareUpgrade`. For physical sources or
   standby, `playback` is `null`. Otherwise it may be
-  `{state,position_ms:null|int,duration_ms:null|int,track:null|{title,artist,album}}`.
+  `{state,position_ms:null|int,duration_ms:null|int,track:null|{title,artist,album,image_url}}`.
   Duration uses playback status or track resource metadata; unknown values remain `null`.
+  `image_url` is the speaker-provided artwork URL, or `""` when unavailable.
 - Volume read: `{volume}`; write:
   `{action:"set_volume",accepted:true,volume}`.
 - Mute read: `{muted}`; write:
@@ -96,6 +99,53 @@ types, not literal JSON):
 subsequent read actually observed. Do not equate missing playback metadata with
 an error or evidence that a physical source is silent. For local configuration
 or file changes, success acknowledges the completed local operation.
+
+## Live status
+
+```text
+kefw2 --speaker NAME_OR_IP status watch
+kefw2 --speaker NAME_OR_IP status watch --minimal
+kefw2 --speaker NAME_OR_IP status watch --ascii
+kefw2 --speaker NAME_OR_IP status watch --json
+```
+
+`status` remains one-shot. `status watch` reads immediately, then follows
+speaker events; there is no `--interval`, `--sleep`, or `--watch` flag. While
+events are healthy, it does not periodically read status or emit heartbeat
+snapshots. Changes can arrive as often as the speaker reports them; bursts are
+coalesced. Registration/reconnection reconciles with another full read.
+
+Human watch uses an alternate screen and requires terminal stdout. Cover art
+stays in place during text-only updates. Native images are supported on
+Kitty-compatible terminals and iTerm2 outside tmux; other terminals use ASCII. `--ascii`
+always forces ASCII artwork and `--minimal` disables artwork. Resize or changed
+image content can redraw artwork; failed artwork downloads show a warning and
+are retried without making otherwise current speaker status stale.
+
+Human-only controls: Space toggles existing playback, `n`/`p` select
+next/previous, `+`/`-` adjust volume by 1, `m` toggles mute, and Left/Right seek
+10 seconds. Playback controls require supported WiFi/Bluetooth playback.
+Volume respects the configured maximum; seeks clamp to a known duration and
+are unavailable for live/unknown-duration media. Controls never wake a standby
+speaker, switch source, or start a stopped queue. Actions are not automatically
+retried; acceptance is followed by observed status, not optimistic UI changes.
+Press `q` or Ctrl+C to exit and restore the terminal.
+
+`status watch --json` is non-interactive and accepts no keyboard controls. Each
+line has the same `speaker`/`data` envelope and fields as `status --json`,
+including `playback.track.image_url`; it is not an event delta. No images are
+downloaded and no terminal decoration is written. Display-only flags are
+ignored. Use a streaming JSON/JSON Lines parser, not a single-document parser.
+The existing `events --json` command is different: it emits individual changes.
+
+If events disconnect, watch reports degraded event delivery and polls status
+internally while reconnecting (every 5 seconds). Failed status reads also
+retry. Human mode marks failed reads stale and retains the last successful
+state; JSON skips failed reads and sends diagnostics only to stderr, never
+re-emitting stale data as fresh. Fallback polling stops after event recovery
+and a successful read. Invalid arguments/configuration/selection and output
+write failures terminate the command; transient speaker failures do not.
+Ctrl+C ends JSON watch cleanly without a final non-JSON line.
 
 ## Radio paths and pagination
 

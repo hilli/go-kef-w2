@@ -277,6 +277,9 @@ func (ec *EventClient) parseRawEvent(ctx context.Context, raw rawEvent) Event {
 
 		// Deduplicate: skip if state and track unchanged
 		// (speaker may send multiple events during track changes)
+		if ec.playerDataInvalidations {
+			return event
+		}
 		ec.mu.Lock()
 		isDuplicate := event.State == ec.lastPlayerState &&
 			event.Title == ec.lastTrackTitle &&

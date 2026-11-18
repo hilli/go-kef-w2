@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -26,43 +27,58 @@ type playbackStatus struct {
 }
 
 type trackStatus struct {
-	Title  string `json:"title"`
-	Artist string `json:"artist"`
-	Album  string `json:"album"`
+	Title    string `json:"title"`
+	Artist   string `json:"artist"`
+	Album    string `json:"album"`
+	ImageURL string `json:"image_url"`
 }
 
 func runStatusJSON(cmd *cobra.Command) error {
-	ctx := cmd.Context()
-	source, err := currentSpeaker.Source(ctx)
+	snapshot, err := readStatus(cmd.Context(), currentSpeaker)
 	if err != nil {
-		return fmt.Errorf("getting source: %w", err)
+		return err
 	}
-	power, err := currentSpeaker.SpeakerState(ctx)
+	return writeSpeakerJSON(cmd, snapshot.Data)
+}
+
+type statusSnapshot struct {
+	Data   statusResponse
+	Player kefw2.PlayerData
+}
+
+func readStatus(ctx context.Context, speaker *kefw2.KEFSpeaker) (statusSnapshot, error) {
+	var snapshot statusSnapshot
+	source, err := speaker.Source(ctx)
 	if err != nil {
-		return fmt.Errorf("getting power state: %w", err)
+		return snapshot, fmt.Errorf("getting source: %w", err)
 	}
-	volume, err := currentSpeaker.GetVolume(ctx)
+	power, err := speaker.SpeakerState(ctx)
 	if err != nil {
-		return fmt.Errorf("getting volume: %w", err)
+		return snapshot, fmt.Errorf("getting power state: %w", err)
 	}
-	muted, err := currentSpeaker.IsMuted(ctx)
+	volume, err := speaker.GetVolume(ctx)
 	if err != nil {
-		return fmt.Errorf("getting mute state: %w", err)
+		return snapshot, fmt.Errorf("getting volume: %w", err)
+	}
+	muted, err := speaker.IsMuted(ctx)
+	if err != nil {
+		return snapshot, fmt.Errorf("getting mute state: %w", err)
 	}
 	result := statusResponse{Source: source, Power: power, Volume: volume, Muted: muted}
 	if source == kefw2.SourceWiFi || source == kefw2.SourceBluetooth {
-		pd, err := currentSpeaker.PlayerData(ctx)
+		pd, err := speaker.PlayerData(ctx)
 		if err != nil {
-			return fmt.Errorf("getting playback: %w", err)
+			return snapshot, fmt.Errorf("getting playback: %w", err)
 		}
 		if pd.State == "" {
-			return fmt.Errorf("speaker returned an empty playback state")
+			return snapshot, fmt.Errorf("speaker returned an empty playback state")
 		}
+		snapshot.Player = pd
 		result.Playback = &playbackStatus{State: pd.State}
 		if pd.State == kefw2.PlayerStatePlaying || pd.State == kefw2.PlayerStatePaused {
-			position, err := currentSpeaker.SongProgressMS(ctx)
+			position, err := speaker.SongProgressMS(ctx)
 			if err != nil {
-				return fmt.Errorf("getting playback position: %w", err)
+				return snapshot, fmt.Errorf("getting playback position: %w", err)
 			}
 			if position >= 0 {
 				result.Playback.PositionMS = &position
@@ -76,9 +92,10 @@ func runStatusJSON(cmd *cobra.Command) error {
 			}
 			result.Playback.Track = &trackStatus{
 				Title: pd.TrackRoles.Title, Artist: pd.TrackRoles.MediaData.MetaData.Artist,
-				Album: pd.TrackRoles.MediaData.MetaData.Album,
+				Album: pd.TrackRoles.MediaData.MetaData.Album, ImageURL: pd.TrackRoles.Icon,
 			}
 		}
 	}
-	return writeSpeakerJSON(cmd, result)
+	snapshot.Data = result
+	return snapshot, nil
 }

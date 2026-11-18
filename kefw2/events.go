@@ -48,12 +48,14 @@ var DefaultEventSubscriptions = []EventSubscription{
 
 // EventClient manages event subscriptions and delivers events via channels.
 type EventClient struct {
-	speaker       *KEFSpeaker
-	queueID       string
-	events        chan Event
-	subscriptions []EventSubscription
-	pollTimeout   int // seconds
-	httpClient    *http.Client
+	speaker                 *KEFSpeaker
+	queueID                 string
+	events                  chan Event
+	subscriptions           []EventSubscription
+	pollTimeout             int // seconds
+	httpClient              *http.Client
+	playerDataInvalidations bool
+	pollObserver            func(error)
 
 	mu       sync.Mutex
 	running  bool
@@ -89,8 +91,30 @@ func WithEventBufferSize(size int) EventClientOption {
 	}
 }
 
+// WithPlayerDataInvalidations delivers player-data changes even when state,
+// title, and artist are unchanged. Useful for consumers tracking artwork or capabilities.
+func WithPlayerDataInvalidations() EventClientOption {
+	return func(ec *EventClient) {
+		ec.playerDataInvalidations = true
+	}
+}
+
+// WithEventPollObserver observes poll failures and recovery. The callback runs
+// on the polling goroutine and must not block indefinitely.
+func WithEventPollObserver(observer func(error)) EventClientOption {
+	return func(ec *EventClient) {
+		ec.pollObserver = observer
+	}
+}
+
 // NewEventClient creates a new EventClient for receiving real-time events.
 func (s *KEFSpeaker) NewEventClient(opts ...EventClientOption) (*EventClient, error) {
+	return s.NewEventClientContext(context.Background(), opts...)
+}
+
+// NewEventClientContext creates an event client with cancellable registration.
+// The context passed to Start controls the subsequent polling lifetime.
+func (s *KEFSpeaker) NewEventClientContext(ctx context.Context, opts ...EventClientOption) (*EventClient, error) {
 	ec := &EventClient{
 		speaker:       s,
 		events:        make(chan Event, 100),
@@ -106,7 +130,7 @@ func (s *KEFSpeaker) NewEventClient(opts ...EventClientOption) (*EventClient, er
 	}
 
 	// Register the event queue with the speaker
-	queueID, err := ec.registerQueue()
+	queueID, err := ec.registerQueue(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register event queue: %w", err)
 	}
@@ -145,7 +169,7 @@ func (ec *EventClient) Start(ctx context.Context) error {
 	return ec.pollLoop(ctx)
 }
 
-// Close stops the event client and closes the events channel.
+// Close closes the events channel. Cancel and wait for Start to return first.
 func (ec *EventClient) Close() error {
 	ec.stopOnce.Do(func() {
 		close(ec.events)
@@ -154,7 +178,7 @@ func (ec *EventClient) Close() error {
 }
 
 // registerQueue calls /api/event/modifyQueue to register a new event queue.
-func (ec *EventClient) registerQueue() (string, error) {
+func (ec *EventClient) registerQueue(ctx context.Context) (string, error) {
 	subscribeJSON, err := json.Marshal(ec.subscriptions)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal subscriptions: %w", err)
@@ -167,7 +191,7 @@ func (ec *EventClient) registerQueue() (string, error) {
 
 	requestURL := fmt.Sprintf("http://%s/api/event/modifyQueue?%s", ec.speaker.IPAddress, params.Encode())
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, requestURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -191,7 +215,7 @@ func (ec *EventClient) registerQueue() (string, error) {
 	}
 
 	requestURL = fmt.Sprintf("http://%s/api/event/modifyQueue", ec.speaker.IPAddress)
-	req, err = http.NewRequestWithContext(context.Background(), http.MethodPost, requestURL, bytes.NewReader(body))
+	req, err = http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -249,6 +273,9 @@ func (ec *EventClient) pollLoop(ctx context.Context) error {
 		requestURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 
 		events, err := ec.poll(ctx, requestURL)
+		if ec.pollObserver != nil {
+			ec.pollObserver(err)
+		}
 		if err != nil {
 			consecutiveErrors++
 			if consecutiveErrors >= maxErrors {
