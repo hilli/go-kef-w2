@@ -1,0 +1,71 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Jens Hilligsoe. MIT license. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kefw2 player / Discovery Browser design</title>
+<style>
+:root{color-scheme:dark;--bg:#1c1b20;--panel:#232229;--line:#49424c;--muted:#b3a5b0;--ink:#f0e5e9;--accent:#f1bd86}
+*{box-sizing:border-box}body{margin:0;background:#121116;color:var(--ink);font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}main{max-width:1392px;margin:auto;padding:36px 32px}h1{font-size:27px;font-weight:500;letter-spacing:-1px;margin:6px 0}p{margin:0}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:2px}.intro{color:var(--muted);margin:0 0 25px}.terminal{border:1px solid #65515f;background:var(--bg);box-shadow:0 24px 70px #0005}.chrome{background:#302933;padding:10px 18px;display:flex;justify-content:space-between;font-size:12px;color:#cbbac5}.dots{color:#edb585;letter-spacing:5px}.screen{padding:18px}.top{display:flex;justify-content:space-between;margin-bottom:15px}.brand{color:var(--accent);font-weight:bold}.muted{color:var(--muted)}.accent{color:var(--accent)}.search{display:flex;gap:20px;border:1px solid var(--accent);padding:10px 13px;background:#322b30;margin-bottom:14px}.search .query{flex:1}.panes{display:grid;grid-template-columns:180px minmax(0,1fr) 350px;gap:12px;height:403px}.pane{border:1px solid var(--line);background:var(--panel);min-width:0;overflow:hidden}.title{border-bottom:1px solid var(--line);padding:8px 12px;display:flex;justify-content:space-between}.grip{color:#b4a1ad}.inside{padding:12px}.section{font-size:11px;color:var(--muted);letter-spacing:1px;margin:8px 0}.nav{padding:6px}.active{color:var(--accent);background:#473436}.result{padding:10px 12px;border-bottom:1px solid #3c343e}.result.selected{border-left:2px solid var(--accent);background:#44343a}.result-head{display:flex;justify-content:space-between;gap:8px}.small{font-size:12px}.tag{border:1px solid #806551;color:#f1bd86;font-size:10px;padding:0 5px}.desc{font-size:12px;color:#d0bec9;margin:11px 0 15px;line-height:1.75}.episode{padding:9px 0;border-top:1px solid #4d414c;font-size:12px}.play{color:#ffcb98;float:right}.tabs{display:flex;gap:22px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:12px}.transport{margin-top:14px;border:1px solid var(--line);padding:13px 15px;display:grid;grid-template-columns:1fr 285px;gap:16px}.song{font-size:16px}.controls{margin-top:5px}.volume{padding-left:20px;border-left:1px solid var(--line)}.slider{display:flex;align-items:center;margin:9px 0;gap:3px}.fill{height:8px;width:38%;background:var(--accent)}.thumb{height:18px;width:7px;background:#ffe3bf}.empty{height:8px;background:#54444f;flex:1}.footer{display:flex;justify-content:space-between;padding-top:12px;margin-top:12px;border-top:1px solid var(--line);font-size:11px;color:#c5b5c0}.annotations{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:24px;color:var(--muted);font-size:12px}.annotations b{display:block;color:#f4cba3;font-weight:500;margin-bottom:3px}.note{font-size:10px;color:#978591;margin-top:20px}.compact,.details-hint{display:none}
+@media(max-width:1150px){.panes{grid-template-columns:minmax(0,1fr) 310px}.services{display:none}.compact{display:inline}.transport{grid-template-columns:1fr 255px}.search{font-size:13px}}
+@media(max-width:900px){main{padding:24px}h1{font-size:23px}.intro{font-size:12px;margin-bottom:17px}.screen{padding:14px}.top{font-size:12px}.panes{display:block;height:347px}.results{height:100%}.inspector{display:none}.details-hint{display:block;background:#372d35;padding:9px 12px;font-size:11px;color:var(--accent)}.result{padding:9px 12px}.result:last-of-type{display:none}.transport{padding:12px;grid-template-columns:1fr 230px;gap:10px}.volume{padding-left:13px}.song{font-size:14px}.transport .small{font-size:11px}.annotations{gap:15px;margin-top:17px;font-size:11px}.chrome{font-size:11px}.footer{font-size:10px;gap:10px}.note{margin-top:14px}.search{gap:14px;margin-bottom:12px}}
+@media(max-width:650px){main{padding:12px}.transport{grid-template-columns:1fr}.volume{border:0;padding:0}.annotations{grid-template-columns:1fr}.search{flex-wrap:wrap}.chrome span:last-child{display:none}}
+.panes{height:auto;min-height:403px}
+@media(max-width:900px){.panes{min-height:0}.results{height:auto}}
+</style>
+</head>
+<body>
+<main>
+<p class="eyebrow">02 / FOLLOW YOUR CURIOSITY</p>
+<h1>Discovery Browser</h1>
+<p class="intro">Radio and podcasts up front. Rich context before you press play. A queue when you need it.</p>
+<div class="terminal">
+<div class="chrome"><span><span class="dots">● ● ●</span> kefw2 player</span><span>CONCEPT MOCKUP · NOT A RUNNING APP</span></div>
+<div class="screen">
+<div class="top"><span class="brand">KEF / DISCOVER <span class="muted compact"> · [s] Sources</span></span><span class="muted">Living Room <span class="accent">● connected</span></span></div>
+<div class="search"><span class="accent">/</span><span class="query">Search: <span class="accent">architecture_</span></span><span class="muted">Radio</span><span class="accent">[Podcasts ▾]</span><span class="accent">[Search]</span></div>
+<div class="panes">
+<section class="pane services">
+<div class="title"><span><span class="grip">⠿</span> Explore</span><span class="muted">1</span></div>
+<div class="inside">
+<div class="section">SERVICES</div><div class="nav">  Radio</div><div class="nav active">› Podcasts</div><div class="nav">  UPnP library</div>
+<div class="section">COLLECTIONS</div><div class="nav">  Favorites</div><div class="nav">  Popular</div><div class="nav">  Trending</div>
+<div class="section">SPEAKER</div><div class="nav accent">  Input: Wi-Fi</div><div class="nav">  [s] Change</div><div class="nav">  [Q] Queue (4)</div>
+<p class="small muted" style="margin-top:18px">Selecting a result<br>does not play it.</p>
+</div>
+</section>
+<section class="pane results">
+<div class="title"><span><span class="grip">⠿</span> Search results</span><span class="accent">2 / FOCUSED</span></div>
+<div class="tabs"><span class="accent">Podcasts</span><span class="muted">page 1</span><span class="muted" style="margin-left:auto">Enter episodes</span></div>
+<div class="result selected"><div class="result-head"><span class="accent">› Rooms for Thought</span><span class="tag">SERIES</span></div><div class="small muted">Architecture, spaces, and the way we live.</div></div>
+<div class="result"><div class="result-head"><span>  The Built World</span><span class="tag">SERIES</span></div><div class="small muted">Design stories from everyday places.</div></div>
+<div class="result"><div class="result-head"><span>  Material Matters</span><span class="tag">SERIES</span></div><div class="small muted">Conversations on craft and construction.</div></div>
+<div class="result"><div class="result-head"><span>  City, Slowly</span><span class="tag">SERIES</span></div><div class="small muted">A different perspective on urban life.</div></div>
+<div class="details-hint">[i] Details / episodes · [Q] Queue · [s] Source</div>
+</section>
+<section class="pane inspector">
+<div class="title"><span><span class="grip">⠿</span> Inspector</span><span class="muted">3</span></div>
+<div class="inside">
+<div class="section">PODCAST / SERIES</div><div class="accent" style="font-size:17px">Rooms for Thought</div>
+<p class="desc">The spaces we make shape the lives we lead. Conversations with people who rethink the everyday.</p>
+<div class="small muted">EPISODES · Enter to open list</div>
+<div class="episode"><span class="play">[Play]</span> 42 / A quieter city<div class="small muted">48 min · 14 Nov</div></div>
+<div class="episode"><span class="play">[Play]</span> 41 / Living with light<div class="small muted">36 min · 07 Nov</div></div>
+<div class="episode"><span class="play">[Play]</span> 40 / The shared room<div class="small muted">52 min · 31 Oct</div></div>
+<div class="small muted" style="margin-top:12px">Play switches to Wi-Fi on<br>Living Room. Nothing starts on select.</div>
+</div>
+</section>
+</div>
+<section class="transport">
+<div><div class="small accent">NOW PLAYING · INPUT Wi-Fi / RADIO · LIVE</div><div class="song">Quiet Current <span class="muted">/ Night Signals</span></div><div class="small muted">Live stream · seeking unavailable</div><div class="controls">[stop] [Mute] <span class="small muted"> · [Q] Speaker queue (4)</span></div></div>
+<div class="volume"><div>Volume <span class="accent">28</span> <span class="small muted">/ limit 70</span></div><div class="slider"><span class="fill"></span><span class="thumb"></span><span class="empty"></span></div><div class="small muted">Drag / click · +/- exact steps</div></div>
+</section>
+<div class="footer"><span>Tab focus · / search · i details · Q queue · p pane menu</span><span>? help · q quit</span></div>
+</div>
+</div>
+<div class="annotations"><p><b>01 / Search without interruption</b>Browse one service while another plays. Selection is a preview, never an input switch.</p><p><b>02 / Context comes first</b>Inspect a series, choose an episode, then play. Queue tools live in an on-demand drawer.</p><p><b>03 / A flexible reading space</b>Move and resize results or inspector. Compact mode turns details into a keyboard-accessible overlay.</p></div>
+<p class="note">DESIGN PROPOSAL · Bubble Tea v2 + bloomfx.dev · fictional demo content · no live speaker connection</p>
+</main>
+</body>
+</html>
