@@ -21,7 +21,11 @@ THE SOFTWARE.
 */
 package cmd
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 // ServiceType represents the type of content service (radio, podcast, upnp).
 type ServiceType string
@@ -33,7 +37,7 @@ const (
 )
 
 // ServiceColors defines the color scheme for each service type.
-var ServiceColors = map[ServiceType]lipgloss.Color{
+var ServiceColors = map[ServiceType]color.Color{
 	ServiceRadio:   lipgloss.Color("39"),  // Blue for radio
 	ServicePodcast: lipgloss.Color("207"), // Pink/magenta for podcast
 	ServiceUPnP:    lipgloss.Color("214"), // Orange for UPnP
@@ -53,7 +57,7 @@ type BrowserStyles struct {
 // NewBrowserStyles creates a new set of browser styles for the given service type.
 func NewBrowserStyles(service ServiceType) BrowserStyles {
 	color := ServiceColors[service]
-	if color == "" {
+	if color == nil {
 		color = lipgloss.Color("39") // Default to blue
 	}
 

@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -141,7 +141,7 @@ func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds := make([]tea.Cmd, 0, 2)
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Don't handle navigation keys when filtering
 		if m.list.FilterState() == list.Filtering {
 			var cmd tea.Cmd
@@ -262,9 +262,9 @@ func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m upnpModel) View() string {
+func (m upnpModel) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.View{AltScreen: true}
 	}
 
 	var b strings.Builder
@@ -299,7 +299,9 @@ func (m upnpModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(upnpStatusStyle.Render(status))
 
-	return b.String()
+	view := tea.NewView(b.String())
+	view.AltScreen = true
+	return view
 }
 
 // Command functions.
@@ -407,7 +409,7 @@ Keyboard shortcuts:
 		client := kefw2.NewAirableClient(currentSpeaker)
 		model := initialUpnpModel(client)
 
-		p := tea.NewProgram(model, tea.WithAltScreen())
+		p := tea.NewProgram(model)
 		_, err := p.Run()
 		exitOnError(err, "Error running media browser")
 	},

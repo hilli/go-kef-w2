@@ -6,14 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -28,7 +26,7 @@ type watchArtworkMsg struct {
 type watchArtworkRetryMsg struct{ key string }
 type watchArtworkRenderMsg struct {
 	version int
-	lines   []string
+	art     watchArtworkRendering
 	err     error
 }
 
@@ -55,6 +53,7 @@ type watchModel struct {
 	artErr        error
 	artCancel     context.CancelFunc
 	renderVersion int
+	terminal      *watchArtworkWriter
 }
 
 func runWatchTUI(ctx context.Context, cmd *cobra.Command, deps watchDependencies) error {
@@ -82,18 +81,24 @@ func runWatchTUI(ctx context.Context, cmd *cobra.Command, deps watchDependencies
 	defer func() { cancel(); <-finished }()
 	minimal, _ := cmd.Flags().GetBool("minimal")
 	forceASCII, _ := cmd.Flags().GetBool("ascii")
-	writer := &watchTerminalWriter{File: output, cancel: cancel}
+	artWriter := &watchArtworkWriter{output: output, cancel: cancel}
+	writer := &watchTerminalWriter{File: output, watchArtworkWriter: artWriter}
 	model := &watchModel{
 		ctx: ctx, updates: updates, actions: actions, done: done,
 		identity: identifySpeaker(currentSpeaker), minimal: minimal,
 		backend: detectWatchArtworkBackend(forceASCII),
 		width:   80, height: 24,
+		terminal: artWriter,
 	}
-	program := tea.NewProgram(model, tea.WithAltScreen(), tea.WithContext(ctx),
+	program := tea.NewProgram(model, tea.WithContext(ctx),
 		tea.WithInput(cmd.InOrStdin()), tea.WithOutput(writer), tea.WithoutSignalHandler())
 	_, err := program.Run()
 	if model.artCancel != nil {
 		model.artCancel()
+	}
+	artWriter.invalidate()
+	if model.backend == watchArtworkKitty && !model.minimal {
+		_, _ = artWriter.Write([]byte(clearWatchImage))
 	}
 	if writeErr := writer.failure(); writeErr != nil {
 		return fmt.Errorf("writing terminal status: %w", writeErr)
@@ -109,31 +114,11 @@ func runWatchTUI(ctx context.Context, cmd *cobra.Command, deps watchDependencies
 
 type watchTerminalWriter struct {
 	*os.File
-	mu     sync.Mutex
-	err    error
-	cancel context.CancelFunc
+	*watchArtworkWriter
 }
 
 func (w *watchTerminalWriter) Write(p []byte) (int, error) {
-	n, err := w.File.Write(p)
-	if err == nil && n != len(p) {
-		err = io.ErrShortWrite
-	}
-	if err != nil {
-		w.mu.Lock()
-		if w.err == nil {
-			w.err = err
-		}
-		w.mu.Unlock()
-		w.cancel()
-	}
-	return n, err
-}
-
-func (w *watchTerminalWriter) failure() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.err
+	return w.watchArtworkWriter.Write(p)
 }
 
 func (m *watchModel) nextUpdate() tea.Msg {
@@ -154,32 +139,20 @@ func (m *watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case watchStoppedMsg:
 		m.err = msg.err
 		return m, tea.Quit
-	case tea.KeyMsg:
-		return m, m.handleKey(msg.String())
+	case tea.KeyPressMsg:
+		key := msg.String()
+		if key == "space" {
+			key = " "
+		}
+		return m, m.handleKey(key)
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		if m.backend != watchArtworkASCII && m.terminal != nil {
+			m.terminal.invalidate()
+		}
 		return m, m.renderArtwork()
 	case watchUpdate:
-		var artwork tea.Cmd
-		switch msg.kind {
-		case watchSnapshotUpdate:
-			m.snapshot, m.readErr, m.lastSuccess = &msg.snapshot, nil, time.Now()
-			if strings.HasPrefix(m.actionNote, "Action accepted;") {
-				m.actionNote = "Status refreshed after action"
-			}
-			artwork = m.loadArtwork()
-		case "status unavailable":
-			m.readErr = msg.err
-		case "event connection":
-			m.eventErr = msg.err
-		case watchActionUpdate:
-			m.pending = false
-			m.actionNote = "Action accepted; waiting for observed state"
-			if msg.err != nil {
-				m.actionNote = "Action failed: " + msg.err.Error()
-			}
-		}
-		return m, tea.Batch(m.nextUpdate, artwork)
+		return m, tea.Batch(m.nextUpdate, m.acceptUpdate(msg))
 	case watchArtworkMsg:
 		return m, m.acceptArtwork(msg)
 	case watchArtworkRetryMsg:
@@ -188,11 +161,47 @@ func (m *watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.loadArtwork()
 		}
 	case watchArtworkRenderMsg:
-		if msg.version == m.renderVersion {
-			m.artLines, m.artErr = msg.lines, msg.err
-		}
+		return m, m.acceptArtworkRender(msg)
 	}
 	return m, nil
+}
+
+func (m *watchModel) acceptUpdate(msg watchUpdate) tea.Cmd {
+	switch msg.kind {
+	case watchSnapshotUpdate:
+		m.snapshot, m.readErr, m.lastSuccess = &msg.snapshot, nil, time.Now()
+		if strings.HasPrefix(m.actionNote, "Action accepted;") {
+			m.actionNote = "Status refreshed after action"
+		}
+		return m.loadArtwork()
+	case "status unavailable":
+		m.readErr = msg.err
+	case "event connection":
+		m.eventErr = msg.err
+	case watchActionUpdate:
+		m.pending = false
+		m.actionNote = "Action accepted; waiting for observed state"
+		if msg.err != nil {
+			m.actionNote = "Action failed: " + msg.err.Error()
+		}
+	}
+	return nil
+}
+
+func (m *watchModel) acceptArtworkRender(msg watchArtworkRenderMsg) tea.Cmd {
+	if msg.version != m.renderVersion {
+		return nil
+	}
+	hadArtwork := len(m.artLines) > 0
+	m.artLines, m.artErr = msg.art.lines, msg.err
+	if msg.err == nil && msg.art.native != "" {
+		marker := m.terminal.queue(msg.art.native)
+		return tea.Sequence(tea.Raw(marker), tea.ClearScreen)
+	}
+	if hadArtwork && m.backend != watchArtworkASCII && len(m.artLines) == 0 {
+		return m.clearArtwork()
+	}
+	return nil
 }
 
 func (m *watchModel) acceptArtwork(msg watchArtworkMsg) tea.Cmd {
@@ -201,11 +210,16 @@ func (m *watchModel) acceptArtwork(msg watchArtworkMsg) tea.Cmd {
 	}
 	m.artErr = msg.err
 	if msg.err != nil {
+		hadArtwork := len(m.artLines) > 0
 		m.art, m.artLines = watchArtwork{}, nil
 		m.renderVersion++
-		return tea.Tick(watchRecoveryDelay, func(time.Time) tea.Msg {
+		retry := tea.Tick(watchRecoveryDelay, func(time.Time) tea.Msg {
 			return watchArtworkRetryMsg{key: msg.key}
 		})
+		if hadArtwork {
+			return tea.Batch(m.clearArtwork(), retry)
+		}
+		return retry
 	}
 	if msg.art.digest == m.art.digest && m.art.image != nil {
 		return nil
@@ -257,8 +271,12 @@ func (m *watchModel) loadArtwork() tea.Cmd {
 		m.artCancel()
 	}
 	if url == "" {
+		hadArtwork := len(m.artLines) > 0
 		m.art, m.artLines = watchArtwork{}, nil
 		m.renderVersion++
+		if hadArtwork {
+			return m.clearArtwork()
+		}
 		return nil
 	}
 	ctx, cancel := context.WithCancel(m.ctx)
@@ -275,14 +293,25 @@ func (m *watchModel) renderArtwork() tea.Cmd {
 	width, height := min(m.width, 48), min(12, max(0, m.height-14))
 	art, backend := m.art, m.backend
 	return func() tea.Msg {
-		lines, err := renderWatchArtwork(art, width, height, backend)
-		return watchArtworkRenderMsg{version: version, lines: lines, err: err}
+		rendered, err := renderWatchArtwork(art, width, height, backend)
+		return watchArtworkRenderMsg{version: version, art: rendered, err: err}
 	}
 }
 
-func (m *watchModel) View() string {
+func (m *watchModel) clearArtwork() tea.Cmd {
+	if m.backend == watchArtworkASCII {
+		return nil
+	}
+	m.terminal.invalidate()
+	if m.backend == watchArtworkKitty {
+		return tea.Sequence(tea.Raw(clearWatchImage), tea.ClearScreen)
+	}
+	return tea.ClearScreen
+}
+
+func (m *watchModel) View() tea.View {
 	if m.width < 1 || m.height < 1 {
-		return ""
+		return tea.View{AltScreen: true}
 	}
 	lines := append([]string(nil), m.artLines...)
 	text := []string{fmt.Sprintf("Speaker: %s (%s)", m.identity.Name, m.identity.IPAddress)}
@@ -319,10 +348,9 @@ func (m *watchModel) View() string {
 	for len(lines) < m.height {
 		lines = append(lines, "")
 	}
-	if m.backend == watchArtworkKitty && len(m.artLines) == 0 {
-		lines[0] = clearWatchImage + lines[0]
-	}
-	return strings.Join(lines, "\n")
+	view := tea.NewView(strings.Join(lines, "\n"))
+	view.AltScreen = true
+	return view
 }
 
 func appendWatchPlayback(lines []string, snapshot *statusSnapshot) []string {

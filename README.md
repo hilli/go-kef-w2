@@ -12,7 +12,7 @@ CLI, library and apps (planned) for controlling KEFs W2 platform based speakers 
 
 Grab a version for your OS from the [releases](https://github.com/hilli/go-kef-w2/releases) page.
 
-If you are a developer and already have [Go](https://go.dev/) installed you can install the latest version directly:
+If you are a developer and have [Go](https://go.dev/) 1.26 or newer installed, you can install the latest version directly:
 
 ```shell
 go install github.com/hilli/go-kef-w2/cmd/kefw2@latest

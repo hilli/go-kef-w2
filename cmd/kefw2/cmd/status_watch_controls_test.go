@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestWatchControls(t *testing.T) {
@@ -126,7 +126,7 @@ func TestWatchUIControlsAndState(t *testing.T) {
 		t.Fatal("completed action remained pending")
 	}
 	model.Update(watchUpdate{kind: "status unavailable", err: context.DeadlineExceeded})
-	if !strings.Contains(model.View(), "STALE") {
+	if !strings.Contains(model.View().Content, "STALE") {
 		t.Fatal("stale snapshot was not identified")
 	}
 	model.handleKey("+")
@@ -134,7 +134,7 @@ func TestWatchUIControlsAndState(t *testing.T) {
 		t.Fatal("stale UI accepted a write")
 	}
 	model.Update(watchUpdate{kind: "snapshot"})
-	if model.readErr != nil || strings.Contains(model.View(), "STALE") {
+	if model.readErr != nil || strings.Contains(model.View().Content, "STALE") {
 		t.Fatal("successful read did not clear stale state")
 	}
 	for _, key := range []string{"q", "ctrl+c"} {
@@ -145,6 +145,36 @@ func TestWatchUIControlsAndState(t *testing.T) {
 		if _, ok := command().(tea.QuitMsg); !ok {
 			t.Fatalf("%s did not produce quit", key)
 		}
+	}
+}
+
+func TestWatchUIV2KeyPresses(t *testing.T) {
+	for _, tc := range []struct {
+		key  tea.KeyPressMsg
+		want string
+	}{
+		{tea.KeyPressMsg{Code: ' ', Text: " "}, " "},
+		{tea.KeyPressMsg{Code: '+', Text: "+"}, "+"},
+		{tea.KeyPressMsg{Code: tea.KeyLeft}, "left"},
+		{tea.KeyPressMsg{Code: tea.KeyRight}, "right"},
+	} {
+		actions := make(chan string, 1)
+		model := &watchModel{actions: actions, snapshot: &statusSnapshot{}}
+		model.Update(tc.key)
+		select {
+		case got := <-actions:
+			if got != tc.want {
+				t.Fatalf("key %q sent %q, want %q", tc.key.String(), got, tc.want)
+			}
+		default:
+			t.Fatalf("key %q did not send an action", tc.key.String())
+		}
+	}
+	actions := make(chan string, 1)
+	model := &watchModel{actions: actions, snapshot: &statusSnapshot{}}
+	model.Update(tea.KeyReleaseMsg{Code: 'm', Text: "m"})
+	if len(actions) != 0 {
+		t.Fatal("key release sent an action")
 	}
 }
 

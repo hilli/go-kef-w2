@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 )
@@ -132,7 +132,7 @@ func NewContentPickerModel(cfg ContentPickerConfig) ContentPickerModel {
 	ti.Placeholder = "Type to filter..."
 	ti.Focus()
 	ti.CharLimit = 100
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	model := ContentPickerModel{
 		serviceType: cfg.ServiceType,
@@ -221,7 +221,7 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.filterInput.SetValue("")
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			m.quitting = true
@@ -421,9 +421,9 @@ func (m *ContentPickerModel) applyFilter() {
 }
 
 // View implements tea.Model.
-func (m ContentPickerModel) View() string {
+func (m ContentPickerModel) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.NewView("")
 	}
 
 	var b strings.Builder
@@ -442,7 +442,7 @@ func (m ContentPickerModel) View() string {
 	if m.loading {
 		b.WriteString(m.styles.Status.Render("  Loading..."))
 		b.WriteString("\n")
-		return b.String()
+		return tea.NewView(b.String())
 	}
 
 	// Show filtered list (max visible items around cursor)
@@ -532,7 +532,7 @@ func (m ContentPickerModel) View() string {
 	statusText := fmt.Sprintf("↑/↓/PgUp/PgDn: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, extraHints)
 	b.WriteString(m.styles.Status.Render(statusText))
 
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 // Result returns the picker result after the program has exited.

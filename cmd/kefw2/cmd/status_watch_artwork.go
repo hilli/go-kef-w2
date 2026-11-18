@@ -50,6 +50,11 @@ type watchArtwork struct {
 	digest [sha256.Size]byte
 }
 
+type watchArtworkRendering struct {
+	lines  []string
+	native string
+}
+
 func fetchWatchArtwork(ctx context.Context, url string) (watchArtwork, error) {
 	var art watchArtwork
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -88,14 +93,15 @@ func fetchWatchArtwork(ctx context.Context, url string) (watchArtwork, error) {
 	return art, nil
 }
 
-// Keep these lines unchanged between text updates. Bubble Tea then skips the
-// entire reserved region, preserving the native image without retransmission.
-func renderWatchArtwork(art watchArtwork, width, height int, backend watchArtworkBackend) ([]string, error) {
+func renderWatchArtwork(
+	art watchArtwork, width, height int, backend watchArtworkBackend,
+) (watchArtworkRendering, error) {
+	var rendered watchArtworkRendering
 	if art.image == nil || width < 1 || height < 1 {
-		return nil, nil
+		return rendered, nil
 	}
 	if width > 65535 || height > 65535 {
-		return nil, fmt.Errorf("artwork terminal dimensions exceed 65535 cells")
+		return rendered, fmt.Errorf("artwork terminal dimensions exceed 65535 cells")
 	}
 	if backend == watchArtworkIterm {
 		return renderWatchItermArtwork(art, width, height)
@@ -118,46 +124,34 @@ func renderWatchArtwork(art watchArtwork, width, height int, backend watchArtwor
 		options.FixedWidth, options.FixedHeight = width, height
 		options.FitScreen, options.Colored = false, false
 		text := ascii.NewImageConverter().Image2ASCIIString(art.image, &options)
-		return strings.Split(strings.TrimSuffix(text, "\n"), "\n"), nil
+		rendered.lines = strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+		return rendered, nil
 	}
 	var payload bytes.Buffer
 	if err := rasterm.KittyWriteImage(&payload, art.image, opts); err != nil {
-		return nil, fmt.Errorf("encoding terminal artwork: %w", err)
+		return rendered, fmt.Errorf("encoding terminal artwork: %w", err)
 	}
 	encoded := strings.Replace(payload.String(), "\x1b_Ga=T,", "\x1b_Ga=T,q=2,", 1)
-	lines := make([]string, height)
-	for i := range lines {
-		lines[i] = strings.Repeat(" ", width)
+	rendered.lines = make([]string, height)
+	for i := range rendered.lines {
+		rendered.lines[i] = strings.Repeat(" ", width)
 	}
-	lines[0] = "\x1b7" + clearWatchImage + encoded + "\x1b8" + lines[0]
-	return lines, nil
+	rendered.native = "\x1b7\x1b[H" + clearWatchImage + encoded + "\x1b8"
+	return rendered, nil
 }
 
-func renderWatchItermArtwork(art watchArtwork, width, height int) ([]string, error) {
+func renderWatchItermArtwork(art watchArtwork, width, height int) (watchArtworkRendering, error) {
+	var rendered watchArtworkRendering
 	var payload bytes.Buffer
 	if err := rasterm.ItermWriteImageWithOptions(&payload, art.image, rasterm.ItermImgOpts{
 		Width: fmt.Sprint(width), Height: fmt.Sprint(height), DisplayInline: true,
 	}); err != nil {
-		return nil, fmt.Errorf("encoding iTerm artwork: %w", err)
+		return rendered, fmt.Errorf("encoding iTerm artwork: %w", err)
 	}
-	// Paint the image after the reserved rows: unlike Kitty placements, iTerm
-	// images are erased by text written over their cells.
-	lines := make([]string, height)
-	var erase strings.Builder
-	erase.WriteString("\x1b7\r")
-	if height > 1 {
-		fmt.Fprintf(&erase, "\x1b[%dA", height-1)
+	rendered.lines = make([]string, height)
+	for i := range rendered.lines {
+		rendered.lines[i] = strings.Repeat(" ", width)
 	}
-	for i := range lines {
-		lines[i] = strings.Repeat(" ", width)
-		fmt.Fprintf(&erase, "\x1b[%dX", width)
-		if i+1 < height {
-			erase.WriteString("\x1b[1B")
-		}
-	}
-	if height > 1 {
-		fmt.Fprintf(&erase, "\x1b[%dA", height-1)
-	}
-	lines[height-1] += erase.String() + payload.String() + "\x1b8"
-	return lines, nil
+	rendered.native = "\x1b7\x1b[H" + payload.String() + "\x1b8"
+	return rendered, nil
 }

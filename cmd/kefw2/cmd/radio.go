@@ -25,10 +25,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/hilli/go-kef-w2/kefw2"
@@ -102,7 +102,7 @@ func initialRadioModel(client *kefw2.AirableClient) radioModel {
 	ti.Placeholder = "Search radio stations..."
 	ti.Focus()
 	ti.CharLimit = 100
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	// Create delegate for list items
 	delegate := list.NewDefaultDelegate()
@@ -131,7 +131,7 @@ func (m radioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case KeyCtrlC, "q":
 			if !m.searchInput.Focused() || msg.String() == KeyCtrlC {
@@ -256,9 +256,9 @@ func (m radioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m radioModel) View() string {
+func (m radioModel) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.View{AltScreen: true}
 	}
 
 	var b strings.Builder
@@ -295,7 +295,9 @@ func (m radioModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(radioStatusStyle.Render(status))
 
-	return b.String()
+	view := tea.NewView(b.String())
+	view.AltScreen = true
+	return view
 }
 
 // Command functions for async operations.
@@ -433,7 +435,7 @@ Keyboard shortcuts:
 		client := kefw2.NewAirableClient(currentSpeaker)
 		model := initialRadioModel(client)
 
-		p := tea.NewProgram(model, tea.WithAltScreen())
+		p := tea.NewProgram(model)
 		_, err := p.Run()
 		exitOnError(err, "Error running radio browser")
 	},
