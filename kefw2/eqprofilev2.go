@@ -1,6 +1,7 @@
 package kefw2
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -44,12 +45,30 @@ func (s *KEFSpeaker) GetEQProfileV2(ctx context.Context) (EQProfileV2, error) {
 	return parseTypedEQProfile(s.getData(ctx, "kef:eqProfile/v2"))
 }
 
+// GetEQProfileV2Raw returns the active EQ profile without discarding unknown fields.
+func (s *KEFSpeaker) GetEQProfileV2Raw(ctx context.Context) (json.RawMessage, error) {
+	return parseRawEQProfileV2(s.getData(ctx, "kef:eqProfile/v2"))
+}
+
 // SetEQProfileV2 applies an EQ profile to the currently selected audio source.
 func (s *KEFSpeaker) SetEQProfileV2(ctx context.Context, profile EQProfileV2) error {
+	raw, err := json.Marshal(profile)
+	if err != nil {
+		return fmt.Errorf("marshaling EQ profile: %w", err)
+	}
+	return s.SetEQProfileV2Raw(ctx, raw)
+}
+
+// SetEQProfileV2Raw applies a raw profile object, including unknown firmware fields.
+func (s *KEFSpeaker) SetEQProfileV2Raw(ctx context.Context, profile json.RawMessage) error {
+	trimmed := bytes.TrimSpace(profile)
+	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
+		return fmt.Errorf("invalid EQ profile: expected a JSON object")
+	}
 	value, err := json.Marshal(struct {
-		Type    string      `json:"type"`
-		Profile EQProfileV2 `json:"kefEqProfileV2"`
-	}{"kefEqProfileV2", profile})
+		Type    string          `json:"type"`
+		Profile json.RawMessage `json:"kefEqProfileV2"`
+	}{"kefEqProfileV2", trimmed})
 	if err != nil {
 		return fmt.Errorf("marshaling EQ profile: %w", err)
 	}

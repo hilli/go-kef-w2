@@ -48,25 +48,45 @@ func TestReadEQProfileFile(t *testing.T) {
 		{"empty object", `{}`},
 		{"missing setting", incomplete},
 		{"null setting", strings.Replace(string(valid), `"balance":-2`, `"balance":null`, 1)},
-		{"unknown field", strings.TrimSuffix(string(valid), "}") + `,"unexpected":true}`},
 		{"trailing JSON", string(valid) + ` {}`},
 		{"non-object", `null`},
 		{"malformed JSON", `{not json}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := readEQProfileFile(writeEQProfileFile(t, []byte(tt.data))); err == nil {
+			if _, _, err := readEQProfileFile(writeEQProfileFile(t, []byte(tt.data))); err == nil {
 				t.Fatal("invalid EQ profile was accepted")
 			}
 		})
 	}
 
-	got, err := readEQProfileFile(writeEQProfileFile(t, valid))
+	got, _, err := readEQProfileFile(writeEQProfileFile(t, valid))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != profile {
 		t.Fatalf("profile = %+v, want %+v", got, profile)
+	}
+	withUnknown := strings.TrimSuffix(string(valid), "}") + `,"futureFirmwareField":{"value":true}}`
+	_, raw, err := readEQProfileFile(writeEQProfileFile(t, []byte(withUnknown)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"futureFirmwareField"`) {
+		t.Fatalf("unknown firmware field was discarded: %s", raw)
+	}
+	var olderFields map[string]json.RawMessage
+	if err := json.Unmarshal(valid, &olderFields); err != nil {
+		t.Fatal(err)
+	}
+	delete(olderFields, "soundProfile")
+	delete(olderFields, "wirelessSub")
+	older, err := json.Marshal(olderFields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := readEQProfileFile(writeEQProfileFile(t, older)); err != nil {
+		t.Fatalf("older firmware profile was rejected: %v", err)
 	}
 }
 

@@ -97,16 +97,16 @@ func runInfoJSON(cmd *cobra.Command, _ []string) error {
 func runEQProfileJSON(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	if len(args) == 0 {
-		profile, err := currentSpeaker.GetEQProfileV2(ctx)
+		profile, err := currentSpeaker.GetEQProfileV2Raw(ctx)
 		if err != nil {
 			return fmt.Errorf("getting EQ profile: %w", err)
 		}
 		return writeSpeakerJSON(cmd, struct {
-			EQProfile kefw2.EQProfileV2 `json:"eq_profile"`
+			EQProfile json.RawMessage `json:"eq_profile"`
 		}{profile})
 	}
 
-	profile, err := readEQProfileFile(args[0])
+	_, raw, err := readEQProfileFile(args[0])
 	if err != nil {
 		return err
 	}
@@ -114,14 +114,14 @@ func runEQProfileJSON(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("getting current source: %w", err)
 	}
-	if err := currentSpeaker.SetEQProfileV2(ctx, profile); err != nil {
+	if err := currentSpeaker.SetEQProfileV2Raw(ctx, raw); err != nil {
 		return fmt.Errorf("restoring EQ profile: %w", err)
 	}
 	return writeSpeakerJSON(cmd, struct {
 		actionResult
-		Source    kefw2.Source      `json:"source"`
-		EQProfile kefw2.EQProfileV2 `json:"eq_profile"`
-	}{actionResult{"restore_eq_profile", true}, source, profile})
+		Source    kefw2.Source    `json:"source"`
+		EQProfile json.RawMessage `json:"eq_profile"`
+	}{actionResult{"restore_eq_profile", true}, source, raw})
 }
 
 func runMaxVolumeJSON(cmd *cobra.Command, args []string) error {

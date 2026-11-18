@@ -47,6 +47,13 @@ kefw2 --speaker NAME_OR_IP radio search "QUERY" --json
 kefw2 --speaker NAME_OR_IP radio play --path "PATH" --json
 kefw2 --speaker NAME_OR_IP config eq_profile --json
 kefw2 --speaker NAME_OR_IP config eq_profile PROFILE.json --json
+kefw2 --speaker NAME_OR_IP config eq_profile save "Night listening" --json
+kefw2 config eq_profile list --json
+kefw2 config eq_profile show "Night listening" --json
+kefw2 --speaker NAME_OR_IP config eq_profile load "Night listening" --json
+kefw2 config eq_profile import "Night listening" PROFILE.json --json
+kefw2 config eq_profile export "Night listening" BACKUP.json --json
+kefw2 config eq_profile delete "Night listening" --json
 ```
 
 Volume accepts an integer from 0 through 100. Omit the argument to read volume,
@@ -97,6 +104,15 @@ types, not literal JSON):
 - Radio play: `{action:"play_radio",accepted:true,path}`.
 - EQ read: `{eq_profile}`. Restore:
   `{action:"restore_eq_profile",accepted:true,source,eq_profile}`.
+- EQ library `list`: `{items:[{name,profile_name,captured_at,speaker?,source?}]}`.
+  `show NAME` returns the saved versioned profile document; `show` without a
+  name reads the active speaker profile.
+- EQ library `save`: `{action:"save_eq_profile",accepted:true,name,profile_name,captured_at}`.
+  `load`: `{action:"load_eq_profile",accepted:true,name,profile_name,source}`.
+  `import`: `{action:"import_eq_profile",accepted:true,name,profile_name}`.
+  `delete`: `{action:"delete_eq_profile",accepted:true,name}`.
+  `export NAME FILE`: `{action:"export_eq_profile",accepted:true,name,path}`.
+  `export NAME` without a file returns the versioned profile document.
 
 `accepted:true` reports HTTP acceptance, not a completed physical transition;
 `accepted:false` reports a no-op. Report what was accepted and what a bounded
@@ -341,7 +357,12 @@ The following operational commands also accept `--json`:
 - `config eq_profile [PROFILE.json]`: read the current EQ profile or restore a
   complete profile JSON file. The profile applies to the currently selected
   audio source; select the intended source before restoring. JSON restore
-  reports the source and profile sent to the speaker.
+  reports the source and profile sent to the speaker. The `show`, `save`,
+  `list`, `load`, `delete`, `import`, and `export` subcommands manage named
+  snapshots in the local user config directory; they are not profiles stored
+  on the speaker. `save` and `load` require a speaker, while the other library
+  operations are local. Use `--force` to replace an existing saved profile or
+  export file. Import accepts legacy profile JSON and versioned exports.
   `config maxvolume [VALUE]`: read or set the 0..100 maximum-volume limit.
 - `config speaker add IP`, `remove SELECTOR`, `default [SELECTOR]`: explicit
   local configuration changes; add connects to the selected address.

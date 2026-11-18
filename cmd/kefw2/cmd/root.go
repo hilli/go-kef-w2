@@ -96,6 +96,11 @@ func disableFileCompletionRecursive(cmd *cobra.Command) {
 		cmd.ValidArgsFunction = noFileCompletion
 	} else {
 		cmd.ValidArgsFunction = withCompletionContext(cmd.ValidArgsFunction, func(cmd *cobra.Command, args []string) bool {
+			switch cmd {
+			case eqProfileCmd, eqProfileShowCmd, eqProfileSaveCmd, eqProfileLoadCmd,
+				eqProfileDeleteCmd, eqProfileImportCmd, eqProfileExportCmd:
+				return false
+			}
 			return cmd == upnpContainerBrowseCmd || cmd == upnpContainerIndexCmd || commandRequiresSpeaker(cmd, args)
 		})
 	}
@@ -176,7 +181,7 @@ func init() {
 }
 
 func prepareCommand(cmd *cobra.Command, args []string) error {
-	if isUtilityCommand(cmd) || isFileOnlyCommand(cmd) {
+	if isUtilityCommand(cmd) || isFileOnlyCommand(cmd, args) {
 		return nil
 	}
 	if err := initConfig(); err != nil {
@@ -284,10 +289,13 @@ func isUtilityCommand(cmd *cobra.Command) bool {
 	return slices.Contains(cmdPath, "skill") || cmd.Name() == "version" || cmd.Name() == "help"
 }
 
-func isFileOnlyCommand(cmd *cobra.Command) bool {
+func isFileOnlyCommand(cmd *cobra.Command, args []string) bool {
 	switch cmd {
-	case queueSavedCmd, queueDeleteSavedCmd:
+	case queueSavedCmd, queueDeleteSavedCmd, eqProfileListCmd, eqProfileDeleteCmd,
+		eqProfileImportCmd, eqProfileExportCmd:
 		return true
+	case eqProfileShowCmd:
+		return len(args) > 0
 	case upnpSearchCmd, cacheClearCmd:
 		return jsonOutput(cmd)
 	case upnpIndexCmd:
@@ -304,7 +312,7 @@ func commandRequiresSpeaker(cmd *cobra.Command, args []string) bool {
 		cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" {
 		return false
 	}
-	if isFileOnlyCommand(cmd) || cmd == cacheStatusCmd || cmd == cacheClearCmd {
+	if isFileOnlyCommand(cmd, args) || cmd == cacheStatusCmd || cmd == cacheClearCmd {
 		return false
 	}
 	if !slices.Contains(cmdPath, "config") {
@@ -317,6 +325,10 @@ func configCommandRequiresSpeaker(cmd *cobra.Command, args []string) bool {
 	switch cmd {
 	case eqProfileCmd, maxVolumeCmd, upnpServerListCmd:
 		return true
+	case eqProfileSaveCmd, eqProfileLoadCmd:
+		return true
+	case eqProfileShowCmd:
+		return len(args) == 0
 	case upnpServerDefaultCmd:
 		return len(args) > 0 || (jsonOutput(cmd) && cmd.Flags().Changed("path"))
 	case upnpContainerBrowseCmd, upnpContainerIndexCmd:
