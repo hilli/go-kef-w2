@@ -1,0 +1,77 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Jens Hilligsoe. MIT license. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kefw2 player / Listening Desk design</title>
+<style>
+:root{color-scheme:dark;--bg:#101820;--panel:#121e28;--line:#344650;--muted:#93a6b0;--ink:#dce7ec;--accent:#69ddc9}
+*{box-sizing:border-box}body{margin:0;background:#091116;color:var(--ink);font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+main{max-width:1392px;margin:auto;padding:36px 32px}h1{font-size:27px;font-weight:500;letter-spacing:-1px;margin:6px 0}p{margin:0}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:2px}.intro{color:var(--muted);margin:0 0 25px}.terminal{border:1px solid #43545e;background:var(--bg);box-shadow:0 24px 70px #0005}.chrome{background:#1b2731;padding:10px 18px;display:flex;justify-content:space-between;font-size:12px;color:#b1c2ca}.dots{color:#69ddc9;letter-spacing:5px}.screen{padding:18px}.top{display:flex;justify-content:space-between;margin-bottom:16px}.brand{color:var(--accent);font-weight:bold}.muted{color:var(--muted)}.good{color:var(--accent)}.panes{display:grid;grid-template-columns:210px minmax(0,1fr) 286px;gap:12px;height:437px}.pane{background:var(--panel);border:1px solid var(--line);min-width:0;overflow:hidden}.pane.focus{border-color:var(--accent)}.title{border-bottom:1px solid var(--line);padding:8px 12px;color:#bbcbd2;display:flex;justify-content:space-between}.focus .title{color:var(--accent)}.grip{color:#91a5b0}.inside{padding:13px 12px}.section{font-size:11px;letter-spacing:1px;color:var(--muted);margin:12px 0 6px}.nav{padding:5px 8px;display:flex;justify-content:space-between}.active{background:#21463f;color:#9cf4df}.label{font-size:10px;border:1px solid #47625f;padding:1px 5px}.search{border:1px solid #53746f;background:#192d33;padding:8px 10px;color:#d4ede8}.tabs{display:flex;gap:20px;margin:11px 0 13px;border-bottom:1px solid var(--line);padding-bottom:8px}.tab-active{color:var(--accent);border-bottom:2px solid var(--accent)}.result{padding:10px;border-bottom:1px solid #253740;display:flex;justify-content:space-between;gap:8px}.selected{background:#1f3a40;border-left:2px solid var(--accent)}.small{font-size:12px}.station{font-weight:bold}.hint{color:var(--muted);font-size:11px;margin-top:12px}.queue-row{padding:11px 4px;display:flex;gap:10px;border-bottom:1px solid #283942}.num{color:#8da2ac}.queue-note{padding:10px;color:#b6c8cf;background:#1a2934;margin-top:17px;font-size:11px}.transport{border:1px solid var(--line);margin-top:14px;padding:14px 16px;display:grid;grid-template-columns:1fr 320px;gap:16px}.now{display:flex;gap:16px;align-items:center}.art{width:66px;height:66px;display:grid;place-items:center;flex-shrink:0;background:#213e43;border:1px solid #50716e;color:#a6e8d9;font-size:25px}.metadata{min-width:0}.track{font-size:17px;color:#edf6f6}.controls{margin-top:8px;word-spacing:7px}.volume{border-left:1px solid var(--line);padding-left:22px}.slider{display:flex;gap:3px;align-items:center;margin:10px 0}.fill{height:8px;background:var(--accent);width:38%}.thumb{height:18px;width:7px;background:#d9fff6}.empty{height:8px;background:#3c505b;flex:1}.footer{display:flex;justify-content:space-between;border-top:1px solid #2d404a;padding-top:12px;margin-top:13px;color:#a1b4bd;font-size:11px}kbd{font:inherit;color:#c9e6df}.annotations{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:24px;color:var(--muted);font-size:12px}.annotations b{display:block;color:#bceee1;font-weight:500;margin-bottom:3px}.compact-nav,.compact-queue{display:none}.note{font-size:10px;color:#718994;margin-top:20px}
+@media(max-width:1100px){main{padding:24px}.panes{grid-template-columns:180px minmax(0,1fr);height:400px}.queue{display:none}.compact-queue{display:inline}.transport{grid-template-columns:1fr 245px}.track{font-size:15px}.art{width:50px;height:58px}.volume{padding-left:14px}}
+@media(max-width:900px){h1{font-size:23px}.intro{font-size:12px;margin-bottom:17px}.screen{padding:14px}.panes{display:block;height:360px}.sources{display:none}.discover{height:100%}.compact-nav{display:inline}.result{padding:9px}.top{font-size:12px}.annotations{gap:15px;margin-top:17px;font-size:11px}.chrome{font-size:11px}.footer{font-size:10px;gap:12px}.note{margin-top:14px}.transport{margin-top:12px;padding:12px;gap:10px}.metadata .small{font-size:11px}}
+@media(max-width:650px){main{padding:12px}.transport{grid-template-columns:1fr}.volume{border-left:0;padding:0}.annotations{grid-template-columns:1fr}.top{flex-wrap:wrap}.chrome span:last-child{display:none}}
+.panes{height:auto;min-height:437px}
+@media(max-width:900px){.panes{min-height:0}.discover{height:auto}}
+</style>
+</head>
+<body>
+<main>
+<p class="eyebrow">01 / THE BALANCED WORKSPACE</p>
+<h1>Listening Desk</h1>
+<p class="intro">A familiar home for every input. Discover something new without losing what's playing.</p>
+<div class="terminal">
+<div class="chrome"><span><span class="dots">● ● ●</span> kefw2 player</span><span>CONCEPT MOCKUP · NOT A RUNNING APP</span></div>
+<div class="screen">
+<div class="top"><span><span class="brand">KEF / PLAYER</span> <span class="muted"> · Living Room / LS50 Wireless II</span></span><span class="good">● connected</span></div>
+<div class="panes">
+<section class="pane sources">
+<div class="title"><span><span class="grip">⠿</span> Sources</span><span class="muted">1</span></div>
+<div class="inside">
+<div class="section">SPEAKER INPUTS</div>
+<div class="nav active"><span>› Wi-Fi</span><span class="label">ON</span></div>
+<div class="nav">  Bluetooth</div><div class="nav">  TV / HDMI</div><div class="nav">  Optical</div><div class="nav">  Coaxial</div><div class="nav">  Aux</div>
+<div class="section">BROWSE WI-FI</div>
+<div class="nav good">  Radio</div><div class="nav">  Podcasts</div><div class="nav">  UPnP library</div>
+<div class="hint">Browsing never changes<br>the speaker input.</div>
+</div>
+</section>
+<section class="pane discover focus">
+<div class="title"><span><span class="grip">⠿</span> Discover <span class="compact-nav muted"> / [s] Sources</span></span><span>2 / FOCUSED</span></div>
+<div class="inside">
+<div class="search"><span class="good">/</span> Search radio: <span class="good">ambient_</span></div>
+<div class="tabs"><span class="tab-active">Radio</span><span>Podcasts</span><span class="compact-queue muted">[3] Queue</span></div>
+<div class="small muted">RESULTS · page 1 <span style="float:right">Enter play · a favorite</span></div>
+<div class="result selected"><div><div class="station">› Quiet Current</div><div class="small muted">Ambient / electronic · Denmark</div></div><span class="small good">[Play]</span></div>
+<div class="result"><div><div>  Northern Signal</div><div class="small muted">Slow radio · Norway</div></div><span class="small muted">AAC</span></div>
+<div class="result"><div><div>  Open Water FM</div><div class="small muted">Instrumental · Netherlands</div></div><span class="small muted">MP3</span></div>
+<div class="result"><div><div>  Afterglow Radio</div><div class="small muted">Downtempo · United Kingdom</div></div><span class="small muted">AAC</span></div>
+<div class="hint">↓ more results · search is independent of playback</div>
+</div>
+</section>
+<section class="pane queue">
+<div class="title"><span><span class="grip">⠿</span> Queue</span><span class="muted">3</span></div>
+<div class="inside">
+<div class="small muted">SPEAKER QUEUE · 4 TRACKS</div>
+<div class="queue-row"><span class="good">▶</span><div>Soft Geometry<div class="small muted">Mira Vale · 05:12</div></div></div>
+<div class="queue-row"><span class="num">⠿ 2</span><div>Evening Lines<div class="small muted">Field Atlas · 04:38</div></div></div>
+<div class="queue-row"><span class="num">⠿ 3</span><div>Low Tide<div class="small muted">Mira Vale · 06:04</div></div></div>
+<div class="queue-row"><span class="num">⠿ 4</span><div>Still Air<div class="small muted">North Glass · 03:57</div></div></div>
+<div class="queue-note">Drag a row grip to reorder.<br>Keyboard: Ctrl+k / Ctrl+j</div>
+<div class="hint">Shuffle off · Repeat off</div>
+</div>
+</section>
+</div>
+<section class="transport">
+<div class="now"><div class="art">≋</div><div class="metadata"><div class="small good">NOW PLAYING · INPUT Wi-Fi / UPnP</div><div class="track">Soft Geometry <span class="muted">/ Mira Vale</span></div><div class="small muted">02:14 ━━━━━━━━━╸────────── 05:12</div><div class="controls">[prev] [pause] [next] <span class="small muted">Space play/pause</span></div></div></div>
+<div class="volume"><div>Volume <span class="good">28</span> <span class="small muted">/ limit 70</span><span class="small" style="float:right">[Mute]</span></div><div class="slider"><span class="fill"></span><span class="thumb"></span><span class="empty"></span></div><div class="small muted">Drag or click · +/- exact steps</div></div>
+</section>
+<div class="footer"><span><kbd>Tab</kbd> focus · <kbd>/</kbd> search · <kbd>s</kbd> source · <kbd>p</kbd> pane menu</span><span><kbd>?</kbd> help · <kbd>q</kbd> quit</span></div>
+</div>
+</div>
+<div class="annotations"><p><b>01 / Keep your bearings</b>The transport always reports the actual input, not the service you happen to browse.</p><p><b>02 / Make room</b>Drag title grips to dock. Drag dividers to resize. Every operation has a keyboard path.</p><p><b>03 / Less space, same control</b>Sources and queue become choosers in compact terminals. Playback stays in reach.</p></div>
+<p class="note">DESIGN PROPOSAL · Bubble Tea v2 + bloomfx.dev · fictional demo content · no live speaker connection</p>
+</main>
+</body>
+</html>
