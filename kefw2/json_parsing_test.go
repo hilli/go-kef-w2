@@ -362,7 +362,7 @@ func TestParseTypedEQProfile(t *testing.T) {
 		"deskMode":false,
 		"deskModeSetting":-3.5,
 		"highPassMode":false,
-		"highPassModeFreq":80,
+		"highPassModeFreq":92.5,
 		"isExpertMode":false,
 		"isKW1":false,
 		"phaseCorrection":true,
@@ -399,7 +399,7 @@ func TestParseTypedEQProfile(t *testing.T) {
 				DeskMode:          false,
 				DeskModeSetting:   -3.5,
 				HighPassMode:      false,
-				HighPassModeFreq:  80,
+				HighPassModeFreq:  92.5,
 				IsExpertMode:      false,
 				IsKW1:             false,
 				PhaseCorrection:   true,
@@ -465,6 +465,9 @@ func TestParseTypedEQProfile(t *testing.T) {
 				}
 				if got.DeskModeSetting != tt.want.DeskModeSetting {
 					t.Errorf("parseTypedEQProfile() DeskModeSetting = %v, want %v", got.DeskModeSetting, tt.want.DeskModeSetting)
+				}
+				if got.HighPassModeFreq != tt.want.HighPassModeFreq {
+					t.Errorf("parseTypedEQProfile() HighPassModeFreq = %v, want %v", got.HighPassModeFreq, tt.want.HighPassModeFreq)
 				}
 				if got.PhaseCorrection != tt.want.PhaseCorrection {
 					t.Errorf("parseTypedEQProfile() PhaseCorrection = %v, want %v", got.PhaseCorrection, tt.want.PhaseCorrection)

@@ -222,27 +222,46 @@ func parseTypedCableMode(data []byte, err error) (CableMode, error) {
 
 // parseTypedEQProfile parses a KEF API EQProfileV2 (kefEqProfileV2) response.
 func parseTypedEQProfile(data []byte, err error) (EQProfileV2, error) {
+	raw, err := parseRawEQProfileV2(data, err)
 	if err != nil {
 		return EQProfileV2{}, err
 	}
 
-	var values []kefTypedValue
-	if err := json.Unmarshal(data, &values); err != nil {
+	var profile EQProfileV2
+	if err := json.Unmarshal(raw, &profile); err != nil {
 		return EQProfileV2{}, fmt.Errorf("%w: %w", ErrInvalidJSONResponse, err)
+	}
+	return profile, nil
+}
+
+func parseRawEQProfileV2(data []byte, err error) (json.RawMessage, error) {
+	if err != nil {
+		return nil, err
+	}
+	var values []struct {
+		Type    string          `json:"type"`
+		Profile json.RawMessage `json:"kefEqProfileV2"`
+	}
+	if err := json.Unmarshal(data, &values); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidJSONResponse, err)
 	}
 
 	if len(values) == 0 {
-		return EQProfileV2{}, fmt.Errorf("%w: empty response array", ErrInvalidJSONResponse)
+		return nil, fmt.Errorf("%w: empty response array", ErrInvalidJSONResponse)
 	}
 
 	val := values[0]
 	if val.Type != "kefEqProfileV2" {
-		return EQProfileV2{}, fmt.Errorf("%w: expected kefEqProfileV2 type, got %s", ErrInvalidJSONResponse, val.Type)
+		return nil, fmt.Errorf("%w: expected kefEqProfileV2 type, got %s", ErrInvalidJSONResponse, val.Type)
 	}
 
-	if val.KefEqProfileV2 == nil {
-		return EQProfileV2{}, fmt.Errorf("%w: missing kefEqProfileV2 value", ErrInvalidJSONResponse)
+	trimmed := bytes.TrimSpace(val.Profile)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return nil, fmt.Errorf("%w: missing kefEqProfileV2 value", ErrInvalidJSONResponse)
 	}
-
-	return *val.KefEqProfileV2, nil
+	var profile EQProfileV2
+	if err := json.Unmarshal(trimmed, &profile); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidJSONResponse, err)
+	}
+	return append(json.RawMessage(nil), trimmed...), nil
 }

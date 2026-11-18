@@ -148,11 +148,25 @@ Turn the speakers off
 kefw2 off
 ```
 
-Backup the current EQ Profile
+Save the current EQ settings to the local profile library, then load them later
+with the intended audio source selected. The speaker exposes only its active EQ
+profile; saved profiles are local snapshots in the user config directory.
 
 ```shell
-kefw2 config eq_profile > my_profile.json
+kefw2 --speaker "Office" config eq_profile save "Night listening"
+kefw2 config eq_profile list
+kefw2 config eq_profile show "Night listening"
+kefw2 --speaker "Office" config eq_profile load "Night listening"
+kefw2 config eq_profile export "Night listening" night-listening.json
+kefw2 config eq_profile import "Night listening" night-listening.json
+kefw2 config eq_profile delete "Night listening"
 ```
+
+Use `--force` with `save`, `import`, or `export NAME FILE` to replace an
+existing file. Imports accept either a profile JSON file produced by the legacy
+`config eq_profile` command or a versioned library export. The legacy command
+still reads the active profile with no argument and restores a profile from a
+JSON file argument.
 
 Set the max volume limit
 
@@ -543,7 +557,7 @@ kefw2 events --json
 - [x] Play from UPnP/DLNA media servers
 - [x] Queue management
 - [x] UPnP library search with local indexing
-- [ ] Restore speaker settings/eq profiles from file
+- [x] Manage local EQ profile snapshots (save/load/import/export)
 - [ ] Play titles from built-in music streaming services (Amazon Music, Deezer, Qobuz, Spotify, Tidal)
 
 ## Library

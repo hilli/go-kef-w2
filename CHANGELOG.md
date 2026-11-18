@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Event-driven `status watch` with live artwork, keyboard controls, and `--ascii` and `--minimal` display options. `--json` streams complete status snapshots as JSON Lines; watch falls back to polling while reconnecting.
+- Local EQ profile library with `show`, `save`, `list`, `load`, `delete`, `import`, and `export`, including profile-name completion and JSON output. Snapshots preserve unknown speaker fields and can be loaded onto the currently selected source.
+- Restore a complete EQ profile JSON file with `config eq_profile PROFILE.json`; imports accept both these files and versioned library exports.
+- Library methods for setting typed and raw EQ profiles and registering event clients with a context, plus options for player-data invalidations and poll observation.
+
+### Changed
+
+- Require Go 1.26 and upgrade the interactive UI to Charm v2.
+- Include the speaker-provided `image_url` in JSON status track metadata.
+- Change `EQProfileV2.HighPassModeFreq` from `int` to `float64` to preserve fractional frequencies; library callers using an integer may need an explicit conversion.
+
 ### Fixed
 
 - Preserve supplied changelog release notes, reject missing or empty entries, and verify the published release description.
