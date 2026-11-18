@@ -22,26 +22,106 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-// muteCmd toggles the mute state of the speakers.
 var eqProfileCmd = &cobra.Command{
-	Use:   "eq_profile",
-	Short: "Get the equalizer Profile of the speakers",
-	Long:  `Get the equalizer Profile of the speakers`,
+	Use:   "eq_profile [PROFILE.json]",
+	Short: "Get or restore the equalizer profile",
+	Long:  "Read the current source's equalizer profile or restore one from a JSON file.",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		eqProfile, err := currentSpeaker.GetEQProfileV2(ctx)
-		if err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "Error getting EQ profile: %v\n", err)
-			return
+		if len(args) == 1 {
+			profile, raw, err := readEQProfileFile(args[0])
+			if err != nil {
+				return err
+			}
+			source, err := currentSpeaker.Source(ctx)
+			if err != nil {
+				return fmt.Errorf("getting current source: %w", err)
+			}
+			if err := currentSpeaker.SetEQProfileV2Raw(ctx, raw); err != nil {
+				return fmt.Errorf("restoring EQ profile: %w", err)
+			}
+			taskConpletedPrinter.Printf("Restored EQ profile %q to %s source\n", profile.ProfileName, source)
+			return nil
 		}
-		fmt.Println(eqProfile)
+
+		eqProfile, err := currentSpeaker.GetEQProfileV2Raw(ctx)
+		if err != nil {
+			return fmt.Errorf("getting EQ profile: %w", err)
+		}
+		var output bytes.Buffer
+		if err := json.Indent(&output, eqProfile, "", "  "); err != nil {
+			return fmt.Errorf("formatting EQ profile: %w", err)
+		}
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), output.String())
+		return err
 	},
+}
+
+var requiredEQProfileFields = []string{
+	"audioPolarity", "balance", "bassExtension", "deskMode", "deskModeSetting",
+	"highPassMode", "highPassModeFreq", "isExpertMode", "isKW1", "phaseCorrection",
+	"profileId", "profileName", "subEnableStereo", "subOutLPFreq", "subwooferCount",
+	"subwooferGain", "subwooferOut", "subwooferPolarity", "subwooferPreset",
+	"trebleAmount", "wallMode", "wallModeSetting",
+}
+
+func decodeEQProfilePayload(data []byte) (kefw2.EQProfileV2, json.RawMessage, error) {
+	var zero kefw2.EQProfileV2
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return zero, nil, fmt.Errorf("parsing EQ profile: expected a JSON object")
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &fields); err != nil {
+		return zero, nil, fmt.Errorf("parsing EQ profile: %w", err)
+	}
+	for _, field := range requiredEQProfileFields {
+		if _, ok := fields[field]; !ok {
+			return zero, nil, fmt.Errorf("parsing EQ profile: missing required field %q", field)
+		}
+	}
+	for _, field := range append(append([]string(nil), requiredEQProfileFields...), "soundProfile", "wirelessSub", "subwooferOutHotfix") {
+		if value, ok := fields[field]; ok && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return zero, nil, fmt.Errorf("parsing EQ profile: field %q must not be null", field)
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+	var profile kefw2.EQProfileV2
+	if err := decoder.Decode(&profile); err != nil {
+		return zero, nil, fmt.Errorf("parsing EQ profile: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return zero, nil, fmt.Errorf("parsing EQ profile: multiple JSON values")
+		}
+		return zero, nil, fmt.Errorf("parsing EQ profile: %w", err)
+	}
+	return profile, append(json.RawMessage(nil), trimmed...), nil
+}
+
+func readEQProfileFile(path string) (kefw2.EQProfileV2, json.RawMessage, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // The user explicitly supplies the profile file.
+	if err != nil {
+		return kefw2.EQProfileV2{}, nil, fmt.Errorf("reading EQ profile: %w", err)
+	}
+	profile, raw, err := decodeEQProfilePayload(data)
+	if err != nil {
+		return kefw2.EQProfileV2{}, nil, err
+	}
+	return profile, raw, nil
 }
 
 func init() {
