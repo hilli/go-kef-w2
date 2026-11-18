@@ -244,14 +244,14 @@ func (s *KEFSpeaker) getModelAndVersion(ctx context.Context) error {
 
 // PlayPause toggles playback state.
 func (s *KEFSpeaker) PlayPause(ctx context.Context) error {
-	return s.setActivate(ctx, "player:player/control", "control", "pause")
+	return s.setActivate(ctx, pathPlayerControl, fieldControl, "pause")
 }
 
 // Stop stops playback entirely. Unlike PlayPause (which toggles), Stop ends
 // the current stream and cannot be resumed. This is particularly useful for
 // radio and live streams where pause is not meaningful.
 func (s *KEFSpeaker) Stop(ctx context.Context) error {
-	return s.setActivate(ctx, "player:player/control", "control", "stop")
+	return s.setActivate(ctx, pathPlayerControl, fieldControl, "stop")
 }
 
 // GetVolume returns the current volume level.
@@ -344,12 +344,12 @@ func (s *KEFSpeaker) IsPlaying(ctx context.Context) (bool, error) {
 
 // NextTrack skips to the next track (only works in WiFi mode).
 func (s *KEFSpeaker) NextTrack(ctx context.Context) error {
-	return s.setActivate(ctx, "player:player/control", "control", "next")
+	return s.setActivate(ctx, pathPlayerControl, fieldControl, "next")
 }
 
 // PreviousTrack goes to the previous track (only works in WiFi mode).
 func (s *KEFSpeaker) PreviousTrack(ctx context.Context) error {
-	return s.setActivate(ctx, "player:player/control", "control", "previous")
+	return s.setActivate(ctx, pathPlayerControl, fieldControl, "previous")
 }
 
 // SongProgress returns the current playback position as "minutes:seconds".
@@ -371,8 +371,8 @@ func (s *KEFSpeaker) SongProgressMS(ctx context.Context) (int, error) {
 func (s *KEFSpeaker) SeekTo(ctx context.Context, positionMS int64) error {
 	// Use the player control path with seekTime control
 	// Format: {"control": "seekTime", "time": <milliseconds>}
-	return s.setActivateMap(ctx, "player:player/control", map[string]any{
-		"control": "seekTime",
-		"time":    positionMS,
+	return s.setActivateMap(ctx, pathPlayerControl, map[string]any{
+		fieldControl: "seekTime",
+		"time":       positionMS,
 	})
 }

@@ -145,8 +145,8 @@ func (s *KEFSpeaker) doRequest(ctx context.Context, cfg requestConfig) ([]byte, 
 // getData fetches data from the speaker API for a given path.
 func (s *KEFSpeaker) getData(ctx context.Context, path string) ([]byte, error) {
 	params := url.Values{}
-	params.Set("path", path)
-	params.Set("roles", "value")
+	params.Set(fieldPath, path)
+	params.Set("roles", roleValue)
 
 	return s.doRequest(ctx, requestConfig{
 		method: http.MethodGet,
@@ -158,7 +158,7 @@ func (s *KEFSpeaker) getData(ctx context.Context, path string) ([]byte, error) {
 // getRows fetches row data from the speaker API.
 func (s *KEFSpeaker) getRows(ctx context.Context, path string, extraParams map[string]string) ([]byte, error) {
 	params := url.Values{}
-	params.Set("path", path)
+	params.Set(fieldPath, path)
 	for key, value := range extraParams {
 		params.Set(key, value)
 	}
@@ -180,7 +180,7 @@ func (s *KEFSpeaker) setActivate(ctx context.Context, path, item, value string) 
 
 	reqBody, err := json.Marshal(KEFPostRequest{
 		Path:  path,
-		Roles: "activate",
+		Roles: roleActivate,
 		Value: &rawValue,
 	})
 	if err != nil {
@@ -206,14 +206,14 @@ func (s *KEFSpeaker) setActivateMap(ctx context.Context, path string, value map[
 
 	reqBody, err := json.Marshal(KEFPostRequest{
 		Path:  path,
-		Roles: "activate",
+		Roles: roleActivate,
 		Value: &rawValue,
 	})
 	if err != nil {
 		return fmt.Errorf("marshaling request: %w", err)
 	}
 
-	slog.Debug("setActivateMap", "path", path, "body", string(reqBody))
+	slog.Debug("setActivateMap", fieldPath, path, "body", string(reqBody))
 
 	_, err = s.doRequest(ctx, requestConfig{
 		method: http.MethodPost,
@@ -271,8 +271,8 @@ func (s *KEFSpeaker) setTypedValue(ctx context.Context, path string, value any) 
 
 	// Build the JSON value with proper types (not stringified)
 	jsonStr, err := json.Marshal(map[string]any{
-		"type":   typeName,
-		typeName: typeValue,
+		fieldType: typeName,
+		typeName:  typeValue,
 	})
 	if err != nil {
 		return fmt.Errorf("marshaling value: %w", err)
@@ -281,14 +281,14 @@ func (s *KEFSpeaker) setTypedValue(ctx context.Context, path string, value any) 
 
 	reqBody, err := json.Marshal(KEFPostRequest{
 		Path:  path,
-		Roles: "value",
+		Roles: roleValue,
 		Value: &rawValue,
 	})
 	if err != nil {
 		return fmt.Errorf("marshaling request: %w", err)
 	}
 
-	slog.Debug("setTypedValue", "path", path, "body", string(reqBody))
+	slog.Debug("setTypedValue", fieldPath, path, "body", string(reqBody))
 
 	_, err = s.doRequest(ctx, requestConfig{
 		method: http.MethodPost,

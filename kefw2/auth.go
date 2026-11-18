@@ -40,7 +40,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // Required by the speaker's credential derivation.
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
@@ -57,12 +57,6 @@ import (
 	"sync"
 	"time"
 )
-
-func init() {
-	if v := os.Getenv("KEFW2_AUTH_DEBUG"); v == "1" || v == "true" {
-		authDebug = true
-	}
-}
 
 const (
 	// authPort is the TLS port serving the authenticated control API.
@@ -82,9 +76,14 @@ var (
 	authClient     *http.Client
 
 	// authDebug enables verbose stderr logging of the auth/provisioning flow.
-	// Toggle via env KEFW2_AUTH_DEBUG=1 — see init() below.
-	authDebug bool
+	// Toggle via env KEFW2_AUTH_DEBUG=1.
+	authDebug = authDebugEnabled()
 )
+
+func authDebugEnabled() bool {
+	value := os.Getenv("KEFW2_AUTH_DEBUG")
+	return value == "1" || value == "true"
+}
 
 func truncate(b []byte, n int) string {
 	if len(b) <= n {
@@ -113,7 +112,7 @@ func authHTTPClient() *http.Client {
 // authenticated API. Matches k5/b.java:1103-1118.
 func authCredentials() (username, password string) {
 	username = authFallbackUsername
-	sum := md5.Sum([]byte("yek_" + username + "_user"))
+	sum := md5.Sum([]byte("yek_" + username + "_user")) //nolint:gosec // Firmware compatibility.
 	password = hex.EncodeToString(sum[:])
 	return username, password
 }
@@ -134,12 +133,12 @@ func (s *KEFSpeaker) authEndpoint(path string) string {
 func (s *KEFSpeaker) provisionAuthUser(ctx context.Context) error {
 	username, password := authCredentials()
 	body := map[string]any{
-		"path": "webserver:addUser",
-		"role": "activate",
-		"value": map[string]string{
+		fieldPath: "webserver:addUser",
+		fieldRole: roleActivate,
+		fieldValue: map[string]string{
 			"name":     username,
 			"password": password,
-			"title":    "",
+			fieldTitle: "",
 		},
 	}
 	raw, err := json.Marshal(body)

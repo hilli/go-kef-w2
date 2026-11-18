@@ -128,12 +128,12 @@ func (a *AirableClient) PlayUPnPTracks(tracks []ContentItem) error {
 	}
 
 	addPayload := map[string]interface{}{
-		"path": "playlists:pl/addexternalitems",
-		"role": "activate",
-		"value": map[string]interface{}{
-			"items": items,
-			"plid":  "0",
-			"mode":  "append",
+		fieldPath: "playlists:pl/addexternalitems",
+		fieldRole: roleActivate,
+		fieldValue: map[string]interface{}{
+			fieldItems:      items,
+			fieldPlaylistID: "0",
+			"mode":          "append",
 		},
 	}
 
@@ -146,23 +146,23 @@ func (a *AirableClient) PlayUPnPTracks(tracks []ContentItem) error {
 	trackRoles := buildUPnPTrackRoles(&firstTrack)
 
 	playPayload := map[string]interface{}{
-		"path": "player:player/control",
-		"role": "activate",
-		"value": map[string]interface{}{
+		fieldPath: pathPlayerControl,
+		fieldRole: roleActivate,
+		fieldValue: map[string]interface{}{
 			"trackRoles": trackRoles,
-			"type":       "itemInContainer",
+			fieldType:    "itemInContainer",
 			"index":      0,
-			"control":    "play",
-			"mediaRoles": map[string]interface{}{
-				"type":          "container",
-				"containerType": "none",
-				"title":         "PlayQueue tracks",
+			fieldControl: controlPlay,
+			fieldMediaRoles: map[string]interface{}{
+				fieldType:          ContentTypeContainer,
+				fieldContainerType: containerTypeNone,
+				fieldTitle:         "PlayQueue tracks",
 				"mediaData": map[string]interface{}{
-					"metaData": map[string]interface{}{
+					fieldMetaData: map[string]interface{}{
 						"playLogicPath": "playlists:playlogic",
 					},
 				},
-				"path": "playlists:pq/getitems",
+				fieldPath: "playlists:pq/getitems",
 			},
 		},
 	}
@@ -177,9 +177,9 @@ func (a *AirableClient) PlayUPnPTracks(tracks []ContentItem) error {
 // buildUPnPTrackRoles constructs the track roles for UPnP playback.
 func buildUPnPTrackRoles(track *ContentItem) map[string]interface{} {
 	roles := map[string]interface{}{
-		"path":  track.Path,
-		"title": track.Title,
-		"type":  track.Type,
+		fieldPath:  track.Path,
+		fieldTitle: track.Title,
+		fieldType:  track.Type,
 	}
 
 	if track.Icon != "" {
@@ -223,7 +223,7 @@ func buildUPnPTrackRoles(track *ContentItem) map[string]interface{} {
 		if track.MediaData.MetaData.MaximumRetryCount > 0 {
 			metaData["maximumRetryCount"] = track.MediaData.MetaData.MaximumRetryCount
 		}
-		mediaData["metaData"] = metaData
+		mediaData[fieldMetaData] = metaData
 
 		// Resources
 		if len(track.MediaData.Resources) > 0 {
@@ -252,10 +252,10 @@ func buildUPnPTrackRoles(track *ContentItem) map[string]interface{} {
 	// Add context
 	if track.Context != nil {
 		roles["context"] = map[string]interface{}{
-			"type":          track.Context.Type,
-			"title":         track.Context.Title,
-			"containerType": track.Context.ContainerType,
-			"path":          track.Context.Path,
+			fieldType:          track.Context.Type,
+			fieldTitle:         track.Context.Title,
+			fieldContainerType: track.Context.ContainerType,
+			fieldPath:          track.Context.Path,
 		}
 	}
 
@@ -278,7 +278,7 @@ func (a *AirableClient) PlayUPnPByPath(path string) error {
 	// If we got tracks, play them
 	var tracks []ContentItem
 	for _, item := range resp.Rows {
-		if item.Type == "audio" {
+		if item.Type == ContentTypeAudio {
 			tracks = append(tracks, item)
 		}
 	}
@@ -288,7 +288,7 @@ func (a *AirableClient) PlayUPnPByPath(path string) error {
 	}
 
 	// If the path itself is a track (check roles)
-	if resp.Roles != nil && resp.Roles.Type == "audio" {
+	if resp.Roles != nil && resp.Roles.Type == ContentTypeAudio {
 		return a.PlayUPnPTrack(resp.Roles)
 	}
 
@@ -532,12 +532,12 @@ func (a *AirableClient) getAllTracksRecursive(containerPath string, progress Ind
 
 	for _, item := range resp.Rows {
 		switch item.Type {
-		case "audio":
+		case ContentTypeAudio:
 			if item.Path == "" {
 				return nil, fmt.Errorf("audio track %q in %q is missing its API path", item.Title, containerPath)
 			}
 			tracks = append(tracks, item)
-		case "container":
+		case ContentTypeContainer:
 			subContainers = append(subContainers, item)
 		}
 	}

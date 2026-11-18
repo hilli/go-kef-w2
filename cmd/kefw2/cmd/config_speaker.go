@@ -164,7 +164,7 @@ var speakerRemoveCmd = &cobra.Command{
 }
 
 var speakerListCmd = &cobra.Command{
-	Use:     "list",
+	Use:     commandList,
 	Aliases: []string{"ls"},
 	Short:   "List speakers",
 	Long:    `List speakers`,

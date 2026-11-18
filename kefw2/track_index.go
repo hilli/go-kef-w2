@@ -77,7 +77,7 @@ type TrackIndexConfig struct {
 // DefaultTrackIndexConfig returns the default track index configuration.
 func DefaultTrackIndexConfig() TrackIndexConfig {
 	return TrackIndexConfig{
-		CacheDir:       "auto",
+		CacheDir:       cacheDirAuto,
 		MemoryCacheTTL: time.Minute,
 		MaxAge:         24 * time.Hour,
 	}

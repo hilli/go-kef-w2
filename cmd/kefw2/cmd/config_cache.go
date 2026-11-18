@@ -131,9 +131,9 @@ func showAllCacheSettings() {
 	enabled := viper.GetBool("cache.enabled")
 	headerPrinter.Print("  enabled:     ")
 	if enabled {
-		contentPrinter.Println("true")
+		contentPrinter.Println(booleanTrue)
 	} else {
-		contentPrinter.Println("false")
+		contentPrinter.Println(booleanFalse)
 	}
 
 	// TTL values

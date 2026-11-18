@@ -58,12 +58,12 @@ type BrowseCacheConfig struct {
 func DefaultBrowseCacheConfig() BrowseCacheConfig {
 	return BrowseCacheConfig{
 		Enabled:    true,
-		CacheDir:   "auto",
+		CacheDir:   cacheDirAuto,
 		DefaultTTL: 5 * time.Minute,
 		ServiceTTLs: map[string]time.Duration{
-			"radio":   5 * time.Minute,
-			"podcast": 5 * time.Minute,
-			"upnp":    1 * time.Minute,
+			serviceNameRadio:   5 * time.Minute,
+			serviceNamePodcast: 5 * time.Minute,
+			"upnp":             1 * time.Minute,
 		},
 		CleanupTTL: 5 * time.Minute,
 	}
@@ -104,7 +104,7 @@ func NewBrowseCache(config BrowseCacheConfig) (*BrowseCache, error) {
 	}
 
 	// Resolve cache directory
-	if config.CacheDir == "" || config.CacheDir == "auto" {
+	if config.CacheDir == "" || config.CacheDir == cacheDirAuto {
 		cacheDir, err := os.UserCacheDir()
 		if err != nil {
 			cacheDir = os.TempDir()

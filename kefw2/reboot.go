@@ -134,8 +134,8 @@ func (s *KEFSpeaker) setAuthenticatedTypedValue(ctx context.Context, path string
 	}
 
 	jsonStr, err := json.Marshal(map[string]any{
-		"type":   typeName,
-		typeName: typeValue,
+		fieldType: typeName,
+		typeName:  typeValue,
 	})
 	if err != nil {
 		return fmt.Errorf("marshaling value: %w", err)
@@ -144,7 +144,7 @@ func (s *KEFSpeaker) setAuthenticatedTypedValue(ctx context.Context, path string
 
 	reqBody, err := json.Marshal(KEFPostRequest{
 		Path:  path,
-		Roles: "value",
+		Roles: roleValue,
 		Value: &rawValue,
 	})
 	if err != nil {

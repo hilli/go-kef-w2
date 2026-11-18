@@ -12,7 +12,7 @@ CLI, library and apps (planned) for controlling KEFs W2 platform based speakers 
 
 Grab a version for your OS from the [releases](https://github.com/hilli/go-kef-w2/releases) page.
 
-If you are a developer and already have [Go](https://go.dev/) installed you can install the latest version directly:
+If you are a developer and have [Go](https://go.dev/) 1.26 or newer installed, you can install the latest version directly:
 
 ```shell
 go install github.com/hilli/go-kef-w2/cmd/kefw2@latest
@@ -216,6 +216,7 @@ Machine-readable output is available on these commands:
 | `config speaker list` | Configured speakers and effective default |
 | `config speaker discover` | Discovered speakers; only saves with `--save` |
 | `status` | Source, power, volume, mute, and applicable playback metadata |
+| `status watch` | Event-driven JSON Lines stream of complete status snapshots, including artwork URLs |
 | `volume`, `mute`, `source` | Read a value or request an absolute setting |
 | `play`, `pause`, `stop`, `off` | Request playback/power actions or report a no-op |
 | `radio search QUERY` | Return candidates without opening a picker or playing |
@@ -235,8 +236,8 @@ artwork, or print progress or ANSI colors. Failures exit with status 1 and send
 diagnostics to stderr rather than returning fabricated values. Operational
 commands support `--json`; help-only command groups, shell completion and skill
 installation/display are not JSON APIs. Existing human-facing commands remain
-interactive by default; `events --json` remains a separate, unbounded JSON Lines
-stream.
+interactive by default. `status watch --json` emits complete snapshots, while
+`events --json` emits individual events; both are unbounded JSON Lines streams.
 
 For example:
 
@@ -261,6 +262,37 @@ has completed. Read the relevant state afterward; allow time for asynchronous
 changes. `accepted: false` indicates a no-op. Status uses percent volume and
 millisecond playback times; `playback` is `null` on standby/physical inputs and
 unknown or inapplicable playback times are `null`.
+Track metadata includes `image_url`, with an empty string when no artwork URL
+is available.
+
+### Live status
+
+```shell
+kefw2 --speaker "Office" status watch
+kefw2 --speaker "Office" status watch --minimal
+kefw2 --speaker "Office" status watch --ascii
+kefw2 --speaker "Office" status watch --json
+```
+
+Watch follows speaker events with no interval flag or healthy-stream polling.
+Human mode updates an alternate screen without filling scrollback, retaining
+unchanged cover art across text updates. Native artwork supports
+Kitty-compatible terminals and iTerm2 outside tmux; other terminals fall back to ASCII.
+Use `--ascii` to force ASCII or `--minimal` to hide artwork.
+
+Space toggles playback, `n`/`p` change track, `+`/`-` change volume by 1, `m`
+toggles mute, and Left/Right seek 10 seconds. Controls respect source
+capabilities, the configured volume maximum and known track duration; they
+never wake standby speakers or start a stopped queue. Quit with `q` or Ctrl+C.
+
+Use `--json` for pipes or external UIs: it has no keyboard controls, artwork
+downloads or terminal decoration. Each newline-terminated object uses the
+same status envelope, including `data.playback.track.image_url`.
+Events trigger full snapshots, not partial deltas or periodic heartbeats.
+If events disconnect, watch reports the problem and polls internally every
+5 seconds while reconnecting. Human mode marks failed status reads stale;
+JSON emits diagnostics on stderr and skips failed reads. Polling stops when
+event delivery and status recover. Output-write errors terminate watch.
 
 Radio search supports `--offset` (default 0) and `--limit` (default 24, maximum
 100). `total_rows` and offsets refer to raw service rows, not just playable

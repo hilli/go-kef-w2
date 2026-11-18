@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -121,7 +121,7 @@ func initialUpnpModel(client *kefw2.AirableClient) upnpModel {
 	delegate.Styles.SelectedDesc = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 
 	l := list.New([]list.Item{}, delegate, 0, 0)
-	l.Title = "Media Servers"
+	l.Title = mediaServersTitle
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)
 	l.SetShowHelp(true)
@@ -129,7 +129,7 @@ func initialUpnpModel(client *kefw2.AirableClient) upnpModel {
 	return upnpModel{
 		client:      client,
 		list:        l,
-		breadcrumbs: []breadcrumb{{title: "Media Servers", path: "ui:/upnp"}},
+		breadcrumbs: []breadcrumb{{title: mediaServersTitle, path: "ui:/upnp"}},
 	}
 }
 
@@ -141,72 +141,9 @@ func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds := make([]tea.Cmd, 0, 2)
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		// Don't handle navigation keys when filtering
-		if m.list.FilterState() == list.Filtering {
-			var cmd tea.Cmd
-			m.list, cmd = m.list.Update(msg)
-			return m, cmd
-		}
-
-		switch msg.String() {
-		case "ctrl+c", "q":
-			m.quitting = true
-			return m, tea.Quit
-		case "enter":
-			if item, ok := m.list.SelectedItem().(upnpItem); ok {
-				switch item.item.Type {
-				case TypeContainer:
-					// Navigate into container
-					m.breadcrumbs = append(m.breadcrumbs, breadcrumb{
-						title: item.item.Title,
-						path:  item.item.Path,
-					})
-					m.loading = true
-					return m, m.browseContainer(item.item.Path)
-				case TypeAudio:
-					// Play the track
-					return m, m.playTrack(&item.item)
-				default:
-					// Try to browse it (might be a server)
-					m.breadcrumbs = append(m.breadcrumbs, breadcrumb{
-						title: item.item.Title,
-						path:  item.item.Path,
-					})
-					m.loading = true
-					return m, m.browseContainer(item.item.Path)
-				}
-			}
-		case "backspace", "esc", "h", "left":
-			// Go back
-			if len(m.breadcrumbs) > 1 {
-				m.breadcrumbs = m.breadcrumbs[:len(m.breadcrumbs)-1]
-				current := m.breadcrumbs[len(m.breadcrumbs)-1]
-				m.loading = true
-				return m, m.browseContainer(current.path)
-			}
-		case "p":
-			// Play all tracks in current container
-			if len(m.items) > 0 {
-				return m, m.playAll()
-			}
-		case "r":
-			// Refresh current view
-			if len(m.breadcrumbs) > 0 {
-				current := m.breadcrumbs[len(m.breadcrumbs)-1]
-				m.loading = true
-				return m, m.browseContainer(current.path)
-			}
-		case "a":
-			// Add selected track to queue
-			if i, ok := m.list.SelectedItem().(upnpItem); ok {
-				if i.item.Type == TypeAudio {
-					return m, m.addToQueue(&i.item)
-				}
-			}
-		case "A":
-			// Add all audio tracks to queue
-			return m, m.addAllToQueue()
+	case tea.KeyPressMsg:
+		if command, handled := m.handleUPnPKey(msg); handled {
+			return m, command
 		}
 
 	case tea.WindowSizeMsg:
@@ -262,9 +199,58 @@ func (m upnpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m upnpModel) View() string {
+func (m *upnpModel) handleUPnPKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
+	if m.list.FilterState() == list.Filtering {
+		var command tea.Cmd
+		m.list, command = m.list.Update(msg)
+		return command, true
+	}
+	switch msg.String() {
+	case "ctrl+c", "q":
+		m.quitting = true
+		return tea.Quit, true
+	case "enter":
+		if item, ok := m.list.SelectedItem().(upnpItem); ok {
+			if item.item.Type == TypeAudio {
+				return m.playTrack(&item.item), true
+			}
+			m.breadcrumbs = append(m.breadcrumbs, breadcrumb{
+				title: item.item.Title,
+				path:  item.item.Path,
+			})
+			m.loading = true
+			return m.browseContainer(item.item.Path), true
+		}
+	case "backspace", "esc", "h", "left":
+		if len(m.breadcrumbs) > 1 {
+			m.breadcrumbs = m.breadcrumbs[:len(m.breadcrumbs)-1]
+			current := m.breadcrumbs[len(m.breadcrumbs)-1]
+			m.loading = true
+			return m.browseContainer(current.path), true
+		}
+	case "p":
+		if len(m.items) > 0 {
+			return m.playAll(), true
+		}
+	case "r":
+		if len(m.breadcrumbs) > 0 {
+			current := m.breadcrumbs[len(m.breadcrumbs)-1]
+			m.loading = true
+			return m.browseContainer(current.path), true
+		}
+	case "a":
+		if item, ok := m.list.SelectedItem().(upnpItem); ok && item.item.Type == TypeAudio {
+			return m.addToQueue(&item.item), true
+		}
+	case "A":
+		return m.addAllToQueue(), true
+	}
+	return nil, false
+}
+
+func (m upnpModel) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.View{AltScreen: true}
 	}
 
 	var b strings.Builder
@@ -299,7 +285,9 @@ func (m upnpModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(upnpStatusStyle.Render(status))
 
-	return b.String()
+	view := tea.NewView(b.String())
+	view.AltScreen = true
+	return view
 }
 
 // Command functions.
@@ -407,7 +395,7 @@ Keyboard shortcuts:
 		client := kefw2.NewAirableClient(currentSpeaker)
 		model := initialUpnpModel(client)
 
-		p := tea.NewProgram(model, tea.WithAltScreen())
+		p := tea.NewProgram(model)
 		_, err := p.Run()
 		exitOnError(err, "Error running media browser")
 	},
@@ -415,7 +403,7 @@ Keyboard shortcuts:
 
 // upnpBrowseCmd browses a specific path.
 var upnpBrowseCmd = &cobra.Command{
-	Use:   "browse [path]",
+	Use:   browsePathUsage,
 	Short: "Browse a media server path with interactive picker",
 	Long: `Browse a specific path on a media server with an interactive picker.
 If no path is provided and a default server is configured, browses the default server.
@@ -458,7 +446,7 @@ You can navigate into folders and play tracks directly from the picker.`,
 				title = viper.GetString("upnp.default_server")
 			} else {
 				resp, err = client.GetMediaServers()
-				title = "Media Servers"
+				title = mediaServersTitle
 			}
 		}
 

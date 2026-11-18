@@ -97,7 +97,7 @@ Examples:
 
 // upnpServerListCmd lists available servers.
 var upnpServerListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   commandList,
 	Short: "List available UPnP media servers",
 	Long:  `List all UPnP/DLNA media servers available on the network.`,
 	Run: func(_ *cobra.Command, _ []string) {
@@ -164,7 +164,7 @@ var upnpContainerConfigCmd = &cobra.Command{
 
 // upnpContainerBrowseCmd shows or sets the browse container path.
 var upnpContainerBrowseCmd = &cobra.Command{
-	Use:   "browse [path]",
+	Use:   browsePathUsage,
 	Short: "Show or set the container path for browsing",
 	Long: `Show the current container path for browsing, or set a new one.
 
@@ -183,49 +183,7 @@ Examples:
   kefw2 config upnp container browse "Music/Hilli's Music"     # Start from specific folder
   kefw2 config upnp container browse ""                        # Clear (show all servers)`,
 	Run: func(_ *cobra.Command, args []string) {
-		if len(args) == 0 {
-			// Show current setting
-			containerPath := viper.GetString("upnp.browse_container")
-			if containerPath == "" {
-				contentPrinter.Println("No browse container configured (will show all servers).")
-				contentPrinter.Println("Use 'kefw2 config upnp container browse <path>' to set one.")
-				return
-			}
-			headerPrinter.Print("Browse container: ")
-			contentPrinter.Println(containerPath)
-			return
-		}
-
-		// Set new container path
-		containerPath := args[0]
-
-		// If a path is provided, validate it exists
-		if containerPath != "" {
-			serverPath := viper.GetString("upnp.default_server_path")
-			if serverPath == "" {
-				exitWithError("No default UPnP server configured. Set one first with: kefw2 config upnp server default <name>")
-			}
-
-			client := kefw2.NewAirableClient(currentSpeaker)
-			_, resolvedName, err := kefw2.FindContainerByPath(client, serverPath, containerPath)
-			if err != nil {
-				exitWithError("Invalid container path: %v", err)
-			}
-			// Use the resolved path (with proper casing)
-			containerPath = resolvedName
-		}
-
-		// Save to config
-		viper.Set("upnp.browse_container", containerPath)
-		err := saveConfig()
-		exitOnError(err, "Error saving config")
-
-		if containerPath == "" {
-			taskConpletedPrinter.Println("Browse container cleared (will show all servers)")
-		} else {
-			taskConpletedPrinter.Print("Browse container set: ")
-			contentPrinter.Println(containerPath)
-		}
+		configureUPnPContainer(args, "upnp.browse_container", "Browse", "show all servers")
 	},
 	ValidArgsFunction: UPnPContainerCompletion,
 }
@@ -251,51 +209,46 @@ Examples:
   kefw2 config upnp container index "Music/Hilli's Music/By Folder"  # Index by folder (recommended)
   kefw2 config upnp container index ""                               # Clear (index entire server)`,
 	Run: func(_ *cobra.Command, args []string) {
-		if len(args) == 0 {
-			// Show current setting
-			containerPath := viper.GetString("upnp.index_container")
-			if containerPath == "" {
-				contentPrinter.Println("No index container configured (will index entire server).")
-				contentPrinter.Println("Use 'kefw2 config upnp container index <path>' to set one.")
-				return
-			}
-			headerPrinter.Print("Index container: ")
-			contentPrinter.Println(containerPath)
-			return
-		}
-
-		// Set new container path
-		containerPath := args[0]
-
-		// If a path is provided, validate it exists
-		if containerPath != "" {
-			serverPath := viper.GetString("upnp.default_server_path")
-			if serverPath == "" {
-				exitWithError("No default UPnP server configured. Set one first with: kefw2 config upnp server default <name>")
-			}
-
-			client := kefw2.NewAirableClient(currentSpeaker)
-			_, resolvedName, err := kefw2.FindContainerByPath(client, serverPath, containerPath)
-			if err != nil {
-				exitWithError("Invalid container path: %v", err)
-			}
-			// Use the resolved path (with proper casing)
-			containerPath = resolvedName
-		}
-
-		// Save to config
-		viper.Set("upnp.index_container", containerPath)
-		err := saveConfig()
-		exitOnError(err, "Error saving config")
-
-		if containerPath == "" {
-			taskConpletedPrinter.Println("Index container cleared (will index entire server)")
-		} else {
-			taskConpletedPrinter.Print("Index container set: ")
-			contentPrinter.Println(containerPath)
-		}
+		configureUPnPContainer(args, "upnp.index_container", "Index", "index entire server")
 	},
 	ValidArgsFunction: UPnPContainerCompletion,
+}
+
+func configureUPnPContainer(args []string, key, label, defaultAction string) {
+	if len(args) == 0 {
+		containerPath := viper.GetString(key)
+		if containerPath == "" {
+			contentPrinter.Printf("No %s container configured (will %s).\n", strings.ToLower(label), defaultAction)
+			contentPrinter.Printf("Use 'kefw2 config upnp container %s <path>' to set one.\n", strings.ToLower(label))
+			return
+		}
+		headerPrinter.Printf("%s container: ", label)
+		contentPrinter.Println(containerPath)
+		return
+	}
+
+	containerPath := args[0]
+	if containerPath != "" {
+		serverPath := viper.GetString("upnp.default_server_path")
+		if serverPath == "" {
+			exitWithError("No default UPnP server configured. Set one first with: kefw2 config upnp server default <name>")
+		}
+		client := kefw2.NewAirableClient(currentSpeaker)
+		_, resolvedName, err := kefw2.FindContainerByPath(client, serverPath, containerPath)
+		if err != nil {
+			exitWithError("Invalid container path: %v", err)
+		}
+		containerPath = resolvedName
+	}
+
+	viper.Set(key, containerPath)
+	exitOnError(saveConfig(), "Error saving config")
+	if containerPath == "" {
+		taskConpletedPrinter.Printf("%s container cleared (will %s)\n", label, defaultAction)
+	} else {
+		taskConpletedPrinter.Printf("%s container set: ", label)
+		contentPrinter.Println(containerPath)
+	}
 }
 
 // UPnPContainerCompletion provides tab completion for container paths.

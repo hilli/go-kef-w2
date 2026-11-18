@@ -25,10 +25,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/hilli/go-kef-w2/kefw2"
@@ -102,7 +102,7 @@ func initialRadioModel(client *kefw2.AirableClient) radioModel {
 	ti.Placeholder = "Search radio stations..."
 	ti.Focus()
 	ti.CharLimit = 100
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	// Create delegate for list items
 	delegate := list.NewDefaultDelegate()
@@ -119,7 +119,7 @@ func initialRadioModel(client *kefw2.AirableClient) radioModel {
 		client:      client,
 		searchInput: ti,
 		list:        l,
-		mode:        "search",
+		mode:        modeSearch,
 	}
 }
 
@@ -131,76 +131,9 @@ func (m radioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case KeyCtrlC, "q":
-			if !m.searchInput.Focused() || msg.String() == KeyCtrlC {
-				m.quitting = true
-				return m, tea.Quit
-			}
-		case KeyEnter:
-			if m.searchInput.Focused() && m.searchInput.Value() != "" {
-				m.loading = true
-				m.searching = true
-				query := m.searchInput.Value()
-				return m, tea.Batch(
-					m.searchRadio(query),
-				)
-			} else if !m.searchInput.Focused() {
-				// Play selected station
-				if item, ok := m.list.SelectedItem().(radioItem); ok {
-					return m, m.playStation(&item.station)
-				}
-			}
-		case "tab":
-			// Toggle between search input and list
-			if m.searchInput.Focused() {
-				m.searchInput.Blur()
-			} else {
-				m.searchInput.Focus()
-			}
-		case KeyEsc:
-			if m.searchInput.Focused() {
-				m.searchInput.Blur()
-			} else {
-				m.searchInput.Focus()
-			}
-		case "f":
-			if !m.searchInput.Focused() {
-				m.mode = ModeFavorites
-				m.loading = true
-				return m, m.loadFavorites()
-			}
-		case "p":
-			if !m.searchInput.Focused() {
-				m.mode = ModePopular
-				m.loading = true
-				return m, m.loadPopular()
-			}
-		case "l":
-			if !m.searchInput.Focused() {
-				m.mode = "local"
-				m.loading = true
-				return m, m.loadLocal()
-			}
-		case "t":
-			if !m.searchInput.Focused() {
-				m.mode = ModeTrending
-				m.loading = true
-				return m, m.loadTrending()
-			}
-		case "h":
-			if !m.searchInput.Focused() {
-				m.mode = "hq"
-				m.loading = true
-				return m, m.loadHQ()
-			}
-		case "n":
-			if !m.searchInput.Focused() {
-				m.mode = "new"
-				m.loading = true
-				return m, m.loadNew()
-			}
+	case tea.KeyPressMsg:
+		if command, handled := m.handleRadioKey(msg); handled {
+			return m, command
 		}
 
 	case tea.WindowSizeMsg:
@@ -256,9 +189,71 @@ func (m radioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m radioModel) View() string {
+func (m *radioModel) handleRadioKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
+	switch msg.String() {
+	case KeyCtrlC, "q":
+		if !m.searchInput.Focused() || msg.String() == KeyCtrlC {
+			m.quitting = true
+			return tea.Quit, true
+		}
+	case KeyEnter:
+		return m.handleRadioEnter()
+	case "tab", KeyEsc:
+		if m.searchInput.Focused() {
+			m.searchInput.Blur()
+		} else {
+			m.searchInput.Focus()
+		}
+	default:
+		return m.handleRadioShortcut(msg.String())
+	}
+	return nil, false
+}
+
+func (m *radioModel) handleRadioEnter() (tea.Cmd, bool) {
+	if m.searchInput.Focused() {
+		if m.searchInput.Value() != "" {
+			m.loading, m.searching = true, true
+			return tea.Batch(m.searchRadio(m.searchInput.Value())), true
+		}
+		return nil, false
+	}
+	if item, ok := m.list.SelectedItem().(radioItem); ok {
+		return m.playStation(&item.station), true
+	}
+	return nil, false
+}
+
+func (m *radioModel) handleRadioShortcut(key string) (tea.Cmd, bool) {
+	if m.searchInput.Focused() {
+		return nil, false
+	}
+	switch key {
+	case "f":
+		m.mode, m.loading = ModeFavorites, true
+		return m.loadFavorites(), true
+	case "p":
+		m.mode, m.loading = ModePopular, true
+		return m.loadPopular(), true
+	case "l":
+		m.mode, m.loading = "local", true
+		return m.loadLocal(), true
+	case "t":
+		m.mode, m.loading = ModeTrending, true
+		return m.loadTrending(), true
+	case "h":
+		m.mode, m.loading = "hq", true
+		return m.loadHQ(), true
+	case "n":
+		m.mode, m.loading = "new", true
+		return m.loadNew(), true
+	}
+	return nil, false
+}
+
+func (m radioModel) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.View{AltScreen: true}
 	}
 
 	var b strings.Builder
@@ -295,7 +290,9 @@ func (m radioModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(radioStatusStyle.Render(status))
 
-	return b.String()
+	view := tea.NewView(b.String())
+	view.AltScreen = true
+	return view
 }
 
 // Command functions for async operations.
@@ -433,7 +430,7 @@ Keyboard shortcuts:
 		client := kefw2.NewAirableClient(currentSpeaker)
 		model := initialRadioModel(client)
 
-		p := tea.NewProgram(model, tea.WithAltScreen())
+		p := tea.NewProgram(model)
 		_, err := p.Run()
 		exitOnError(err, "Error running radio browser")
 	},
@@ -485,7 +482,7 @@ Use --json to return a page of results without changing playback.`,
 // radioFavoritesCmd lists favorite stations.
 var radioFavoritesCmd = &cobra.Command{
 	Use:               "favorites [station]",
-	Aliases:           []string{"fav"},
+	Aliases:           []string{favoriteAlias},
 	Short:             "Browse and play favorite radio stations",
 	ValidArgsFunction: RadioFavoritesCompletion,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -700,7 +697,7 @@ var radioNewCmd = MakeCategoryCommand(CategoryConfig{
 
 // radioBrowseCmd browses radio categories with hierarchical path completion.
 var radioBrowseCmd = &cobra.Command{
-	Use:   "browse [path]",
+	Use:   browsePathUsage,
 	Short: "Browse radio categories with tab completion",
 	Long: `Browse radio categories and stations with hierarchical tab completion.
 

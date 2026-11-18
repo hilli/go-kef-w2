@@ -178,6 +178,46 @@ func TestAirableClient_PlayItemLogging(t *testing.T) {
 	}
 }
 
+func TestAirableClient_PlayItemMediaData(t *testing.T) {
+	received := make(chan *MediaData, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			Path  string `json:"path"`
+			Value struct {
+				MediaRoles ContentItem `json:"mediaRoles"`
+			} `json:"value"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Error(err)
+		}
+		if payload.Path == "player:player/control" {
+			received <- payload.Value.MediaRoles.MediaData
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	expected := &MediaData{
+		MetaData: MediaMetaData{
+			ServiceID: "radio", Live: true, ContentPlayContextPath: "context",
+			PrePlayPath: "prepare", MaximumRetryCount: 3, PlaybackStateChangePath: "state", RadioStation: true,
+		},
+		Resources: []MediaResource{{URI: "https://example.test/stream", MimeType: "audio/mpeg",
+			BitRate: 128, Codec: "mp3", Duration: 5000}},
+	}
+	client := NewAirableClient(&KEFSpeaker{IPAddress: strings.TrimPrefix(server.URL, "http://")})
+	if err := client.playItem(&ContentItem{Title: "Station", Path: "station", MediaData: expected}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case actual := <-received:
+		if !reflect.DeepEqual(actual, expected) {
+			t.Fatalf("playback media data = %+v, want %+v", actual, expected)
+		}
+	default:
+		t.Fatal("no playback request received")
+	}
+}
+
 func TestAirableClient_GetRows(t *testing.T) {
 	// Mock server to simulate the API
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

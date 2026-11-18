@@ -117,7 +117,7 @@ func DefaultQueueCallbacks(client *kefw2.AirableClient) ContentPickerCallbacks {
 
 // queueListCmd lists queue items non-interactively.
 var queueListCmd = &cobra.Command{
-	Use:     "list",
+	Use:     commandList,
 	Aliases: []string{"ls", "show"},
 	Short:   "List queue items",
 	Long:    `List all tracks in the current play queue without an interactive picker.`,

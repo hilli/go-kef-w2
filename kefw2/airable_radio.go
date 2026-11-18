@@ -182,7 +182,7 @@ func isPlayableRadioStation(station *ContentItem) bool {
 	if station == nil {
 		return false
 	}
-	if station.MediaData != nil && len(station.MediaData.Resources) > 0 {
+	if hasRadioResources(station) {
 		return true
 	}
 	return station.Path != "" && station.AudioType == audioTypeBroadcast &&
@@ -252,7 +252,7 @@ func (a *AirableClient) ResolveAndPlayRadioStation(station *ContentItem) error {
 		}
 
 		// Check if the response has Roles with MediaData (this is the playable form)
-		if resp.Roles != nil && resp.Roles.MediaData != nil && len(resp.Roles.MediaData.Resources) > 0 {
+		if hasRadioResources(resp.Roles) {
 			return a.PlayRadioStation(resp.Roles)
 		}
 
@@ -262,7 +262,7 @@ func (a *AirableClient) ResolveAndPlayRadioStation(station *ContentItem) error {
 			item := &resp.Rows[i]
 
 			// If this item has MediaData, play it directly
-			if item.MediaData != nil && len(item.MediaData.Resources) > 0 {
+			if hasRadioResources(item) {
 				return a.PlayRadioStation(item)
 			}
 
@@ -301,6 +301,10 @@ func (a *AirableClient) ResolveAndPlayRadioStation(station *ContentItem) error {
 
 	// Fallback: try playing the original station directly
 	return a.PlayRadioStation(station)
+}
+
+func hasRadioResources(item *ContentItem) bool {
+	return item != nil && item.MediaData != nil && len(item.MediaData.Resources) > 0
 }
 
 // BrowseRadioByDisplayPath browses using a display path (title-based).

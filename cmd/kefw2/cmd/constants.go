@@ -22,10 +22,23 @@ const (
 
 // Mode constants for browser states.
 const (
-	ModeFavorites = "favorites"
-	ModePopular   = "popular"
-	ModeTrending  = "trending"
-	ModeQueue     = "queue"
+	ModeFavorites      = "favorites"
+	ModePopular        = "popular"
+	ModeTrending       = "trending"
+	ModeQueue          = "queue"
+	modeSearch         = "search"
+	podcastModeHistory = "history"
+)
+
+const (
+	commandStatus     = "status"
+	commandList       = "list"
+	browsePathUsage   = "browse [path]"
+	favoriteAlias     = "fav"
+	switchOff         = "off"
+	booleanTrue       = "true"
+	booleanFalse      = "false"
+	mediaServersTitle = "Media Servers"
 )
 
 // Playback mode constants.

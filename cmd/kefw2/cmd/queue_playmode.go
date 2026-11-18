@@ -42,7 +42,7 @@ Examples:
   kefw2 queue shuffle on       # Enable shuffle
   kefw2 queue shuffle off      # Disable shuffle`,
 	Args:      cobra.MaximumNArgs(1),
-	ValidArgs: []string{"on", "off"},
+	ValidArgs: []string{"on", PlayModeOff},
 	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
@@ -55,7 +55,7 @@ Examples:
 			if enabled {
 				contentPrinter.Println("on")
 			} else {
-				contentPrinter.Println("off")
+				contentPrinter.Println(PlayModeOff)
 			}
 			return
 		}
@@ -64,9 +64,9 @@ Examples:
 		arg := strings.ToLower(args[0])
 		var enable bool
 		switch arg {
-		case "on", "true", "1", "yes":
+		case "on", booleanTrue, "1", "yes":
 			enable = true
-		case PlayModeOff, "false", "0", "no":
+		case PlayModeOff, booleanFalse, "0", "no":
 			enable = false
 		default:
 			exitWithError("Invalid value: %s (use 'on' or 'off')", args[0])
@@ -102,7 +102,7 @@ Examples:
   kefw2 queue repeat one      # Repeat current track
   kefw2 queue repeat all      # Repeat entire queue`,
 	Args:      cobra.MaximumNArgs(1),
-	ValidArgs: []string{"off", "one", "all"},
+	ValidArgs: []string{PlayModeOff, queueRepeatOne, queueRepeatAll},
 	Run: func(_ *cobra.Command, args []string) {
 		client := kefw2.NewAirableClient(currentSpeaker)
 
@@ -119,14 +119,14 @@ Examples:
 		// Set repeat mode
 		mode := strings.ToLower(args[0])
 		switch mode {
-		case "off", "one", "all":
+		case PlayModeOff, queueRepeatOne, queueRepeatAll:
 			// Valid modes
 		case "none":
-			mode = "off"
+			mode = PlayModeOff
 		case "track", "single":
-			mode = "one"
+			mode = queueRepeatOne
 		case "queue", "playlist":
-			mode = "all"
+			mode = queueRepeatAll
 		default:
 			exitWithError("Invalid mode: %s (use 'off', 'one', or 'all')", args[0])
 		}
@@ -141,7 +141,7 @@ Examples:
 // queueModeCmd shows the current play mode.
 var queueModeCmd = &cobra.Command{
 	Use:     "mode",
-	Aliases: []string{"status"},
+	Aliases: []string{commandStatus},
 	Short:   "Show current play mode (shuffle/repeat)",
 	Long:    `Show the current shuffle and repeat settings for queue playback.`,
 	Run: func(_ *cobra.Command, _ []string) {
@@ -156,7 +156,7 @@ var queueModeCmd = &cobra.Command{
 		if shuffleEnabled {
 			contentPrinter.Println("on")
 		} else {
-			contentPrinter.Println("off")
+			contentPrinter.Println(PlayModeOff)
 		}
 		headerPrinter.Print("  Repeat:    ")
 		contentPrinter.Println(repeatMode)

@@ -29,14 +29,14 @@ var serviceConfigs = map[AirableServiceType]serviceConfig{
 	ServiceRadio: {
 		entryPoint:  "ui:/airableradios",
 		urlPath:     "/airable/radios",
-		actionType:  "radio",
-		serviceName: "radio",
+		actionType:  radioActionType,
+		serviceName: serviceNameRadio,
 	},
 	ServicePodcast: {
 		entryPoint:  "airable:linkService_airable.feeds",
 		urlPath:     "/airable/feeds",
 		actionType:  "feed",
-		serviceName: "podcast",
+		serviceName: serviceNamePodcast,
 	},
 }
 
@@ -176,9 +176,9 @@ func (a *AirableClient) modifyFavorite(service AirableServiceType, item *Content
 	actionPath := fmt.Sprintf("airable:action:%s/actions/favorites/airable/%s/%s/%s", baseURL, config.actionType, itemID, action)
 
 	payload := map[string]interface{}{
-		"path":  actionPath,
-		"role":  "activate",
-		"value": true,
+		fieldPath:  actionPath,
+		fieldRole:  roleActivate,
+		fieldValue: true,
 	}
 
 	_, err = a.SetData(payload)
@@ -206,7 +206,7 @@ func extractItemID(id string) string {
 	// Split by "/" and find the last meaningful segment
 	parts := strings.Split(id, "/")
 	skipKeywords := map[string]bool{
-		"podcast": true, "feeds": true, "station": true, "radio": true, "radios": true,
+		serviceNamePodcast: true, "feeds": true, "station": true, serviceNameRadio: true, "radios": true,
 	}
 
 	for i := len(parts) - 1; i >= 0; i-- {
@@ -277,20 +277,20 @@ func (a *AirableClient) browseByDisplayPath(service AirableServiceType, displayP
 func buildMediaRoles(item *ContentItem) map[string]interface{} {
 	roles := map[string]interface{}{
 		"containerPlayable": item.ContainerPlayable,
-		"title":             item.Title,
-		"path":              item.Path,
-		"type":              item.Type,
+		fieldTitle:          item.Title,
+		fieldPath:           item.Path,
+		fieldType:           item.Type,
 	}
 
 	// Handle type-specific defaults
 	if item.Type == "" {
-		roles["type"] = "audio"
+		roles[fieldType] = ContentTypeAudio
 	}
 
 	if item.ContainerType != "" {
-		roles["containerType"] = item.ContainerType
+		roles[fieldContainerType] = item.ContainerType
 	} else {
-		roles["containerType"] = "none"
+		roles[fieldContainerType] = containerTypeNone
 	}
 
 	if item.AudioType != "" {
@@ -311,54 +311,7 @@ func buildMediaRoles(item *ContentItem) map[string]interface{} {
 
 	// Add media data if available
 	if item.MediaData != nil {
-		mediaData := map[string]interface{}{}
-
-		// Metadata
-		metaData := map[string]interface{}{
-			"serviceID": item.MediaData.MetaData.ServiceID,
-		}
-		if item.MediaData.MetaData.Live {
-			metaData["live"] = true
-		}
-		if item.MediaData.MetaData.ContentPlayContextPath != "" {
-			metaData["contentPlayContextPath"] = item.MediaData.MetaData.ContentPlayContextPath
-		}
-		if item.MediaData.MetaData.PrePlayPath != "" {
-			metaData["prePlayPath"] = item.MediaData.MetaData.PrePlayPath
-		}
-		if item.MediaData.MetaData.MaximumRetryCount > 0 {
-			metaData["maximumRetryCount"] = item.MediaData.MetaData.MaximumRetryCount
-		}
-		if item.MediaData.MetaData.PlaybackStateChangePath != "" {
-			metaData["playbackStateChangePath"] = item.MediaData.MetaData.PlaybackStateChangePath
-		}
-		if item.MediaData.MetaData.RadioStation {
-			metaData["radioStation"] = true
-		}
-		mediaData["metaData"] = metaData
-
-		// Resources
-		if len(item.MediaData.Resources) > 0 {
-			resources := make([]map[string]interface{}, len(item.MediaData.Resources))
-			for i, res := range item.MediaData.Resources {
-				resources[i] = map[string]interface{}{
-					"uri":      res.URI,
-					"mimeType": res.MimeType,
-				}
-				if res.BitRate > 0 {
-					resources[i]["bitRate"] = res.BitRate
-				}
-				if res.Codec != "" {
-					resources[i]["codec"] = res.Codec
-				}
-				if res.Duration > 0 {
-					resources[i]["duration"] = res.Duration
-				}
-			}
-			mediaData["resources"] = resources
-		}
-
-		roles["mediaData"] = mediaData
+		roles["mediaData"] = buildMediaDataRoles(item.MediaData)
 	}
 
 	// Add images if available
@@ -377,11 +330,56 @@ func buildMediaRoles(item *ContentItem) map[string]interface{} {
 	// Add context if available
 	if item.Context != nil {
 		roles["context"] = map[string]interface{}{
-			"path": item.Context.Path,
+			fieldPath: item.Context.Path,
 		}
 	}
 
 	return roles
+}
+
+func buildMediaDataRoles(data *MediaData) map[string]interface{} {
+	metaData := map[string]interface{}{
+		"serviceID": data.MetaData.ServiceID,
+	}
+	if data.MetaData.Live {
+		metaData["live"] = true
+	}
+	if data.MetaData.ContentPlayContextPath != "" {
+		metaData["contentPlayContextPath"] = data.MetaData.ContentPlayContextPath
+	}
+	if data.MetaData.PrePlayPath != "" {
+		metaData["prePlayPath"] = data.MetaData.PrePlayPath
+	}
+	if data.MetaData.MaximumRetryCount > 0 {
+		metaData["maximumRetryCount"] = data.MetaData.MaximumRetryCount
+	}
+	if data.MetaData.PlaybackStateChangePath != "" {
+		metaData["playbackStateChangePath"] = data.MetaData.PlaybackStateChangePath
+	}
+	if data.MetaData.RadioStation {
+		metaData["radioStation"] = true
+	}
+	mediaData := map[string]interface{}{fieldMetaData: metaData}
+	if len(data.Resources) > 0 {
+		resources := make([]map[string]interface{}, len(data.Resources))
+		for i, res := range data.Resources {
+			resources[i] = map[string]interface{}{
+				"uri":      res.URI,
+				"mimeType": res.MimeType,
+			}
+			if res.BitRate > 0 {
+				resources[i]["bitRate"] = res.BitRate
+			}
+			if res.Codec != "" {
+				resources[i]["codec"] = res.Codec
+			}
+			if res.Duration > 0 {
+				resources[i]["duration"] = res.Duration
+			}
+		}
+		mediaData["resources"] = resources
+	}
+	return mediaData
 }
 
 // playItem plays an item (radio station or podcast episode) using the player:player/control pattern.
@@ -394,16 +392,16 @@ func (a *AirableClient) playItem(item *ContentItem) error {
 	// Build the mediaRoles payload
 	mediaRoles := buildMediaRoles(item)
 
-	slog.Debug("playItem", "mediaRoles", mediaRoles)
+	slog.Debug("playItem", fieldMediaRoles, mediaRoles)
 
 	// Send play command
 	payload := map[string]interface{}{
-		"path": "player:player/control",
-		"role": "activate",
-		"value": map[string]interface{}{
-			"type":       "none",
-			"control":    "play",
-			"mediaRoles": mediaRoles,
+		fieldPath: pathPlayerControl,
+		fieldRole: roleActivate,
+		fieldValue: map[string]interface{}{
+			fieldType:       playbackTypeNone,
+			fieldControl:    controlPlay,
+			fieldMediaRoles: mediaRoles,
 		},
 	}
 

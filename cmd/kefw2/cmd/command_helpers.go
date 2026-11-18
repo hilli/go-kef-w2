@@ -261,48 +261,12 @@ func MakeCategoryCommand(cfg CategoryConfig) *cobra.Command {
 
 			// If an item name was provided, handle it directly
 			if len(args) > 0 && cfg.FindByName != nil {
-				itemName := args[0]
-				if len(args) > 1 {
-					itemName = args[0]
-					for i := 1; i < len(args); i++ {
-						itemName += " " + args[i]
-					}
-				}
-
+				itemName := strings.Join(args, " ")
 				item, found := cfg.FindByName(items, itemName)
 				if !found {
 					exitWithError("'%s' not found.", itemName)
 				}
-
-				if removeFav && cfg.RemoveFavorite != nil {
-					headerPrinter.Printf("Removing: %s\n", item.Title)
-					err := cfg.RemoveFavorite(client, item)
-					exitOnError(err, "Failed to remove favorite")
-					taskConpletedPrinter.Printf("Removed from favorites: %s\n", item.Title)
-					return
-				}
-
-				if saveFav && cfg.AddFavorite != nil {
-					headerPrinter.Printf("Saving: %s\n", item.Title)
-					err := cfg.AddFavorite(client, item)
-					exitOnError(err, "Failed to save favorite")
-					taskConpletedPrinter.Printf("Saved to favorites: %s\n", item.Title)
-					return
-				}
-
-				if addToQueue && cfg.AddToQueue != nil {
-					headerPrinter.Printf("Adding to queue: %s\n", item.Title)
-					err := cfg.AddToQueue(client, item)
-					exitOnError(err, "Failed to add to queue")
-					taskConpletedPrinter.Printf("Added to queue: %s\n", item.Title)
-					return
-				}
-
-				// Default: play
-				headerPrinter.Printf("Playing: %s\n", item.Title)
-				err := cfg.PlayItem(client, item)
-				exitOnError(err, "Failed to play")
-				taskConpletedPrinter.Printf("Now playing: %s\n", item.Title)
+				runNamedCategoryItem(cfg, client, item, removeFav, saveFav, addToQueue)
 				return
 			}
 
@@ -349,6 +313,32 @@ func MakeCategoryCommand(cfg CategoryConfig) *cobra.Command {
 	}
 
 	return cmd
+}
+
+func runNamedCategoryItem(
+	cfg CategoryConfig, client *kefw2.AirableClient, item *kefw2.ContentItem, removeFav, saveFav, addToQueue bool,
+) {
+	if removeFav && cfg.RemoveFavorite != nil {
+		headerPrinter.Printf("Removing: %s\n", item.Title)
+		exitOnError(cfg.RemoveFavorite(client, item), "Failed to remove favorite")
+		taskConpletedPrinter.Printf("Removed from favorites: %s\n", item.Title)
+		return
+	}
+	if saveFav && cfg.AddFavorite != nil {
+		headerPrinter.Printf("Saving: %s\n", item.Title)
+		exitOnError(cfg.AddFavorite(client, item), "Failed to save favorite")
+		taskConpletedPrinter.Printf("Saved to favorites: %s\n", item.Title)
+		return
+	}
+	if addToQueue && cfg.AddToQueue != nil {
+		headerPrinter.Printf("Adding to queue: %s\n", item.Title)
+		exitOnError(cfg.AddToQueue(client, item), "Failed to add to queue")
+		taskConpletedPrinter.Printf("Added to queue: %s\n", item.Title)
+		return
+	}
+	headerPrinter.Printf("Playing: %s\n", item.Title)
+	exitOnError(cfg.PlayItem(client, item), "Failed to play")
+	taskConpletedPrinter.Printf("Now playing: %s\n", item.Title)
 }
 
 // PodcastCategoryConfig holds configuration for creating podcast category commands.

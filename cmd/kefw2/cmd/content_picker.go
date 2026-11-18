@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 )
@@ -132,7 +132,7 @@ func NewContentPickerModel(cfg ContentPickerConfig) ContentPickerModel {
 	ti.Placeholder = "Type to filter..."
 	ti.Focus()
 	ti.CharLimit = 100
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	model := ContentPickerModel{
 		serviceType: cfg.ServiceType,
@@ -221,7 +221,7 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.filterInput.SetValue("")
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			m.quitting = true
@@ -253,122 +253,20 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-				selected := &m.filtered[m.cursor]
-
-				// Check if it's a navigable container
-				if !m.isItemPlayable(selected) {
-					// Navigate into container
-					m.loading = true
-					return m, m.navigateToContainer(selected)
-				}
-
-				// It's playable - perform the configured action
-				m.selected = selected
-
-				switch m.action {
-				case ActionPlay:
-					if m.callbacks.Play != nil {
-						err := m.callbacks.Play(m.selected)
-						if err != nil {
-							m.err = err
-						} else {
-							m.played = true
-						}
-					}
-				case ActionSaveFavorite:
-					if m.callbacks.SaveFavorite != nil {
-						err := m.callbacks.SaveFavorite(m.selected)
-						if err != nil {
-							m.err = err
-						} else {
-							m.saved = true
-						}
-					}
-				case ActionRemoveFavorite:
-					if m.callbacks.RemoveFavorite != nil {
-						err := m.callbacks.RemoveFavorite(m.selected)
-						if err != nil {
-							m.err = err
-						} else {
-							m.removed = true
-						}
-					}
-				case ActionAddToQueue:
-					if m.callbacks.AddToQueue != nil {
-						err := m.callbacks.AddToQueue(m.selected)
-						if err != nil {
-							m.err = err
-						} else {
-							m.queued = true
-						}
-					}
-				}
-				return m, tea.Quit
+			if command, handled := m.selectContentItem(); handled {
+				return m, command
 			}
 
 		case "ctrl+a":
-			// Add selected item to queue without exiting
-			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-				selected := &m.filtered[m.cursor]
-				if m.isItemPlayable(selected) {
-					// Single track
-					if m.callbacks.AddToQueue != nil {
-						err := m.callbacks.AddToQueue(selected)
-						if err != nil {
-							m.statusMsg = fmt.Sprintf("Error: %v", err)
-						} else {
-							m.statusMsg = fmt.Sprintf("Added to queue: %s", selected.Title)
-						}
-					}
-				} else {
-					// Container - add all tracks recursively
-					if m.callbacks.AddContainerToQueue != nil {
-						count, err := m.callbacks.AddContainerToQueue(selected)
-						if err != nil {
-							m.statusMsg = fmt.Sprintf("Error: %v", err)
-						} else {
-							m.statusMsg = fmt.Sprintf("Added %d tracks to queue from: %s", count, selected.Title)
-						}
-					}
-				}
-			}
+			m.addSelectionToQueue()
 			return m, nil
 
 		case "ctrl+d":
-			// Delete selected item from queue
-			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-				selected := &m.filtered[m.cursor]
-				if m.callbacks.DeleteFromQueue != nil {
-					err := m.callbacks.DeleteFromQueue(selected)
-					if err != nil {
-						m.statusMsg = fmt.Sprintf("Error: %v", err)
-					} else {
-						m.statusMsg = fmt.Sprintf("Deleted: %s", selected.Title)
-						// Remove from allItems and filtered
-						m.allItems = removeItem(m.allItems, selected)
-						m.filtered = removeItem(m.filtered, selected)
-						if m.cursor >= len(m.filtered) && m.cursor > 0 {
-							m.cursor--
-						}
-					}
-				}
-			}
+			m.deleteSelectionFromQueue()
 			return m, nil
 
 		case "ctrl+x":
-			// Clear entire queue
-			if m.callbacks.ClearQueue != nil {
-				err := m.callbacks.ClearQueue()
-				if err != nil {
-					m.statusMsg = fmt.Sprintf("Error: %v", err)
-				} else {
-					m.statusMsg = "Queue cleared"
-					m.allItems = nil
-					m.filtered = nil
-					m.cursor = 0
-				}
-			}
+			m.clearSelectionQueue()
 			return m, nil
 
 		default:
@@ -384,6 +282,106 @@ func (m ContentPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.filterInput, cmd = m.filterInput.Update(msg)
 	return m, cmd
+}
+
+func (m *ContentPickerModel) selectContentItem() (tea.Cmd, bool) {
+	if len(m.filtered) == 0 || m.cursor >= len(m.filtered) {
+		return nil, false
+	}
+	selected := &m.filtered[m.cursor]
+	if !m.isItemPlayable(selected) {
+		m.loading = true
+		return m.navigateToContainer(selected), true
+	}
+	m.selected = selected
+	m.performSelection()
+	return tea.Quit, true
+}
+
+func (m *ContentPickerModel) performSelection() {
+	var action func(*kefw2.ContentItem) error
+	switch m.action {
+	case ActionPlay:
+		action = m.callbacks.Play
+	case ActionSaveFavorite:
+		action = m.callbacks.SaveFavorite
+	case ActionRemoveFavorite:
+		action = m.callbacks.RemoveFavorite
+	case ActionAddToQueue:
+		action = m.callbacks.AddToQueue
+	}
+	if action == nil {
+		return
+	}
+	if err := action(m.selected); err != nil {
+		m.err = err
+		return
+	}
+	switch m.action {
+	case ActionPlay:
+		m.played = true
+	case ActionSaveFavorite:
+		m.saved = true
+	case ActionRemoveFavorite:
+		m.removed = true
+	case ActionAddToQueue:
+		m.queued = true
+	}
+}
+
+func (m *ContentPickerModel) addSelectionToQueue() {
+	if len(m.filtered) == 0 || m.cursor >= len(m.filtered) {
+		return
+	}
+	selected := &m.filtered[m.cursor]
+	if m.isItemPlayable(selected) {
+		if m.callbacks.AddToQueue != nil {
+			err := m.callbacks.AddToQueue(selected)
+			if err != nil {
+				m.statusMsg = fmt.Sprintf("Error: %v", err)
+			} else {
+				m.statusMsg = fmt.Sprintf("Added to queue: %s", selected.Title)
+			}
+		}
+	} else if m.callbacks.AddContainerToQueue != nil {
+		count, err := m.callbacks.AddContainerToQueue(selected)
+		if err != nil {
+			m.statusMsg = fmt.Sprintf("Error: %v", err)
+		} else {
+			m.statusMsg = fmt.Sprintf("Added %d tracks to queue from: %s", count, selected.Title)
+		}
+	}
+}
+
+func (m *ContentPickerModel) deleteSelectionFromQueue() {
+	if len(m.filtered) == 0 || m.cursor >= len(m.filtered) || m.callbacks.DeleteFromQueue == nil {
+		return
+	}
+	selected := &m.filtered[m.cursor]
+	if err := m.callbacks.DeleteFromQueue(selected); err != nil {
+		m.statusMsg = fmt.Sprintf("Error: %v", err)
+		return
+	}
+	m.statusMsg = fmt.Sprintf("Deleted: %s", selected.Title)
+	m.allItems = removeItem(m.allItems, selected)
+	m.filtered = removeItem(m.filtered, selected)
+	if m.cursor >= len(m.filtered) && m.cursor > 0 {
+		m.cursor--
+	}
+}
+
+func (m *ContentPickerModel) clearSelectionQueue() {
+	if m.callbacks.ClearQueue == nil {
+		return
+	}
+	if err := m.callbacks.ClearQueue(); err != nil {
+		m.statusMsg = fmt.Sprintf("Error: %v", err)
+		return
+	}
+	m.statusMsg = "Queue cleared"
+	m.allItems = nil
+	m.filtered = nil
+	m.cursor = 0
 }
 
 // removeItem removes an item from a slice by matching Path.
@@ -421,9 +419,9 @@ func (m *ContentPickerModel) applyFilter() {
 }
 
 // View implements tea.Model.
-func (m ContentPickerModel) View() string {
+func (m ContentPickerModel) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.NewView("")
 	}
 
 	var b strings.Builder
@@ -442,58 +440,10 @@ func (m ContentPickerModel) View() string {
 	if m.loading {
 		b.WriteString(m.styles.Status.Render("  Loading..."))
 		b.WriteString("\n")
-		return b.String()
+		return tea.NewView(b.String())
 	}
 
-	// Show filtered list (max visible items around cursor)
-	if len(m.filtered) == 0 {
-		b.WriteString(m.styles.Status.Render("  No matching items"))
-		b.WriteString("\n")
-	} else {
-		visibleStart := m.cursor - (maxVisibleItems / 2)
-		if visibleStart < 0 {
-			visibleStart = 0
-		}
-		visibleEnd := visibleStart + maxVisibleItems
-		if visibleEnd > len(m.filtered) {
-			visibleEnd = len(m.filtered)
-			visibleStart = visibleEnd - maxVisibleItems
-			if visibleStart < 0 {
-				visibleStart = 0
-			}
-		}
-
-		for i := visibleStart; i < visibleEnd; i++ {
-			item := m.filtered[i]
-			cursor := "  "
-			if m.cursor == i {
-				cursor = "> "
-			}
-
-			// Show "/" suffix for navigable containers
-			suffix := ""
-			if !m.isItemPlayable(&item) {
-				suffix = containerSuffix
-			}
-
-			line := item.Title + suffix
-			if item.LongDescription != "" && m.isItemPlayable(&item) {
-				// Truncate description if too long
-				desc := item.LongDescription
-				if len(desc) > 50 {
-					desc = desc[:47] + "..."
-				}
-				line = fmt.Sprintf("%s - %s", item.Title, desc)
-			}
-
-			if m.cursor == i {
-				b.WriteString(m.styles.Selected.Render(cursor + line))
-			} else {
-				b.WriteString(cursor + line)
-			}
-			b.WriteString("\n")
-		}
-	}
+	m.renderContentItems(&b)
 
 	// Error display
 	if m.err != nil {
@@ -532,7 +482,52 @@ func (m ContentPickerModel) View() string {
 	statusText := fmt.Sprintf("↑/↓/PgUp/PgDn: navigate | Type to filter | Enter: %s%s | Esc: quit", actionHint, extraHints)
 	b.WriteString(m.styles.Status.Render(statusText))
 
-	return b.String()
+	return tea.NewView(b.String())
+}
+
+func (m ContentPickerModel) renderContentItems(b *strings.Builder) {
+	if len(m.filtered) == 0 {
+		b.WriteString(m.styles.Status.Render("  No matching items"))
+		b.WriteString("\n")
+		return
+	}
+	visibleStart := m.cursor - (maxVisibleItems / 2)
+	if visibleStart < 0 {
+		visibleStart = 0
+	}
+	visibleEnd := visibleStart + maxVisibleItems
+	if visibleEnd > len(m.filtered) {
+		visibleEnd = len(m.filtered)
+		visibleStart = visibleEnd - maxVisibleItems
+		if visibleStart < 0 {
+			visibleStart = 0
+		}
+	}
+	for i := visibleStart; i < visibleEnd; i++ {
+		item := m.filtered[i]
+		cursor := "  "
+		if m.cursor == i {
+			cursor = "> "
+		}
+		suffix := ""
+		if !m.isItemPlayable(&item) {
+			suffix = containerSuffix
+		}
+		line := item.Title + suffix
+		if item.LongDescription != "" && m.isItemPlayable(&item) {
+			desc := item.LongDescription
+			if len(desc) > 50 {
+				desc = desc[:47] + "..."
+			}
+			line = fmt.Sprintf("%s - %s", item.Title, desc)
+		}
+		if m.cursor == i {
+			b.WriteString(m.styles.Selected.Render(cursor + line))
+		} else {
+			b.WriteString(cursor + line)
+		}
+		b.WriteString("\n")
+	}
 }
 
 // Result returns the picker result after the program has exited.
