@@ -1,8 +1,9 @@
-# Player concept 1: Listening Desk
+# Player design: Listening Desk and Discovery Browser
 
-**Recommendation:** the strongest default for `kefw2 player`. Sources, discovery,
-now playing, and the queue stay visible without making any one workflow dominate.
-This is a design proposal, not an implemented command.
+**Selected direction:** one `kefw2 player` with two user-selectable layouts.
+Listening Desk is the default; Discovery Browser is the search-first alternative.
+Both use the same player state, components, and controls. This is a design
+proposal, not an implemented command.
 
 ![Listening Desk, wide](../designs/player-listening-desk/wide.png)
 ![Listening Desk, compact](../designs/player-listening-desk/compact.png)
@@ -16,11 +17,44 @@ Radio does not imply the speaker has switched inputs: the dock continues to say,
 for example, `INPUT Optical / external audio` until a successful source change.
 Radio and Podcasts are content services within Wi-Fi, not physical inputs.
 
-This is the most balanced of the three proposals. It gives up the expansive
-search preview of Discovery Browser and the dense ordering tools of Queue Studio
-in exchange for lower learning cost and fewer mode switches.
+Listening Desk balances the main workflows for lower learning cost and fewer
+mode switches. Discovery Browser gives more space to search results and episode
+details, with the queue available on demand. Queue Studio is not included in the
+selected implementation scope.
 
-## Pane layout
+## Layout selection
+
+Proposed command interface:
+
+```sh
+kefw2 player                            # Listening Desk (default)
+kefw2 player --layout listening-desk     # Explicit default
+kefw2 player --layout discovery-browser # Search-first arrangement
+```
+
+Use a named `--layout` flag rather than a positional argument so its purpose is
+clear and other player options can coexist. Accept exactly `listening-desk` and
+`discovery-browser`, with shell completion for both. Reject an unknown value
+with a nonzero exit and an error listing the allowed values, before initializing
+the terminal UI or contacting a speaker. Reject positional arguments.
+
+The flag selects a starting pane arrangement, not a feature set or a separate
+player. Both layouts support source selection, radio/podcast search, queue
+ordering, now-playing status, volume, mouse, and full keyboard operation.
+Launching either layout must not itself change playback or speaker input.
+An in-app layout switcher is outside the initial scope; select at launch.
+
+Omitting the flag always selects Listening Desk, even if the previous session
+used Discovery Browser. Remember pane customizations separately under each
+layout ID; never let one layout's widths or order overwrite the other's.
+Reset restores only the active layout's built-in arrangement.
+
+The Discovery Browser [design and screenshots in PR #45](https://github.com/hilli/go-kef-w2/pull/45)
+provide its visual reference. The shared controls, state handling, and launch
+contract in this document take precedence over differences in the original
+standalone proposals.
+
+## Listening Desk arrangement
 
 At 120+ columns and 32+ rows, use three columns: Sources (24 cells), Discover
 (remaining width, minimum 42), Queue (32). Keep the transport and one-line
@@ -39,6 +73,25 @@ reach collapsed panes as overlays. Below 60x18, show an explicit size warning,
 but retain quit and mute. Short terminals reduce visible list rows before
 collapsing detail content. Enlarging restores the user's layout and selection.
 
+## Discovery Browser arrangement
+
+At 120+ columns and 32+ rows, show service/source navigation (22 cells), results
+(fill, minimum 38), and an inspector (40). Search stays above the pane tree;
+the same transport and volume dock remains below it. Selecting a result previews
+details without playing it. Enter on a podcast series opens its episodes; Enter
+on a playable episode or station activates it.
+
+Queue opens as a drawer with `Q` or its visible button and can dock in place of
+the inspector. It uses the same queue component, reorder controls, and conflict
+handling as Listening Desk. The inspector is not a second search engine: it
+reads the selected result from the shared discovery state.
+
+At 90-119 columns collapse navigation into a chooser. Below 90 columns, replace
+the inspector with a Details overlay (`i`) and give results the available width.
+The compact queue drawer retains a small input/volume status line. Apply the same
+60x18 minimum, keyboard-accessible collapsed panes, drag/resize/zoom semantics,
+and layout restoration rules as Listening Desk.
+
 ## Interaction contract
 
 | Action | Mouse | Keyboard |
@@ -47,6 +100,7 @@ collapsing detail content. Enlarging restores the user's layout and selection.
 | Navigate | Wheel; click row | Arrows or j/k; PageUp/PageDown; Home/End |
 | Activate | Click Play button; double-click result | Enter; podcast series opens episodes first |
 | Search | Click search field; choose Radio/Podcasts | `/`; Tab to service selector; Enter submits |
+| Queue / details | Click Queue / Details | `Q` focuses queue or toggles its drawer; `i` opens details |
 | Source | Select source, activate Switch | `s`, choose, Enter; Esc cancels |
 | Volume | Click/drag slider; wheel only over slider | `+`/`-` outside text input; slider Left/Right |
 | Mute | Click Mute | `m` outside text input |
@@ -62,6 +116,8 @@ never make a pane inaccessible. Text inputs receive printable keys, spaces, and
 cursor keys before application shortcuts. Modal focus is trapped and restored.
 When a slider has focus, Home/End select zero/the allowed maximum; Up/Down
 change by five points. No shortcut raises the speaker's configured maximum.
+Use these bindings in both layouts; queue reorder shortcuts apply only with
+queue focus. Layout selection must not introduce a second keymap.
 
 ## Volume slider: yes
 
@@ -82,10 +138,12 @@ when their required state is known.
 
 ## Data flow and implementation boundary
 
-Propose one new Cobra subcommand, `kefw2 player`, retaining existing speaker
-selection/configuration. Do not change `status watch` or its JSON contracts.
+Propose one new Cobra subcommand, `kefw2 player`, with the `--layout` contract
+above, retaining existing speaker selection/configuration. Do not change
+`status watch` or its JSON contracts.
 Production implementation must update the embedded
-`cmd/kefw2/cmd/skillassets/guide.md` when the command is actually added.
+`cmd/kefw2/cmd/skillassets/guide.md` with the command, layout values, default,
+and examples when the command is actually added.
 
 Use the existing Bubble Tea v2 stack. A pointer-owned player model owns
 `bloom.Root`, `bloom.Focus`, pane state and child Bubbles inputs/viewports.
@@ -94,6 +152,13 @@ focus scopes, modal layers and hit testing. **Docking, splitter state, slider,
 and queue drag/drop are application logic**, following Bloom's showcase; they
 are not a ready-made window manager. Stable pane/row IDs survive reordering.
 Pass messages to `ui.Update` and handle mouse actions only once.
+
+Keep one model/update loop, speaker adapter, event subscription, search state,
+queue state, transport, slider, and keymap. The two layout builders compose the
+same components with different slots, collapse priorities, and drawer/inspector
+placement. Do not duplicate network workers, playback logic, or queue mutation
+handlers per layout. Keep the two built-in arrangements explicit rather than
+introducing a plugin system or arbitrary layout-definition language.
 
 Reuse `KEFSpeaker.Source`, `SetSource`, `GetVolume`, `GetMaxVolume`, `SetVolume`,
 `Mute`/`Unmute`, and supported transport operations. Reuse the event invalidation
@@ -126,6 +191,8 @@ supported media. Unsupported physical inputs are omitted/disabled per model.
 
 Persist layout only in a proposed versioned
 `~/.config/kefw2/player-layout.yaml`, with atomic writes and visible save errors.
+Key saved arrangements by `listening-desk` and `discovery-browser`; load only the
+selected layout's pane state, without storing a last-used/default-layout override.
 Validate IDs and widths; offer Reset for invalid files instead of silently
 discarding them. Never persist search history or playback changes implicitly.
 
@@ -145,6 +212,14 @@ modal focus restoration; pane move/resize/cancel; reconnect without replayed
 mutations; and resize at 140x40, 100x30, 80x24 and below minimum. Use fake speaker
 adapters and Bloom's frame/click helpers; no live speaker required. Prove each
 behavioral test fails when that behavior is removed before accepting it.
+
+Run shared interaction and responsive-layout tests against both layout builders,
+including search and queue access when their panes are collapsed. Add command
+tests for omitted/explicit layout values, invalid values before terminal/network
+initialization, positional-argument rejection, and completion. Verify saved pane
+arrangements and Reset are isolated by layout ID, and that launching either
+layout issues no playback/source mutations. The default must remain Listening
+Desk after a prior Discovery Browser session.
 
 ## Visuals and references
 
