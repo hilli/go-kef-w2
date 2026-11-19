@@ -127,7 +127,7 @@ func (ui *playerLayoutUI) sourcesView(m *playerModel) bloom.Child {
 			selectedLine = len(children)
 		}
 		marker := " "
-		if index == selected && ui.pane == playerPaneSources {
+		if index == selected && ui.paneActive(playerPaneSources) {
 			marker = ">"
 		}
 		playing := " "
@@ -138,7 +138,7 @@ func (ui *playerLayoutUI) sourcesView(m *playerModel) bloom.Child {
 		if !item.enabled {
 			label += " -"
 		}
-		style := playerSelectionStyle(index == selected && ui.pane == playerPaneSources, true)
+		style := playerSelectionStyle(index == selected && ui.pane == playerPaneSources, ui.paneActive(playerPaneSources))
 		if !item.enabled || (item.service == "" && !ready) {
 			style = style.Foreground(playerMutedColor)
 		}

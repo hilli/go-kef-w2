@@ -147,7 +147,7 @@ func (ui *playerLayoutUI) discoveryView(m *playerModel) bloom.Child {
 			marker = "> "
 		}
 		node := bloom.Text(marker+watchText(item.Title)).
-			Style(playerSelectionStyle(index == p.selection, ui.pane == playerPaneDiscover)).
+			Style(playerSelectionStyle(index == p.selection, ui.paneActive(playerPaneDiscover))).
 			ID(fmt.Sprintf("discovery-row-%d", index)).Focusable().On(
 			on.Click(func() tea.Cmd {
 				ui.pane = playerPaneDiscover

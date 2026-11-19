@@ -774,8 +774,8 @@ func TestPlayerConfirmedControlReadbackDrivesStatus(t *testing.T) {
 	generation := m.generation
 	h.send(playerSourceRequest{generation: generation, source: kefw2.SourceWiFi})
 	call := h.call(t, "source")
-	pending := m.View().Content
-	if !strings.Contains(pending, "INPUT bluetooth | VOLUME 16 | MUTE false") ||
+	pending := ansi.Strip(m.View().Content)
+	if !strings.Contains(pending, "INPUT bluetooth") || !strings.Contains(pending, "VOL 16/40") ||
 		!strings.Contains(pending, "Pending:") {
 		t.Fatalf("pending source did not preserve confirmed status: %q", pending)
 	}
@@ -792,8 +792,8 @@ func TestPlayerConfirmedControlReadbackDrivesStatus(t *testing.T) {
 	h.send(playerVolumeTargetRequest{generation: generation, target: 17, release: true})
 	h.call(t, "volume").reply <- playerControlsUITestReply{confirmed: 17}
 	h.until(t, func() bool { return h.ui.State().volume == 17 && !h.ui.State().volumePending })
-	content := m.View().Content
-	for _, want := range []string{"INPUT wifi | VOLUME 17 | MUTE true", "Track: New track"} {
+	content := ansi.Strip(m.View().Content)
+	for _, want := range []string{"INPUT wifi", "VOL 17", "MUTED", "Track: New track"} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("confirmed control result %q not rendered without another event: %q", want, content)
 		}
@@ -804,11 +804,12 @@ func TestPlayerConfirmedControlReadbackDrivesStatus(t *testing.T) {
 	h.send(tea.WindowSizeMsg{Width: 140, Height: 40})
 	h.ui.suspend()
 	h.ui.reap()
-	if !strings.Contains(m.View().Content, "INPUT wifi | VOLUME 17 | MUTE true") {
+	content = ansi.Strip(m.View().Content)
+	if !strings.Contains(content, "INPUT wifi") || !strings.Contains(content, "VOL 17") || !strings.Contains(content, "MUTED") {
 		t.Fatal("latest confirmed status disappeared after the controls session stopped")
 	}
 	m.generation++
-	if strings.Contains(m.View().Content, "INPUT wifi | VOLUME 17") {
+	if strings.Contains(ansi.Strip(m.View().Content), "INPUT wifi") || strings.Contains(ansi.Strip(m.View().Content), "VOL 17") {
 		t.Fatal("display leaked the previous generation's control snapshot")
 	}
 }
@@ -932,6 +933,209 @@ func TestPlayerCompactDockShowsConfirmedPowerTrackAndProgress(t *testing.T) {
 	}
 }
 
+func TestPlayerBottomPanesSeparatePlaybackAndVolume(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		for _, size := range [][2]int{{60, 18}, {80, 24}, {140, 40}} {
+			t.Run(fmt.Sprintf("%s/%dx%d", layout, size[0], size[1]), func(t *testing.T) {
+				m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+				m.generation = 7
+				confirmed := playerControlsUITestSnapshot(28)
+				confirmed.Data.Playback.Track = &trackStatus{Title: "Current track", Artist: "Artist", Album: "Album"}
+				m.snapshot = &confirmed
+				maximum := 70
+				m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+				m.ui.controls = newPlayerControlsUI()
+				m.ui.controls.active = &playerControlsUISession{generation: 7}
+				m.ui.controls.state = playerControlsUIState{
+					ready: true, epoch: 42, confirmed: &confirmed, volume: 28, volumeKnown: true,
+					mutedKnown: true, maximum: &maximum,
+				}
+				m.addExtension(m.ui.extension())
+				m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+				view := m.View()
+				now, nowOK := m.ui.root.Frame().Rect("now-playing-pane")
+				volume, volumeOK := m.ui.root.Frame().Rect("volume-pane")
+				if !nowOK || !volumeOK || now.Max.X > volume.Min.X || now.Min.Y != volume.Min.Y ||
+					now.Max.Y != volume.Max.Y || now.Dy() < 6 {
+					t.Fatalf("bottom panes are not distinct side-by-side frames: now=%v volume=%v", now, volume)
+				}
+				for _, test := range []struct {
+					id   string
+					pane string
+				}{
+					{"title-now-playing", "now"}, {"previous", "now"}, {"play-pause", "now"},
+					{"transport-next", "now"}, {"seek-back", "now"}, {"seek-next", "now"},
+					{"title-volume", "volume"}, {"volume", "volume"}, {"mute", "volume"},
+				} {
+					rect, ok := m.ui.root.Frame().Rect(test.id)
+					parent := now
+					if test.pane == "volume" {
+						parent = volume
+					}
+					if !ok || rect.Dx() == 0 || rect.Dy() == 0 || !rect.In(parent) {
+						t.Errorf("%s is not fully visible in %s pane: %v", test.id, test.pane, rect)
+					}
+				}
+				content := ansi.Strip(view.Content)
+				for _, label := range []string{"NOW PLAYING", "VOLUME", "Track: Current track", "VOL 28/70"} {
+					if !strings.Contains(content, label) {
+						t.Errorf("bottom panes omitted %q:\n%s", label, content)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestPlayerBottomPaneFocusAndKeyboardVolume(t *testing.T) {
+	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+	m.generation = 7
+	m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+	m.ui.controls = newPlayerControlsUI()
+	m.ui.controls.state = playerControlsUIState{ready: true, epoch: 42}
+	m.addExtension(m.ui.extension())
+	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m.ui.searchActive = true
+	m.ui.search.Focus()
+	m.View()
+	click, ok := m.ui.root.Click("title-now-playing")
+	if !ok || len(playerLayoutTestMessages(click)) != 0 || !m.ui.focus.Is("play-pause") || m.ui.searchActive {
+		t.Fatal("clicking Now Playing did not focus its controls")
+	}
+	m.View()
+	if !playerSameColor(playerNodeCells(t, m, "title-now-playing")[0].Style.Fg, playerAccentColor) {
+		t.Fatal("the focused Now Playing pane was not highlighted")
+	}
+	m.ui.focus.Set("seek-next")
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if !m.ui.focus.Is("mute") {
+		t.Fatal("Tab did not move from playback controls to volume controls")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if !m.ui.focus.Is("volume") {
+		t.Fatal("Tab did not focus the volume slider")
+	}
+	m.View()
+	if !playerSameColor(playerNodeCells(t, m, "title-volume")[0].Style.Fg, playerAccentColor) ||
+		playerSameColor(playerNodeCells(t, m, "title-now-playing")[0].Style.Fg, playerAccentColor) ||
+		playerSameColor(playerNodeCells(t, m, "title-discover")[0].Style.Fg, playerAccentColor) {
+		t.Fatal("the focused volume pane was not uniquely highlighted")
+	}
+	volumePane, _ := m.ui.root.Frame().Rect("volume-pane")
+	line := strings.Split(m.View().Content, "\n")[volumePane.Min.Y]
+	if playerRenderedCells(line)[volumePane.Min.X].Content != "╔" {
+		t.Fatal("the focused volume pane did not receive the active border")
+	}
+	_, command := m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	messages := playerLayoutTestMessages(command)
+	if len(messages) != 1 {
+		t.Fatalf("focused slider emitted %d messages", len(messages))
+	}
+	scoped, ok := messages[0].(playerScopedMsg)
+	if !ok || scoped.generation != 7 {
+		t.Fatalf("volume action lost its speaker generation: %#v", messages[0])
+	}
+	request, ok := scoped.message.(playerVolumeKeyRequest)
+	if !ok || request.epoch != 42 || request.key != "right" {
+		t.Fatalf("volume action lost its readiness epoch or direction: %#v", scoped.message)
+	}
+}
+
+func TestPlayerBottomPanesDoNotShowPreviousSpeaker(t *testing.T) {
+	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+	m.generation = 8
+	current := playerControlsUITestSnapshot(16)
+	current.Data.Source = kefw2.SourceBluetooth
+	m.snapshot = &current
+	old := playerControlsUITestSnapshot(99)
+	old.Data.Muted = true
+	m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+	m.ui.controls = newPlayerControlsUI()
+	m.ui.controls.active = &playerControlsUISession{generation: 7}
+	m.ui.controls.state = playerControlsUIState{
+		ready: true, confirmed: &old, volume: 99, volumeKnown: true, muted: true, mutedKnown: true,
+	}
+	m.addExtension(m.ui.extension())
+	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	content := ansi.Strip(m.View().Content)
+	if !strings.Contains(content, "INPUT bluetooth") || !strings.Contains(content, "VOL 16") ||
+		strings.Contains(content, "VOL 99") || strings.Contains(content, "MUTED") {
+		t.Fatalf("previous speaker state leaked into the bottom panes:\n%s", content)
+	}
+}
+
+func TestPlayerBottomPanePrioritizesStaleStatus(t *testing.T) {
+	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+	snapshot := playerControlsUITestSnapshot(28)
+	snapshot.Data.Playback.Track = &trackStatus{Title: "Track", Artist: "Artist", Album: "Album"}
+	m.snapshot = &snapshot
+	m.readErr = errors.New("status unavailable")
+	m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+	m.ui.controls = newPlayerControlsUI()
+	m.addExtension(m.ui.extension())
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	content := ansi.Strip(m.View().Content)
+	if !strings.Contains(content, "STALE: status unavailable") {
+		t.Fatalf("stale speaker status was hidden at minimum size:\n%s", content)
+	}
+}
+
+func TestPlayerVolumePaneShowsFailuresAndActions(t *testing.T) {
+	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+	m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+	m.ui.controls = newPlayerControlsUI()
+	m.ui.controls.state = playerControlsUIState{
+		epoch: 42, volumeErr: errors.New("volume failed"), volumeCanRetry: true, maximumErr: errors.New("maximum failed"),
+	}
+	m.addExtension(m.ui.extension())
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	content := ansi.Strip(m.View().Content)
+	if !strings.Contains(content, "Volume error:") || !strings.Contains(content, "failed") ||
+		!strings.Contains(content, "Max unknown; no increase") {
+		t.Fatalf("volume failure was not visible: %s", content)
+	}
+	pane, _ := m.ui.root.Frame().Rect("volume-pane")
+	for _, id := range []string{"mute", "volume-retry", "volume-dismiss"} {
+		rect, ok := m.ui.root.Frame().Rect(id)
+		if !ok || rect.Dx() == 0 || !rect.In(pane) {
+			t.Errorf("%s was not visible in the volume pane: %v", id, rect)
+		}
+	}
+	m.ui.focus.Set("volume")
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if !m.ui.focus.Is("volume-retry") {
+		t.Fatal("Tab did not reach volume retry")
+	}
+	_, command := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	messages := playerLayoutTestMessages(command)
+	if len(messages) != 1 {
+		t.Fatalf("volume retry emitted %d messages", len(messages))
+	}
+	scoped, ok := messages[0].(playerScopedMsg)
+	if !ok {
+		t.Fatalf("retry was not scoped: %#v", messages[0])
+	}
+	if retry, ok := scoped.message.(playerVolumeRetryRequest); !ok || retry.epoch != 42 {
+		t.Fatalf("retry did not retain the readiness epoch: %#v", scoped.message)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if !m.ui.focus.Is("volume-dismiss") {
+		t.Fatal("Tab did not reach volume dismiss")
+	}
+	_, command = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	messages = playerLayoutTestMessages(command)
+	if len(messages) != 1 {
+		t.Fatalf("volume dismiss emitted %d messages", len(messages))
+	}
+	scoped, ok = messages[0].(playerScopedMsg)
+	if !ok {
+		t.Fatalf("dismiss was not scoped: %#v", messages[0])
+	}
+	if dismiss, ok := scoped.message.(playerVolumeDismissRequest); !ok || dismiss.epoch != 42 {
+		t.Fatalf("dismiss did not retain the readiness epoch: %#v", scoped.message)
+	}
+}
+
 func TestPlayerEventDisconnectWarningIsVisibleAndSanitized(t *testing.T) {
 	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
 	m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
@@ -944,12 +1148,12 @@ func TestPlayerEventDisconnectWarningIsVisibleAndSanitized(t *testing.T) {
 	}}}
 	m.eventErr = errors.New("connection lost\x1b]8;;https://example.invalid/untrusted\x1b\\link\x1b]8;;\x1b\\")
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	content := m.View().Content
-	if !strings.Contains(content, "Events disconnected; polling: connection lostlink") ||
+	content := ansi.Strip(m.View().Content)
+	if !strings.Contains(content, "Events disconnected; polling:") || !strings.Contains(content, "lostlink") ||
 		strings.Contains(content, "example.invalid/untrusted") {
-		t.Fatalf("event disconnect warning missing or unsafe: %q", content)
+		t.Fatalf("event disconnect warning missing or unsafe:\n%s", content)
 	}
-	if strings.Index(content, "Events disconnected; polling:") > strings.Index(content, "Playback:") {
+	if strings.Index(content, "Events disconnected; polling:") > strings.Index(content, "INPUT ") {
 		t.Fatal("event disconnect warning appeared after optional playback metadata")
 	}
 }
@@ -1012,6 +1216,8 @@ func TestPlayerVolumeSliderUsesVisibleTrackAndFlushesRelease(t *testing.T) {
 	m.ui.controls.state = playerControlsUIState{ready: true, epoch: 42, volume: 20, volumeKnown: true, maximum: &maximum}
 	m.addExtension(m.ui.extension())
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m.ui.searchActive = true
+	m.ui.search.Focus()
 	view := m.View()
 	rect, ok := m.ui.root.Frame().Rect("volume")
 	if !ok || rect.Dx() != 50 {
@@ -1020,6 +1226,9 @@ func TestPlayerVolumeSliderUsesVisibleTrackAndFlushesRelease(t *testing.T) {
 	press := tea.MouseClickMsg{X: rect.Min.X, Y: rect.Min.Y, Button: tea.MouseLeft}
 	initial := playerLayoutTestMessages(view.OnMouse(press))
 	m.Update(press)
+	if m.ui.searchActive || !m.ui.focus.Is("volume") {
+		t.Fatal("using the slider did not leave search mode and focus volume")
+	}
 	m.ui.controls.state.epoch = 43
 	release := tea.MouseReleaseMsg{X: rect.Max.X - 1, Y: rect.Min.Y, Button: tea.MouseLeft}
 	final := playerLayoutTestMessages(m.View().OnMouse(release))

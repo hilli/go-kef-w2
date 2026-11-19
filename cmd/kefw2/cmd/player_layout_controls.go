@@ -9,35 +9,85 @@ import (
 	"bloomfx.dev/bloom"
 	"bloomfx.dev/bloom/on"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 )
 
-//nolint:gocyclo // Builds independently conditional status and controls.
-func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height int) bloom.Child {
-	state := ui.controls.State()
-	generation := m.generation
-	epoch := state.epoch
-	var problems []string
-	if state.pending {
-		if len(status) > 0 {
-			status = append(status[:1], append([]string{"Pending: " + state.pendingAction}, status[1:]...)...)
-		} else {
-			status = append(status, "Pending: "+state.pendingAction)
-		}
+const (
+	playerBottomNowPlaying = "now-playing"
+	playerBottomVolume     = "volume"
+)
+
+func (ui *playerLayoutUI) bottomFocus() string {
+	id, _ := ui.focus.Current()
+	switch id {
+	case string(playerControlPrevious), "play-pause", "transport-next", "seek-back", "seek-next", "controls-dismiss":
+		return playerBottomNowPlaying
+	case "mute", "volume", "volume-retry", "volume-dismiss":
+		return playerBottomVolume
+	default:
+		return ""
 	}
+}
+
+func (ui *playerLayoutUI) focusBottom(id string) {
+	ui.search.Blur()
+	ui.searchActive = false
+	ui.focus.Set(id)
+}
+
+func (ui *playerLayoutUI) bottomTitle(pane, label, focus string) bloom.Child {
+	marker := "  "
+	style := playerHintStyle.Bold(true)
+	if ui.bottomFocus() == pane {
+		marker = "> "
+		style = style.Foreground(playerAccentColor)
+	}
+	return bloom.Text(marker + label).Style(style).Truncate().ID("title-" + pane).Focusable().On(
+		on.Click(func() tea.Cmd { ui.focusBottom(focus); return nil }),
+	)
+}
+
+func (ui *playerLayoutUI) bottomFrame(pane string, content bloom.Child) bloom.Child {
+	color := playerBorderColor
+	border := lipgloss.NormalBorder()
+	if ui.bottomFocus() == pane {
+		color = playerAccentColor
+		border = lipgloss.DoubleBorder()
+	}
+	return bloom.Box(lipgloss.NewStyle().Border(border).BorderForeground(color), content).ID(pane + "-pane")
+}
+
+func (ui *playerLayoutUI) controlsStateForView(m *playerModel) playerControlsUIState {
+	if ui.controls == nil {
+		return playerControlsUIState{}
+	}
+	if session := ui.controls.active; session != nil {
+		if session.generation != m.generation {
+			return playerControlsUIState{}
+		}
+	} else if ui.hasControlSession && ui.controlGeneration != m.generation {
+		return playerControlsUIState{}
+	}
+	return ui.controls.State()
+}
+
+func playerBottomVolumeWidth(width int) int {
+	return min(52, max(24, width/3+6))
+}
+
+func (ui *playerLayoutUI) transportStatus(m *playerModel, status []string, state playerControlsUIState) []string {
+	var problems []string
 	if state.err != nil {
 		problems = append(problems, "Control error: "+state.err.Error()+" (D dismiss)")
 	}
-	if state.volumeErr != nil {
-		problems = append(problems, "Volume error: "+state.volumeErr.Error()+" (R retry; D dismiss)")
-	}
-	if state.maximumErr != nil {
-		problems = append(problems, "Volume maximum unavailable; increases disabled")
-	}
 	if ui.controlReason != "" {
 		problems = append(problems, "Control unavailable: "+ui.controlReason)
+	}
+	if state.pending {
+		problems = append(problems, "Pending: "+state.pendingAction)
 	}
 	if len(status) > 0 && strings.HasPrefix(status[0], "UNCERTAIN") {
 		status = append(append([]string{status[0]}, problems...), status[1:]...)
@@ -46,7 +96,43 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 	}
 	for i := range status {
 		status[i] = watchText(status[i])
+		for _, prefix := range []string{
+			"UNCERTAIN", "STALE", "Events disconnected", "LAYOUT ERROR", "Control error", "Control unavailable",
+		} {
+			if strings.HasPrefix(status[i], prefix) {
+				status[i] = ansi.Wordwrap(status[i], max(1, m.width-playerBottomVolumeWidth(m.width)-2), "")
+				break
+			}
+		}
 	}
+	return status
+}
+
+func playerVolumeProblems(state playerControlsUIState, width int) []string {
+	var problems []string
+	if state.volumeErr != nil {
+		problems = append(problems, "Volume error: "+state.volumeErr.Error())
+	}
+	if state.maximumErr != nil {
+		problems = append(problems, "Max unknown; no increase")
+	}
+	for i := range problems {
+		problems[i] = ansi.Wordwrap(watchText(problems[i]), max(1, width), "")
+	}
+	return problems
+}
+
+func (ui *playerLayoutUI) transportView(m *playerModel, status []string, state playerControlsUIState) bloom.Child {
+	volumeWidth := playerBottomVolumeWidth(m.width)
+	if ui.controls == nil {
+		now := bloom.Column(bloom.Fixed(1, ui.bottomTitle(playerBottomNowPlaying, "NOW PLAYING", "play-pause")),
+			bloom.Fill(bloom.Text(strings.Join(status, "\n")).ID("transport")))
+		volume := bloom.Column(bloom.Fixed(1, ui.bottomTitle(playerBottomVolume, "VOLUME", "volume")),
+			bloom.Fill(bloom.Text("Volume unavailable")))
+		return bloom.Row(bloom.Fill(ui.bottomFrame(playerBottomNowPlaying, now)),
+			bloom.Fixed(volumeWidth, ui.bottomFrame(playerBottomVolume, volume)))
+	}
+	generation, epoch := m.generation, state.epoch
 	control := func(id, label string, message tea.Msg, action playerControlAction) bloom.Child {
 		reason := ""
 		if !state.ready || state.confirmed == nil {
@@ -62,6 +148,7 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 		}
 		return bloom.Fixed(ansi.StringWidth(label), bloom.Text(label).
 			Style(playerButtonStyle(ui.focus.Is(id), reason == "")).ID(id).Focusable().On(on.Click(func() tea.Cmd {
+			ui.focusBottom(id)
 			if reason != "" {
 				ui.controlReason = reason
 				return nil
@@ -69,47 +156,110 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 			return playerScopedCmd(generation, playerMessage(message))
 		})))
 	}
-	buttons := []bloom.Child{
-		control("previous", "[<<]", playerTransportRequest{generation: generation, epoch: epoch, action: playerControlPrevious}, playerControlPrevious),
-		control("play-pause", "[Play/Pause]", playerTransportRequest{generation: generation, epoch: epoch, action: playerControlPlayPause}, playerControlPlayPause),
+	button := func(id, label string, message tea.Msg) bloom.Child {
+		if ui.focus.Is(id) {
+			label = ">" + label
+		}
+		return bloom.Fixed(ansi.StringWidth(label), bloom.Text(label).
+			Style(playerButtonStyle(ui.focus.Is(id), true)).ID(id).Focusable().On(on.Click(func() tea.Cmd {
+			ui.focusBottom(id)
+			return playerScopedCmd(generation, playerMessage(message))
+		})))
+	}
+	playLabel, seekBack, seekNext := "[Play/Pause]", "[Seek-]", "[Seek+]"
+	if m.width-volumeWidth-2 < 35 {
+		playLabel = "[Play]"
+		seekBack, seekNext = "[<10s]", "[10s>]"
+	}
+	var playbackButtons []bloom.Child
+	if state.err != nil {
+		playbackButtons = append(playbackButtons, button("controls-dismiss", "[Dismiss]",
+			playerControlDismissErrorRequest{generation: generation, epoch: epoch}))
+	}
+	playbackButtons = append(playbackButtons,
+		control(string(playerControlPrevious), "[<<]", playerTransportRequest{generation: generation, epoch: epoch, action: playerControlPrevious}, playerControlPrevious),
+		control("play-pause", playLabel, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlPlayPause}, playerControlPlayPause),
 		control("transport-next", "[>>]", playerTransportRequest{generation: generation, epoch: epoch, action: playerControlNext}, playerControlNext),
-		control("mute", "[Mute]", playerMuteRequest{generation: generation, epoch: epoch}, playerControlMute),
-		control("seek-back", "[Seek-]", playerTransportRequest{generation: generation, epoch: epoch, action: playerControlSeekBackward}, playerControlSeekBackward),
-		control("seek-next", "[Seek+]", playerTransportRequest{generation: generation, epoch: epoch, action: playerControlSeekForward}, playerControlSeekForward),
-	}
-	var priority []bloom.Child
-	if state.volumeCanRetry {
-		priority = append(priority, bloom.Fixed(11, bloom.Text("[Retry vol]").ID("volume-retry").On(on.Click(func() tea.Cmd {
-			return playerScopedCmd(generation, playerMessage(playerVolumeRetryRequest{generation: generation, epoch: epoch}))
-		}))))
-	}
-	if state.volumeErr != nil || state.err != nil {
-		priority = append(priority, bloom.Fixed(9, bloom.Text("[Dismiss]").ID("controls-dismiss").On(on.Click(func() tea.Cmd {
-			return tea.Batch(
-				playerScopedCmd(generation, playerMessage(playerVolumeDismissRequest{generation: generation, epoch: epoch})),
-				playerScopedCmd(generation, playerMessage(playerControlDismissErrorRequest{generation: generation, epoch: epoch})),
-			)
-		}))))
-	}
-	buttons = append(priority, buttons...)
+		control("seek-back", seekBack, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlSeekBackward}, playerControlSeekBackward),
+		control("seek-next", seekNext, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlSeekForward}, playerControlSeekForward),
+	)
+	now := bloom.Column(bloom.Fixed(1, ui.bottomTitle(playerBottomNowPlaying, "NOW PLAYING", "play-pause")),
+		bloom.Fill(bloom.Text(strings.Join(status, "\n")).ID("transport")),
+		bloom.Fixed(1, bloom.Row(playbackButtons...)))
+	volume := ui.volumeView(m, state, volumeWidth, control, button)
+	return bloom.Row(bloom.Fill(ui.bottomFrame(playerBottomNowPlaying, now)),
+		bloom.Fixed(volumeWidth, ui.bottomFrame(playerBottomVolume, volume)))
+}
+
+func (ui *playerLayoutUI) volumeView(
+	m *playerModel, state playerControlsUIState, paneWidth int,
+	control func(string, string, tea.Msg, playerControlAction) bloom.Child,
+	button func(string, string, tea.Msg) bloom.Child,
+) bloom.Child {
+	generation, epoch := m.generation, state.epoch
 	value := state.volume
+	known := state.volumeKnown
+	snapshot := ui.confirmedSnapshot(m)
+	if !known && snapshot != nil {
+		value, known = snapshot.Data.Volume, true
+	}
 	if state.volumePending {
 		value = state.sliderTarget
 	}
-	maximum := state.volume
+	maximum := value
 	if state.maximum != nil {
 		maximum = min(100, max(0, *state.maximum))
 	}
-	width := max(1, min(50, m.width-26))
+	width := max(1, min(50, paneWidth-2))
 	filled := 0
 	if maximum > 0 {
 		filled = max(0, min(width, value*width/maximum))
 	}
+	track := ui.volumeSlider(m, state, width, filled)
 	marker := " "
 	if ui.focus.Is("volume") {
 		marker = ">"
 	}
-	track := bloom.Text(playerButtonStyle(false, state.ready).Render(strings.Repeat("=", filled))+
+	volume := marker + "VOL --"
+	if known {
+		confirmed := state.volume
+		if !state.volumeKnown {
+			confirmed = snapshot.Data.Volume
+		}
+		volume = fmt.Sprintf("%sVOL %d", marker, confirmed)
+	}
+	if state.maximum != nil {
+		volume += fmt.Sprintf("/%d", maximum)
+	}
+	if (snapshot != nil && snapshot.Data.Muted) || (snapshot == nil && state.mutedKnown && state.muted) {
+		volume += " MUTED"
+	}
+	if state.volumePending {
+		volume += fmt.Sprintf(" → %d", state.sliderTarget)
+	}
+	problems := playerVolumeProblems(state, paneWidth-2)
+	buttons := []bloom.Child{control("mute", "[Mute]",
+		playerMuteRequest{generation: generation, epoch: epoch}, playerControlMute)}
+	if state.volumeCanRetry {
+		buttons = append(buttons, button("volume-retry", "[Retry]",
+			playerVolumeRetryRequest{generation: generation, epoch: epoch}))
+	}
+	if state.volumeErr != nil {
+		buttons = append(buttons, button("volume-dismiss", "[Dismiss]",
+			playerVolumeDismissRequest{generation: generation, epoch: epoch}))
+	}
+	return bloom.Column(
+		bloom.Fixed(1, ui.bottomTitle(playerBottomVolume, "VOLUME", "volume")),
+		bloom.Fixed(1, bloom.Text(volume).Truncate()),
+		bloom.Fixed(1, track),
+		bloom.Fill(bloom.Text(strings.Join(problems, "\n"))),
+		bloom.Fixed(1, bloom.Row(buttons...)),
+	)
+}
+
+func (ui *playerLayoutUI) volumeSlider(m *playerModel, state playerControlsUIState, width, filled int) bloom.Child {
+	generation, epoch := m.generation, state.epoch
+	return bloom.Text(playerButtonStyle(false, state.ready).Render(strings.Repeat("=", filled))+
 		playerHintStyle.Render(strings.Repeat("-", width-filled))).
 		Style(playerSelectionStyle(ui.focus.Is("volume"), true)).
 		ID("volume").Focusable().On(
@@ -121,7 +271,7 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 				ui.sliderSuppressClick = false
 				return nil
 			}
-			ui.focus.Set("volume")
+			ui.focusBottom("volume")
 			return playerScopedCmd(generation, playerMessage(playerVolumeSliderRequest{
 				generation: generation, epoch: epoch, x: event.X, width: event.W, release: true,
 			}))
@@ -140,7 +290,7 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 			if !ui.sliderDragging {
 				ui.sliderEpoch = epoch
 			}
-			ui.focus.Set("volume")
+			ui.focusBottom("volume")
 			ui.sliderDragging = !event.Done
 			if event.Done {
 				ui.sliderSuppressClick = true
@@ -150,6 +300,7 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 			}))
 		}),
 		on.Scroll(func(_, dy int) tea.Cmd {
+			ui.focusBottom("volume")
 			key := "-"
 			if dy < 0 {
 				key = "+"
@@ -157,19 +308,6 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, height 
 			return playerScopedCmd(generation, playerMessage(playerVolumeKeyRequest{generation: generation, epoch: epoch, key: key}))
 		}),
 	)
-	volume := marker + "VOL --"
-	if state.volumeKnown {
-		volume = fmt.Sprintf("%sVOL %d", marker, state.volume)
-	}
-	if state.volumePending {
-		volume += fmt.Sprintf(" → %d", state.sliderTarget)
-	}
-	if state.maximum != nil {
-		volume += fmt.Sprintf("/%d", maximum)
-	}
-	slider := bloom.Row(bloom.Fixed(ansi.StringWidth(volume)+1, bloom.Text(volume+" ")), bloom.Fixed(width, track), bloom.Space())
-	return bloom.Column(bloom.Fixed(max(1, height-2), bloom.Text(strings.Join(status, "\n"))),
-		bloom.Fixed(1, bloom.Row(buttons...)), bloom.Fixed(1, slider))
 }
 
 func (ui *playerLayoutUI) sourceChooser(m *playerModel) bloom.Child {

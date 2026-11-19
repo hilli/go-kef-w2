@@ -117,7 +117,7 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 				On(on.Drag(func(event on.Event) tea.Cmd {
 					return ui.queueRowDrag(m, state, index, event)
 				}))),
-			bloom.Fill(bloom.Text(title).Style(playerSelectionStyle(index == uiIndex, ui.pane == ModeQueue)).
+			bloom.Fill(bloom.Text(title).Style(playerSelectionStyle(index == uiIndex, ui.paneActive(ModeQueue))).
 				ID(fmt.Sprintf("queue-row-%d", index)).Focusable().On(
 				on.Click(func() tea.Cmd { ui.pane, ui.queueIndex = ModeQueue, index; return nil }),
 				on.DoubleClick(func() tea.Cmd {

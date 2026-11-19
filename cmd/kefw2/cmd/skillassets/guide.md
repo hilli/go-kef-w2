@@ -152,9 +152,11 @@ last confirmed state is marked stale. If the event stream disconnects, writes
 pause until a fresh status poll succeeds; unsent actions are discarded, and
 uncertain dispatched actions identify their original target.
 
-The dock shows confirmed power and the actual input, not the service being
-browsed. Radio and Podcasts are Wi-Fi services; browsing alone does not switch
-inputs. Search radio/podcasts, open a series to see episodes, or browse UPnP and enqueue
+The bottom row has separate Now Playing and Volume panes. Now Playing shows
+confirmed power, the actual input, playback details and transport controls;
+Volume contains the slider and mute control. Click a pane title or use Tab to
+focus its controls. Radio and Podcasts are Wi-Fi services; browsing alone does
+not switch inputs. Search radio/podcasts, open a series to see episodes, or browse UPnP and enqueue
 supported tracks. A selection previews; explicit playback can switch input or
 replace playback. Radio play requires confirmation and can replace the queue.
 Radio-play and queue-clear dialogs default to Cancel: Tab/Shift+Tab or left/right

@@ -115,20 +115,37 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 				source += " / external audio"
 			}
 		}
-		status = append(status, fmt.Sprintf("INPUT %s | VOLUME %d | MUTE %t",
-			source, snapshot.Data.Volume, snapshot.Data.Muted))
 		power := string(snapshot.Data.Power)
 		if power == "" {
 			power = "unknown"
 		}
-		status = append(status, "POWER "+power)
+		status = append(status, fmt.Sprintf("INPUT %s | POWER %s", source, power))
+		var playback, progress, track string
+		var metadata []string
 		for _, line := range appendWatchPlayback(nil, snapshot) {
-			if strings.HasPrefix(line, "Playback: ") || strings.HasPrefix(line, "Progress: ") {
-				status[1] += " | " + line
-			} else {
-				status = append(status, line)
+			switch {
+			case strings.HasPrefix(line, "Playback: "):
+				playback = line
+			case strings.HasPrefix(line, "Progress: "):
+				progress = line
+			case strings.HasPrefix(line, "Track: "):
+				track = line
+			default:
+				metadata = append(metadata, line)
 			}
 		}
+		if track != "" {
+			status = append(status, track)
+		}
+		switch {
+		case playback != "" && progress != "":
+			status = append(status, playback+" | "+progress)
+		case playback != "":
+			status = append(status, playback)
+		case progress != "":
+			status = append(status, progress)
+		}
+		status = append(status, metadata...)
 	} else {
 		status = append(status, "Waiting for speaker status")
 	}
@@ -137,7 +154,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		if !m.lastSuccess.IsZero() {
 			age = fmt.Sprintf(" (%s old)", time.Since(m.lastSuccess).Round(time.Second))
 		}
-		status = append(status, "STALE"+age+": "+m.readErr.Error())
+		status = append([]string{"STALE" + age + ": " + m.readErr.Error()}, status...)
 	}
 	if m.eventErr != nil {
 		status = append([]string{"Events disconnected; polling: " + m.eventErr.Error()}, status...)
@@ -158,29 +175,22 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 	for i := range status {
 		status[i] = watchText(status[i])
 	}
-	var dock bloom.Child = bloom.Text(strings.Join(status, "\n")).ID("transport")
-	dockHeight := min(len(status), max(1, m.height/3))
-	if ui.controls != nil {
-		state := ui.controls.State()
-		extra := 0
-		if state.pending {
-			extra++
-		}
-		if state.err != nil {
-			extra++
-		}
-		if state.volumeErr != nil {
-			extra++
-		}
-		if state.maximumErr != nil {
-			extra++
-		}
-		if ui.controlReason != "" {
-			extra++
-		}
-		dockHeight = min(len(status)+extra+2, max(3, m.height/3))
-		dock = ui.transportView(m, status, dockHeight)
+	state := ui.controlsStateForView(m)
+	dockStatus := ui.transportStatus(m, status, state)
+	statusRows := 0
+	for _, line := range dockStatus {
+		statusRows += strings.Count(line, "\n") + 1
 	}
+	volumeRows := 0
+	for _, line := range playerVolumeProblems(state, playerBottomVolumeWidth(m.width)-2) {
+		volumeRows += strings.Count(line, "\n") + 1
+	}
+	maxDockHeight := max(7, m.height/3)
+	if state.err != nil || state.volumeErr != nil || state.maximumErr != nil || ui.controlReason != "" {
+		maxDockHeight = max(maxDockHeight, m.height/2)
+	}
+	dockHeight := max(6, min(maxDockHeight, max(statusRows+2, volumeRows+4)+2))
+	dock := ui.transportView(m, dockStatus, state)
 	help := playerHint("Tab panes · / search · S speaker · s input · Q queue · p panes · ? help · q quit").
 		ID("help-open").Focusable().On(on.Click(func() tea.Cmd {
 		ui.cancelPointerInteractions()
@@ -372,7 +382,7 @@ func (ui *playerLayoutUI) panes(m *playerModel) bloom.Child {
 func (ui *playerLayoutUI) framedPane(m *playerModel, pane string) bloom.Child {
 	color := playerBorderColor
 	border := lipgloss.NormalBorder()
-	if ui.pane == pane {
+	if ui.paneActive(pane) {
 		color = playerAccentColor
 		border = lipgloss.DoubleBorder()
 	}

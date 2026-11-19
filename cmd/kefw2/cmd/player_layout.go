@@ -440,7 +440,18 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 			ids = append(ids, "service-radio", "service-podcast", "service-upnp")
 		}
 		if ui.controls != nil {
-			ids = append(ids, "previous", "play-pause", "transport-next", "mute", "seek-back", "seek-next", "volume")
+			ids = append(ids, string(playerControlPrevious), "play-pause", "transport-next", "seek-back", "seek-next")
+			state := ui.controls.State()
+			if state.err != nil {
+				ids = append(ids, "controls-dismiss")
+			}
+			ids = append(ids, "mute", "volume")
+			if state.volumeCanRetry {
+				ids = append(ids, "volume-retry")
+			}
+			if state.volumeErr != nil {
+				ids = append(ids, "volume-dismiss")
+			}
 		}
 		current, ok := ui.focus.Current()
 		if !ok {
@@ -582,7 +593,7 @@ func (ui *playerLayoutUI) controlsKey(m *playerModel, key tea.KeyPressMsg) bool 
 		case "source-open":
 			ui.openSource()
 			return true
-		case "previous":
+		case string(playerControlPrevious):
 			ui.sendTransport(generation, playerControlPrevious)
 			return true
 		case "play-pause":
@@ -601,6 +612,21 @@ func (ui *playerLayoutUI) controlsKey(m *playerModel, key tea.KeyPressMsg) bool 
 			return true
 		case "seek-next":
 			ui.sendTransport(generation, playerControlSeekForward)
+			return true
+		case "controls-dismiss":
+			if ui.controls.State().err != nil {
+				ui.sendScoped(generation, playerControlDismissErrorRequest{generation: generation, epoch: epoch})
+			}
+			return true
+		case "volume-retry":
+			if ui.controls.State().volumeCanRetry {
+				ui.sendScoped(generation, playerVolumeRetryRequest{generation: generation, epoch: epoch})
+			}
+			return true
+		case "volume-dismiss":
+			if ui.controls.State().volumeErr != nil {
+				ui.sendScoped(generation, playerVolumeDismissRequest{generation: generation, epoch: epoch})
+			}
 			return true
 		}
 	}
@@ -864,9 +890,13 @@ func (ui *playerLayoutUI) arrangementView() playerArrangement {
 	return ui.arrangement
 }
 
+func (ui *playerLayoutUI) paneActive(pane string) bool {
+	return ui.pane == pane && ui.bottomFocus() == ""
+}
+
 func (ui *playerLayoutUI) title(m *playerModel, pane string) bloom.Child {
 	marker := "  "
-	if ui.pane == pane {
+	if ui.paneActive(pane) {
 		marker = "> "
 	}
 	title := marker + strings.ToUpper(pane)
@@ -881,7 +911,7 @@ func (ui *playerLayoutUI) title(m *playerModel, pane string) bloom.Child {
 		title = marker + "[DROP] " + strings.ToUpper(pane) + " ::"
 	}
 	style := playerHintStyle.Bold(true)
-	if ui.pane == pane {
+	if ui.paneActive(pane) {
 		style = style.Foreground(playerAccentColor).Background(lipgloss.Color("#123447"))
 	}
 	node := bloom.Text(title).Style(style).Truncate().ID("title-"+pane).Focusable().On(

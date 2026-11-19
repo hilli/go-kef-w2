@@ -323,12 +323,18 @@ The player shows the speaker's confirmed power and actual input; the input is
 not the service being browsed. Radio and Podcasts are Wi-Fi services; browsing
 them does not switch inputs.
 The narrow Sources sidebar lists physical inputs, **Off / Standby**, and Wi-Fi
-browsing shortcuts. Click a row to select, then Enter or Open to activate
-(double-click also activates). `*` marks the confirmed input; Off puts only the
-selected speaker into standby. Unsupported inputs are dimmed and marked `-`.
+browsing shortcuts. Click an input to select it, then use Enter, Open or a
+double-click to activate it. A single click opens a Wi-Fi service. `*` marks
+the confirmed input; Off puts only the selected speaker into standby.
+Unsupported inputs are dimmed and marked `-`.
 Active panes use cyan double borders, selected rows have filled highlights,
 and keyboard hints are amber. Saved custom widths remain unchanged; `p`, then
 `R` restores the narrower default.
+
+The bottom row has separate **Now Playing** and **Volume** panes. Now Playing
+shows the actual input, playback details and transport controls; Volume holds
+the slider and mute control. Click a pane title or use Tab to focus its controls.
+
 Search stations or podcasts, open a series to browse episodes, or browse UPnP
 and add supported tracks to the active queue. Selecting a result previews it;
 playing a station or episode is explicit and can change playback. Radio play
