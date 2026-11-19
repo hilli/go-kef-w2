@@ -17,6 +17,7 @@ import (
 type playerDiscoveryServiceMsg struct {
 	generation uint64
 	service    playerDiscoveryService
+	browseRoot bool
 }
 type playerDiscoverySearchMsg struct {
 	generation uint64
@@ -223,7 +224,7 @@ func (ui *playerDiscoveryUI) update(m *playerModel, msg tea.Msg) (tea.Cmd, bool)
 	case playerSessionStartedMsg, playerSessionStoppedMsg, watchUpdate, playerSessionFailure:
 		return ui.updateSession(m, msg), false
 	case playerDiscoveryServiceMsg:
-		return ui.selectService(msg.service), true
+		return ui.selectService(msg.service, msg.browseRoot), true
 	case playerDiscoverySearchMsg:
 		return ui.search(msg.query), true
 	case playerDiscoveryPageMsg:
@@ -507,14 +508,14 @@ func (ui *playerDiscoveryUI) cancelRead() {
 	ui.readRequest = playerDiscoveryRequestID{}
 }
 
-func (ui *playerDiscoveryUI) selectService(service playerDiscoveryService) tea.Cmd {
+func (ui *playerDiscoveryUI) selectService(service playerDiscoveryService, browseRoot bool) tea.Cmd {
 	switch service {
 	case playerDiscoveryRadio, playerDiscoveryPodcast, playerDiscoveryUPnP:
 	default:
 		ui.reject("select service", fmt.Errorf("unsupported discovery service %q", service))
 		return nil
 	}
-	if ui.service == service {
+	if ui.service == service && !browseRoot {
 		return nil
 	}
 	ui.cancelRead()
@@ -523,7 +524,7 @@ func (ui *playerDiscoveryUI) selectService(service playerDiscoveryService) tea.C
 	ui.previousPages = nil
 	ui.lastRead = nil
 	ui.clearSelection()
-	if service == playerDiscoveryUPnP && ui.ready() {
+	if (browseRoot || service == playerDiscoveryUPnP) && ui.ready() {
 		return ui.load(playerDiscoveryUIReadRequest{
 			kind: playerDiscoveryBrowsePage, service: service, limit: playerDiscoveryDefaultPageSize,
 		})

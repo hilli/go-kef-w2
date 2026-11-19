@@ -66,8 +66,11 @@ func (ui *playerLayoutUI) activateSourceNav(
 	if item.service != "" {
 		ui.pane = playerPaneDiscover
 		ui.focus.Set(playerPaneDiscover)
+		ui.searchActive = false
+		ui.search.Blur()
+		ui.search.SetValue("")
 		return playerScopedCmd(generation, playerMessage(playerDiscoveryServiceMsg{
-			generation: generation, service: item.service,
+			generation: generation, service: item.service, browseRoot: true,
 		}))
 	}
 	if !ready || current == item.source {
@@ -147,6 +150,9 @@ func (ui *playerLayoutUI) sourcesView(m *playerModel) bloom.Child {
 			on.Click(func() tea.Cmd {
 				ui.pane, ui.sourceNavIndex = playerPaneSources, i
 				ui.focus.Set(playerPaneSources)
+				if item.service != "" {
+					return activate()
+				}
 				return nil
 			}),
 			on.DoubleClick(func() tea.Cmd {

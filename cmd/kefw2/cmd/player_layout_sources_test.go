@@ -81,7 +81,7 @@ func assertPlayerSourceNavActivation(t *testing.T, messages []tea.Msg, item play
 	}
 	if item.service != "" {
 		request, ok := scoped.message.(playerDiscoveryServiceMsg)
-		if !ok || request.generation != generation || request.service != item.service {
+		if !ok || request.generation != generation || request.service != item.service || !request.browseRoot {
 			t.Fatalf("browsing dispatched the wrong action: %#v", scoped.message)
 		}
 		return
@@ -90,6 +90,84 @@ func assertPlayerSourceNavActivation(t *testing.T, messages []tea.Msg, item play
 	if !ok || request.generation != generation || request.epoch != epoch || request.source != item.source {
 		t.Fatalf("%s lost its input/epoch: %#v", item.label, scoped.message)
 	}
+}
+
+func TestPlayerSourcesBrowseWiFiLoadsDiscover(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		for _, service := range []playerDiscoveryService{playerDiscoveryRadio, playerDiscoveryPodcast, playerDiscoveryUPnP} {
+			for _, mouse := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/mouse=%t", layout, service, mouse), func(t *testing.T) {
+					root := map[playerDiscoveryService]string{
+						playerDiscoveryRadio: "ui:/airableradios", playerDiscoveryPodcast: "airable:linkService_airable.feeds",
+						playerDiscoveryUPnP: "ui:/upnp",
+					}[service]
+					backend := &playerDiscoveryUITestBackend{
+						rows: func(_ context.Context, _ playerSpeaker, path string, from, to int) (*kefw2.RowsResponse, error) {
+							if path != root || from != 0 || to != playerDiscoveryDefaultPageSize-1 {
+								return nil, fmt.Errorf("unexpected browse: %s %d..%d", path, from, to)
+							}
+							return &kefw2.RowsResponse{RowsCount: 1, Rows: []kefw2.ContentItem{{
+								Title: "Browse menu content", Type: kefw2.ContentTypeContainer, Path: "opaque:/category",
+							}}}, nil
+						},
+					}
+					m := playerSourcesBrowseTestModel(t, backend, layout, service)
+					if mouse {
+						m.ui.searchActive = true
+						m.ui.search.SetValue("previous search")
+						m.ui.search.Focus()
+					}
+					m.View()
+					var command tea.Cmd
+					if mouse {
+						var ok bool
+						command, ok = m.ui.root.Click(fmt.Sprintf("source-nav-%d", m.ui.sourceNavIndex))
+						if !ok {
+							t.Fatal("browse entry is not clickable")
+						}
+					} else {
+						_, command = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+					}
+					messages := playerLayoutTestMessages(command)
+					if len(messages) != 1 {
+						t.Fatalf("browse activation produced %d messages", len(messages))
+					}
+					_, command = m.Update(messages[0])
+					playerDiscoveryUITestComplete(t, m, command)
+					p := m.ui.discovery.presentation()
+					if m.ui.pane != playerPaneDiscover || p.service != service || m.ui.searchActive ||
+						m.ui.search.Value() != "" ||
+						p.state.status != playerDiscoveryReady || len(p.state.page.items) != 1 ||
+						!strings.Contains(ansi.Strip(m.View().Content), "Browse menu content") {
+						t.Fatalf("browse menu not shown in Discover: %+v", p)
+					}
+					if calls := backend.calls(); len(calls) != 1 || calls[0].name != "rows" {
+						t.Fatalf("browsing did more than read a menu: %+v", calls)
+					}
+				})
+			}
+		}
+	}
+}
+
+func playerSourcesBrowseTestModel(
+	t *testing.T, backend *playerDiscoveryUITestBackend, layout string, service playerDiscoveryService,
+) *playerModel {
+	t.Helper()
+	m, discovery, _, _ := playerDiscoveryUITestModel(t, backend)
+	m.layout = layout
+	m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+	m.ui.discovery = discovery
+	m.ui.pane = playerPaneSources
+	m.ui.focus.Set(playerPaneSources)
+	m.addExtension(m.ui.extension())
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 44})
+	for i, item := range m.ui.sourceNavItems() {
+		if item.service == service {
+			m.ui.sourceNavIndex = i
+		}
+	}
+	return m
 }
 
 func TestPlayerSourcesNavigationKeepsCompactSelectionVisible(t *testing.T) {

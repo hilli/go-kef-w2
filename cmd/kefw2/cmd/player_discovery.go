@@ -117,7 +117,7 @@ func playerDiscoverySearch(
 	return playerDiscoveryReadPage(ctx, client, page, rows)
 }
 
-// A nil item selects the UPnP server root. Other pages use the exact path
+// A nil item selects the service's browse root. Other pages use the exact path
 // supplied by a previously returned container, never a title-derived path.
 func playerDiscoveryBrowse(
 	ctx context.Context, client playerDiscoveryRowsClient, service playerDiscoveryService,
@@ -138,10 +138,14 @@ func playerDiscoveryBrowse(
 		return page, fmt.Errorf("browsing is not supported for %q", service)
 	}
 	if item == nil {
-		if service != playerDiscoveryUPnP {
-			return page, errors.New("a container is required")
+		switch service {
+		case playerDiscoveryRadio:
+			page.path = "ui:/airableradios"
+		case playerDiscoveryPodcast:
+			page.path = "airable:linkService_airable.feeds"
+		case playerDiscoveryUPnP:
+			page.path = playerDiscoveryUPnPRootPath
 		}
-		page.path = "ui:/upnp"
 	} else {
 		if item.Type != kefw2.ContentTypeContainer || strings.TrimSpace(item.Path) == "" {
 			return page, errors.New("a container with a nonempty path is required")

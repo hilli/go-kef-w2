@@ -344,6 +344,7 @@ select it in the queue and press Enter; enqueueing alone does not start playback
 | Focus and navigate | `Tab` / `Shift+Tab`; arrows or `j` / `k` |
 | Speaker / input | `S` / `s`, then arrows and Enter; Esc cancels |
 | Sources sidebar | `Alt+1` by default, or Tab to focus; arrows or `j` / `k` select; Enter opens/switches |
+| Browse Wi-Fi | Click Radio, Podcasts or UPnP to open its menu in Discover; select it again to return to the menu |
 | Confirmation dialogs | Tab/Shift+Tab or Left/Right selects; Enter activates; `y` confirms, `n`/Esc cancels; Cancel is the default |
 | Search / details | `/` to search; Enter submits or opens/plays supported results; `i` opens details |
 | Queue | `Q` focuses queue; queue focus: `Ctrl+k` / `Ctrl+j` move row |

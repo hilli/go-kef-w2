@@ -255,6 +255,98 @@ func playerDiscoveryUITestComplete(t *testing.T, model *playerModel, command tea
 	}
 }
 
+func TestPlayerDiscoveryUIBrowseRootPagingAndReturn(t *testing.T) {
+	for _, service := range []playerDiscoveryService{playerDiscoveryRadio, playerDiscoveryPodcast} {
+		t.Run(string(service), func(t *testing.T) {
+			root := "ui:/airableradios"
+			if service == playerDiscoveryPodcast {
+				root = "airable:linkService_airable.feeds"
+			}
+			backend := &playerDiscoveryUITestBackend{
+				rows: func(_ context.Context, _ playerSpeaker, path string, from, to int) (*kefw2.RowsResponse, error) {
+					switch path {
+					case root:
+						return &kefw2.RowsResponse{RowsRedirect: "opaque:/menu"}, nil
+					case "opaque:/menu":
+						count := min(to+1, 25) - from
+						items := make([]kefw2.ContentItem, count)
+						for i := range items {
+							items[i] = kefw2.ContentItem{
+								Title: fmt.Sprintf("Category %d", from+i), Type: kefw2.ContentTypeContainer, Path: "opaque:/child",
+							}
+						}
+						return &kefw2.RowsResponse{RowsCount: 25, Rows: items}, nil
+					case "opaque:/child":
+						return &kefw2.RowsResponse{RowsCount: 1, Rows: []kefw2.ContentItem{{
+							Title: "Nested result", Type: kefw2.ContentTypeAudio, Path: "opaque:/audio",
+						}}}, nil
+					default:
+						return nil, fmt.Errorf("unexpected path %q", path)
+					}
+				},
+			}
+			model, ui, _, _ := playerDiscoveryUITestConnectingModel(t, backend)
+			open := playerDiscoveryServiceMsg{generation: model.generation, service: service, browseRoot: true}
+			playerDiscoveryUITestComplete(t, model, playerDiscoveryUITestSend(model, open))
+			p := ui.presentation()
+			if p.state.status != playerDiscoveryReady || !p.state.page.hasMore || p.state.page.path != root {
+				t.Fatalf("root redirect not loaded: %+v", p.state)
+			}
+			playerDiscoveryUITestComplete(t, model, playerDiscoveryUITestSend(model, playerDiscoveryPageMsg{
+				generation: p.generation, request: p.state.request, offset: p.state.page.nextOffset,
+			}))
+			p = ui.presentation()
+			if len(p.state.page.items) != 1 || p.state.page.items[0].Title != "Category 24" || !p.hasPrevious {
+				t.Fatalf("root pagination failed: %+v", p)
+			}
+			playerDiscoveryUITestComplete(t, model, playerDiscoveryUITestSend(model, playerDiscoveryBrowseMsg{
+				generation: p.generation, request: p.state.request, index: 0,
+			}))
+			if p = ui.presentation(); p.state.page.path != "opaque:/child" || len(ui.history) == 0 {
+				t.Fatalf("category did not open: %+v", p)
+			}
+			playerDiscoveryUITestComplete(t, model, playerDiscoveryUITestSend(model, open))
+			p = ui.presentation()
+			if p.state.status != playerDiscoveryReady || p.state.page.path != root ||
+				p.state.page.offset != 0 || p.hasPrevious || len(ui.history) != 0 {
+				t.Fatalf("selecting the same service did not return to its root: %+v", p)
+			}
+			playerDiscoveryUITestNoWrites(t, backend.calls())
+		})
+	}
+}
+
+func TestPlayerDiscoveryUIBrowseRootFailureCanRetry(t *testing.T) {
+	var attempts atomic.Int32
+	backend := &playerDiscoveryUITestBackend{
+		rows: func(_ context.Context, _ playerSpeaker, path string, _, _ int) (*kefw2.RowsResponse, error) {
+			if path != "ui:/airableradios" {
+				return nil, fmt.Errorf("unexpected root %q", path)
+			}
+			if attempts.Add(1) == 1 {
+				return nil, errors.New("menu unavailable")
+			}
+			return &kefw2.RowsResponse{RowsCount: 1, Rows: []kefw2.ContentItem{{Title: "Recovered menu"}}}, nil
+		},
+	}
+	model, ui, _, _ := playerDiscoveryUITestModel(t, backend)
+	playerDiscoveryUITestComplete(t, model, playerDiscoveryUITestSend(model, playerDiscoveryServiceMsg{
+		generation: model.generation, service: playerDiscoveryRadio, browseRoot: true,
+	}))
+	p := ui.presentation()
+	if p.state.status != playerDiscoveryError || p.state.err == nil ||
+		!strings.Contains(p.state.err.Error(), "menu unavailable") || !p.canRetry {
+		t.Fatalf("browse error was not surfaced with retry: %+v", p)
+	}
+	playerDiscoveryUITestComplete(t, model, playerDiscoveryUITestSend(model, playerDiscoveryRetryMsg{
+		generation: p.generation, request: p.state.request,
+	}))
+	if p = ui.presentation(); p.state.status != playerDiscoveryReady || p.state.page.items[0].Title != "Recovered menu" {
+		t.Fatalf("root retry failed: %+v", p)
+	}
+	playerDiscoveryUITestNoWrites(t, backend.calls())
+}
+
 func playerDiscoveryUITestMessages(command tea.Cmd) []tea.Msg {
 	if command == nil {
 		return nil
