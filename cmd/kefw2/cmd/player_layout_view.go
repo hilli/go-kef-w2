@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bloomfx.dev/bloom"
+	"bloomfx.dev/bloom/anim"
 	"bloomfx.dev/bloom/on"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -385,7 +386,7 @@ func (ui *playerLayoutUI) panes(m *playerModel) bloom.Child {
 			if m.width < 120 {
 				minimum = 38
 			}
-			children = append(children, bloom.Fill(pane).Min(minimum))
+			children = append(children, ui.dockSlot(id, bloom.Fill(pane).Min(minimum)))
 		} else {
 			width := arrangement.Width[id]
 			if m.width < 120 {
@@ -394,10 +395,20 @@ func (ui *playerLayoutUI) panes(m *playerModel) bloom.Child {
 					width = min(width, m.width/3)
 				}
 			}
-			children = append(children, bloom.Fixed(width, pane).Min(8))
+			children = append(children, ui.dockSlot(id, bloom.Fixed(width, pane).Min(8)))
 		}
 	}
 	return bloom.Row(children...)
+}
+
+// dockSlot uses Bloom layout animation so reordered panes glide into place.
+// Splitter drags stay unanimated so the divider follows the pointer exactly.
+func (ui *playerLayoutUI) dockSlot(id string, slot bloom.SlotNode) bloom.SlotNode {
+	slot = slot.ID("slot-" + id)
+	if ui.reduced || ui.drag == playerLayoutResize {
+		return slot
+	}
+	return slot.Animate(anim.Spring(18, 1))
 }
 
 func (ui *playerLayoutUI) framedPane(m *playerModel, pane string) bloom.Child {

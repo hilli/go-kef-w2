@@ -53,8 +53,8 @@ func (ui *playerLayoutUI) bottomTitle(m *playerModel, pane, label, focus string)
 }
 
 func (ui *playerLayoutUI) bottomRow(now, volume bloom.Child, volumeWidth int) bloom.Child {
-	nowSlot := bloom.Fill(ui.bottomFrame(playerBottomNowPlaying, now))
-	volumeSlot := bloom.Fixed(volumeWidth, ui.bottomFrame(playerBottomVolume, volume))
+	nowSlot := ui.dockSlot(playerBottomNowPlaying, bloom.Fill(ui.bottomFrame(playerBottomNowPlaying, now)))
+	volumeSlot := ui.dockSlot(playerBottomVolume, bloom.Fixed(volumeWidth, ui.bottomFrame(playerBottomVolume, volume)))
 	if ui.arrangementView().BottomOrder[0] == playerBottomVolume {
 		return bloom.Row(volumeSlot, nowSlot)
 	}

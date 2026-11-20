@@ -30,6 +30,7 @@ const (
 	playerLayoutKeyMoveUp    = "ctrl+k"
 	playerLayoutKeyTab       = "tab"
 	playerLayoutMove         = "move"
+	playerLayoutResize       = "resize"
 )
 
 type playerLayoutUI struct {
@@ -339,7 +340,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		case "m":
 			ui.startMode(playerLayoutMove)
 		case "r":
-			ui.startMode("resize")
+			ui.startMode(playerLayoutResize)
 		case "z":
 			ui.zoomPane()
 			ui.menu = false
@@ -1051,7 +1052,7 @@ func (ui *playerLayoutUI) divider(m *playerModel, pane, right string) bloom.Chil
 			return nil
 		}
 		if ui.drag == "" {
-			ui.drag, ui.dragStart = "resize", e.Start.X
+			ui.drag, ui.dragStart = playerLayoutResize, e.Start.X
 			ui.dragRightPane = right
 			ui.dragBase = playerCopyArrangement(ui.arrangement)
 			ui.preview = playerCopyArrangement(ui.arrangement)
@@ -1063,7 +1064,7 @@ func (ui *playerLayoutUI) divider(m *playerModel, pane, right string) bloom.Chil
 			}
 			ui.dragLeftWidth, ui.dragRightWidth = leftRect.Dx()-2, rightRect.Dx()-2
 		}
-		if ui.drag != "resize" {
+		if ui.drag != playerLayoutResize {
 			return nil
 		}
 		right := ui.dragRightPane

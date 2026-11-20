@@ -372,7 +372,7 @@ for intervening changes but cannot guarantee atomicity against another controlle
 
 In the `p` pane menu, `m` moves, `r` resizes, `z` zooms, uppercase `R`
 resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles
-reduced motion (the player does not currently animate). Use Left/Right, Enter
+reduced motion (panes snap instead of gliding into place). Use Left/Right, Enter
 and Esc to preview, commit or cancel changes. In Discovery Browser, `p` then
 `d` docks or undocks the queue in place
 of the inspector; the choice is saved with that layout. Reset
@@ -383,7 +383,7 @@ unsupported or otherwise invalid file may discard other arrangements.
 With the mouse, click controls or rows, double-click a navigable container to
 open it or a station/episode to play. Drag a pane's `::` title grip over another
 visible pane in the same row to reorder; this also works for Now Playing and
-Volume. Drag upper-pane dividers to resize and queue-row grips to reorder.
+Volume. Dropped panes glide into place using Bloom layout animation. Drag upper-pane dividers to resize and queue-row grips to reorder.
 Layout changes are saved separately for each layout; Esc, losing terminal
 focus or dropping outside the row cancels a pane move. Collapsed single-pane
 rows cannot be reordered by dragging. Click or drag the volume slider,

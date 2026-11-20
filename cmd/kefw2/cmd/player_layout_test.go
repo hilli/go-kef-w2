@@ -11,7 +11,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"bloomfx.dev/bloom"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
@@ -503,7 +505,8 @@ func playerLayoutTestMessages(command tea.Cmd) []tea.Msg {
 		}
 		return messages
 	}
-	if msg == nil {
+	// Bloom's own layout-animation frame ticks are rendering, not player commands.
+	if msg == nil || reflect.TypeOf(msg).PkgPath() == "bloomfx.dev/bloom" {
 		return nil
 	}
 	return []tea.Msg{msg}
@@ -1413,6 +1416,7 @@ func TestPlayerBottomTitlesDragAndPersist(t *testing.T) {
 			m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
 			m.ui = newPlayerLayoutUI(layout, filepath.Join(dir, "kefw2.yaml"))
 			m.ui.controls = newPlayerControlsUI()
+			settle := playerLayoutTestClock(m)
 			m.addExtension(m.ui.extension())
 			m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 			view := m.View()
@@ -1429,7 +1433,7 @@ func TestPlayerBottomTitlesDragAndPersist(t *testing.T) {
 			release := tea.MouseReleaseMsg{X: target.Min.X + 3, Y: target.Min.Y, Button: tea.MouseLeft}
 			m.View().OnMouse(release)
 			m.Update(release)
-			m.View()
+			settle()
 			now, _ := m.ui.root.Frame().Rect("now-playing-pane")
 			volume, _ := m.ui.root.Frame().Rect("volume-pane")
 			if volume.Min.X >= now.Min.X {
@@ -1508,6 +1512,7 @@ func TestPlayerPaneDragInResponsiveLayouts(t *testing.T) {
 		t.Run(layout, func(t *testing.T) {
 			m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
 			m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			settle := playerLayoutTestClock(m)
 			m.addExtension(m.ui.extension())
 			m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 			view := m.View()
@@ -1525,7 +1530,7 @@ func TestPlayerPaneDragInResponsiveLayouts(t *testing.T) {
 				playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: target.Min.X + dx, Y: target.Min.Y + 2, Button: tea.MouseLeft})
 			}
 			playerLayoutDragTestMouse(t, m, tea.MouseReleaseMsg{X: target.Min.X + 3, Y: target.Min.Y + 2, Button: tea.MouseLeft})
-			m.View()
+			settle()
 			moved, _ := m.ui.root.Frame().Rect("title-" + from)
 			other, _ := m.ui.root.Frame().Rect("title-" + to)
 			if moved.Min.X <= other.Min.X {
@@ -1564,6 +1569,7 @@ func TestPlayerAlternatePaneTitlesDragUsingDockSlot(t *testing.T) {
 		t.Run(layout, func(t *testing.T) {
 			m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
 			m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			settle := playerLayoutTestClock(m)
 			m.addExtension(m.ui.extension())
 			m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 			pane := playerPaneDetails
@@ -1578,10 +1584,52 @@ func TestPlayerAlternatePaneTitlesDragUsingDockSlot(t *testing.T) {
 			playerLayoutDragTestMouse(t, m, tea.MouseClickMsg{X: source.Min.X + 1, Y: source.Min.Y, Button: tea.MouseLeft})
 			playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: target.Min.X + 1, Y: target.Min.Y + 2, Button: tea.MouseLeft})
 			playerLayoutDragTestMouse(t, m, tea.MouseReleaseMsg{X: target.Min.X + 1, Y: target.Min.Y + 2, Button: tea.MouseLeft})
-			m.View()
+			settle()
 			moved, _ := m.ui.root.Frame().Rect("pane-" + pane)
 			if m.ui.arrangement.Order[0] != slot || moved.Min.X != 0 {
 				t.Fatalf("alternate pane did not move its dock slot: %+v %v", m.ui.arrangement, moved)
+			}
+		})
+	}
+}
+
+func TestPlayerPaneDropGlidesUnlessReducedMotion(t *testing.T) {
+	for _, reduced := range []bool{false, true} {
+		t.Run(fmt.Sprintf("reduced=%t", reduced), func(t *testing.T) {
+			m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+			m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			now := time.Unix(1, 0)
+			m.ui.root = bloom.New(bloom.WithFocus(&m.ui.focus), bloom.WithClock(func() time.Time { return now }))
+			m.ui.reduced = reduced
+			m.addExtension(m.ui.extension())
+			m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+			m.View()
+			start, _ := m.ui.root.Frame().Rect("pane-sources")
+			source, _ := m.ui.root.Frame().Rect("title-sources")
+			target, _ := m.ui.root.Frame().Rect("title-discover")
+			playerLayoutDragTestMouse(t, m, tea.MouseClickMsg{X: source.Min.X + 1, Y: source.Min.Y, Button: tea.MouseLeft})
+			playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: target.Min.X + 2, Y: target.Min.Y, Button: tea.MouseLeft})
+			playerLayoutDragTestMouse(t, m, tea.MouseReleaseMsg{X: target.Min.X + 2, Y: target.Min.Y, Button: tea.MouseLeft})
+			m.View()
+			now = now.Add(5 * time.Second)
+			m.View()
+			end, _ := m.ui.root.Frame().Rect("pane-sources")
+			if end.Min.X <= start.Min.X {
+				t.Fatalf("sources pane was not reordered: %v -> %v", start, end)
+			}
+			// Reorder back and sample mid-glide.
+			source, _ = m.ui.root.Frame().Rect("title-sources")
+			target, _ = m.ui.root.Frame().Rect("title-" + m.ui.arrangement.Order[0])
+			playerLayoutDragTestMouse(t, m, tea.MouseClickMsg{X: source.Min.X + 1, Y: source.Min.Y, Button: tea.MouseLeft})
+			playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: target.Min.X + 2, Y: target.Min.Y, Button: tea.MouseLeft})
+			playerLayoutDragTestMouse(t, m, tea.MouseReleaseMsg{X: target.Min.X + 2, Y: target.Min.Y, Button: tea.MouseLeft})
+			m.View()
+			now = now.Add(40 * time.Millisecond)
+			m.View()
+			mid, _ := m.ui.root.Frame().Rect("pane-sources")
+			gliding := mid.Min.X > start.Min.X && mid.Min.X < end.Min.X
+			if gliding == reduced {
+				t.Fatalf("reduced=%t but mid-drop sources pane at %v (from %v to %v)", reduced, mid, end, start)
 			}
 		})
 	}
@@ -1603,6 +1651,18 @@ func TestPlayerResponsiveDividerResizesVisibleNeighbors(t *testing.T) {
 		m.ui.arrangement.Width[ModeQueue] != before.Width[ModeQueue]-5 ||
 		m.ui.arrangement.Width[playerPaneDiscover] != before.Width[playerPaneDiscover] {
 		t.Fatalf("divider resized a hidden pane: %+v", m.ui.arrangement)
+	}
+}
+
+// playerLayoutTestClock gives the layout root a controllable clock and returns
+// a settle function that draws past Bloom's pane glide animation.
+func playerLayoutTestClock(m *playerModel) func() {
+	now := time.Unix(1, 0)
+	m.ui.root = bloom.New(bloom.WithFocus(&m.ui.focus), bloom.WithClock(func() time.Time { return now }))
+	return func() {
+		m.View()
+		now = now.Add(5 * time.Second)
+		m.View()
 	}
 }
 

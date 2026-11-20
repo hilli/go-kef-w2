@@ -3,14 +3,14 @@ module github.com/hilli/go-kef-w2
 go 1.27.3
 
 require (
-	bloomfx.dev/bloom v0.0.0-alpha.6
+	bloomfx.dev/bloom v0.0.0-alpha.10
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.1.2
 	charm.land/lipgloss/v2 v2.1.1
 	github.com/BourgeoisBear/rasterm v1.1.3-0.20261105140326-6174df9d5b0b
 	github.com/brutella/dnssd v1.2.14
 	github.com/charmbracelet/ultraviolet v0.0.0-20261023060817-a45b7c86333f
-	github.com/charmbracelet/x/ansi v0.11.9
+	github.com/charmbracelet/x/ansi v0.11.10
 	github.com/fatih/color v1.18.0
 	github.com/hilli/icat v0.0.8
 	github.com/ivanpirog/coloredcobra v1.0.1
@@ -58,8 +58,8 @@ require (
 	golang.org/x/image v0.38.0 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 )
