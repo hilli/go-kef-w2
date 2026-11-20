@@ -371,17 +371,22 @@ and `a` to acknowledge it after reviewing the refreshed result. Moves check
 for intervening changes but cannot guarantee atomicity against another controller.
 
 In the `p` pane menu, `m` moves, `r` resizes, `z` zooms, uppercase `R`
-resets the active layout, and `a` toggles reduced motion (the player does not
-currently animate). Use Left/Right, Enter and Esc to preview, commit or cancel
-changes. In Discovery Browser, `p` then `d` docks or undocks the queue in place
+resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles
+reduced motion (the player does not currently animate). Use Left/Right, Enter
+and Esc to preview, commit or cancel changes. In Discovery Browser, `p` then
+`d` docks or undocks the queue in place
 of the inspector; the choice is saved with that layout. Reset
 preserves the other valid layout when only the active arrangement is invalid
 and the file's version and schema are supported. Resetting a malformed,
 unsupported or otherwise invalid file may discard other arrangements.
 
 With the mouse, click controls or rows, double-click a navigable container to
-open it or a station/episode to play, drag pane grips and dividers to move or
-resize, and drag queue-row grips to reorder. Click or drag the volume slider,
+open it or a station/episode to play. Drag a pane's `::` title grip over another
+visible pane in the same row to reorder; this also works for Now Playing and
+Volume. Drag upper-pane dividers to resize and queue-row grips to reorder.
+Layout changes are saved separately for each layout; Esc, losing terminal
+focus or dropping outside the row cancels a pane move. Collapsed single-pane
+rows cannot be reordered by dragging. Click or drag the volume slider,
 or use Left/Right while it has focus; `+` / `-` adjust by 1. Volume respects the
 selected speaker's maximum, and increases are disabled if that limit cannot
 be read. Seek moves by 10 seconds and requires supported, currently playing

@@ -23,7 +23,7 @@ const (
 func (ui *playerLayoutUI) bottomFocus() string {
 	id, _ := ui.focus.Current()
 	switch id {
-	case string(playerControlPrevious), "play-pause", "transport-next", "seek-back", "seek-next", "controls-dismiss":
+	case string(playerControlPrevious), playerFocusPlayPause, "transport-next", "seek-back", "seek-next", "controls-dismiss":
 		return playerBottomNowPlaying
 	case "mute", "volume", "volume-retry", "volume-dismiss":
 		return playerBottomVolume
@@ -38,16 +38,27 @@ func (ui *playerLayoutUI) focusBottom(id string) {
 	ui.focus.Set(id)
 }
 
-func (ui *playerLayoutUI) bottomTitle(pane, label, focus string) bloom.Child {
-	marker := "  "
+func (ui *playerLayoutUI) bottomTitle(m *playerModel, pane, label, focus string) bloom.Child {
 	style := playerHintStyle.Bold(true)
 	if ui.bottomFocus() == pane {
-		marker = "> "
 		style = style.Foreground(playerAccentColor)
 	}
-	return bloom.Text(marker + label).Style(style).Truncate().ID("title-" + pane).Focusable().On(
+	if ui.drag == playerLayoutMove && ui.dragPane == pane {
+		label = "MOVE " + label
+	}
+	return bloom.Text(":: "+label).Style(style).Truncate().ID("title-"+pane).Focusable().On(
 		on.Click(func() tea.Cmd { ui.focusBottom(focus); return nil }),
+		on.Drag(func(event on.Event) tea.Cmd { return ui.dragTitle(m, pane, event) }),
 	)
+}
+
+func (ui *playerLayoutUI) bottomRow(now, volume bloom.Child, volumeWidth int) bloom.Child {
+	nowSlot := bloom.Fill(ui.bottomFrame(playerBottomNowPlaying, now))
+	volumeSlot := bloom.Fixed(volumeWidth, ui.bottomFrame(playerBottomVolume, volume))
+	if ui.arrangementView().BottomOrder[0] == playerBottomVolume {
+		return bloom.Row(volumeSlot, nowSlot)
+	}
+	return bloom.Row(nowSlot, volumeSlot)
 }
 
 func (ui *playerLayoutUI) bottomFrame(pane string, content bloom.Child) bloom.Child {
@@ -125,12 +136,11 @@ func playerVolumeProblems(state playerControlsUIState, width int) []string {
 func (ui *playerLayoutUI) transportView(m *playerModel, status []string, state playerControlsUIState) bloom.Child {
 	volumeWidth := playerBottomVolumeWidth(m.width)
 	if ui.controls == nil {
-		now := bloom.Column(bloom.Fixed(1, ui.bottomTitle(playerBottomNowPlaying, "NOW PLAYING", "play-pause")),
+		now := bloom.Column(bloom.Fixed(1, ui.bottomTitle(m, playerBottomNowPlaying, "NOW PLAYING", playerFocusPlayPause)),
 			bloom.Fill(bloom.Text(strings.Join(status, "\n")).ID("transport")))
-		volume := bloom.Column(bloom.Fixed(1, ui.bottomTitle(playerBottomVolume, "VOLUME", "volume")),
+		volume := bloom.Column(bloom.Fixed(1, ui.bottomTitle(m, playerBottomVolume, "VOLUME", "volume")),
 			bloom.Fill(bloom.Text("Volume unavailable")))
-		return bloom.Row(bloom.Fill(ui.bottomFrame(playerBottomNowPlaying, now)),
-			bloom.Fixed(volumeWidth, ui.bottomFrame(playerBottomVolume, volume)))
+		return ui.bottomRow(now, volume, volumeWidth)
 	}
 	generation, epoch := m.generation, state.epoch
 	control := func(id, label string, message tea.Msg, action playerControlAction) bloom.Child {
@@ -178,17 +188,16 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, state p
 	}
 	playbackButtons = append(playbackButtons,
 		control(string(playerControlPrevious), "[<<]", playerTransportRequest{generation: generation, epoch: epoch, action: playerControlPrevious}, playerControlPrevious),
-		control("play-pause", playLabel, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlPlayPause}, playerControlPlayPause),
+		control(playerFocusPlayPause, playLabel, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlPlayPause}, playerControlPlayPause),
 		control("transport-next", "[>>]", playerTransportRequest{generation: generation, epoch: epoch, action: playerControlNext}, playerControlNext),
 		control("seek-back", seekBack, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlSeekBackward}, playerControlSeekBackward),
 		control("seek-next", seekNext, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlSeekForward}, playerControlSeekForward),
 	)
-	now := bloom.Column(bloom.Fixed(1, ui.bottomTitle(playerBottomNowPlaying, "NOW PLAYING", "play-pause")),
+	now := bloom.Column(bloom.Fixed(1, ui.bottomTitle(m, playerBottomNowPlaying, "NOW PLAYING", playerFocusPlayPause)),
 		bloom.Fill(bloom.Text(strings.Join(status, "\n")).ID("transport")),
 		bloom.Fixed(1, bloom.Row(playbackButtons...)))
 	volume := ui.volumeView(m, state, volumeWidth, control, button)
-	return bloom.Row(bloom.Fill(ui.bottomFrame(playerBottomNowPlaying, now)),
-		bloom.Fixed(volumeWidth, ui.bottomFrame(playerBottomVolume, volume)))
+	return ui.bottomRow(now, volume, volumeWidth)
 }
 
 func (ui *playerLayoutUI) volumeView(
@@ -249,7 +258,7 @@ func (ui *playerLayoutUI) volumeView(
 			playerVolumeDismissRequest{generation: generation, epoch: epoch}))
 	}
 	return bloom.Column(
-		bloom.Fixed(1, ui.bottomTitle(playerBottomVolume, "VOLUME", "volume")),
+		bloom.Fixed(1, ui.bottomTitle(m, playerBottomVolume, "VOLUME", "volume")),
 		bloom.Fixed(1, bloom.Text(volume).Truncate()),
 		bloom.Fixed(1, track),
 		bloom.Fill(bloom.Text(strings.Join(problems, "\n"))),

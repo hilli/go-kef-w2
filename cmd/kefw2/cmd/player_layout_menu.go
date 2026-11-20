@@ -31,6 +31,7 @@ func (ui *playerLayoutUI) paneMenu() bloom.Child {
 			ui.focus.Pop()
 			ui.save(true)
 		}),
+		option("Swap Now Playing / Volume (b)", ui.swapBottomPanes),
 		option(fmt.Sprintf("Reduced motion: %t (a)", ui.reduced), func() { ui.reduced = !ui.reduced }),
 	)
 	if ui.layout == playerDiscoveryBrowser {
@@ -41,6 +42,7 @@ func (ui *playerLayoutUI) paneMenu() bloom.Child {
 			ui.focus.Set(ui.pane)
 		}))
 	}
+
 	for i, pane := range choices {
 		name := pane
 		children = append(children, option(fmt.Sprintf("%d Select %s", i+1, name), func() {
@@ -52,4 +54,12 @@ func (ui *playerLayoutUI) paneMenu() bloom.Child {
 	}
 	children = append(children, bloom.Fixed(1, playerHint("Esc closes · arrows preview · Enter commits")))
 	return bloom.Column(children...)
+}
+
+func (ui *playerLayoutUI) swapBottomPanes() {
+	order := ui.arrangement.BottomOrder
+	order[0], order[1] = order[1], order[0]
+	ui.menu = false
+	ui.focus.Pop()
+	ui.save(false)
 }

@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"fmt"
+	"image"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -22,6 +23,7 @@ const (
 	playerPaneDiscover       = "discover"
 	playerPaneDetails        = "details"
 	playerFocusSpeaker       = "speaker"
+	playerFocusPlayPause     = "play-pause"
 	playerLayoutKeyBackspace = "backspace"
 	playerLayoutKeyDelete    = "delete"
 	playerLayoutKeyMoveDown  = "ctrl+j"
@@ -48,7 +50,10 @@ type playerLayoutUI struct {
 	dragStart           int
 	dragLeftWidth       int
 	dragRightWidth      int
+	dragRightPane       string
 	dragBase            playerArrangement
+	dragPane            string
+	dragTargets         []playerPaneDragTarget
 	error               error
 	invalid             bool
 	reduced             bool
@@ -84,6 +89,16 @@ type playerQueueDrag struct {
 	snapshot   *playerQueueSnapshot
 	from, gap  int
 	count      int
+}
+
+type playerPaneDragTarget struct {
+	pane   string
+	bounds image.Rectangle
+}
+
+func (ui *playerLayoutUI) pointerModal(m *playerModel) bool {
+	return m.chooserOpen || ui.menu || ui.help || ui.sourceOpen || ui.queueClear != nil ||
+		(ui.discovery != nil && ui.discovery.presentation().confirmation != nil)
 }
 
 func newPlayerLayoutUI(layout, configPath string) *playerLayoutUI {
@@ -158,8 +173,7 @@ func (ui *playerLayoutUI) update(m *playerModel, msg tea.Msg) (tea.Cmd, bool) {
 		ui.cancelPointerInteractions()
 		return ui.root.Update(msg), false
 	case tea.MouseMsg:
-		if m.chooserOpen || ui.menu || ui.help || ui.sourceOpen || ui.queueClear != nil ||
-			(ui.discovery != nil && ui.discovery.presentation().confirmation != nil) {
+		if ui.pointerModal(m) {
 			if ui.sliderDragging {
 				ui.sliderBlocked, ui.sliderDragging = true, false
 			}
@@ -215,6 +229,7 @@ func (ui *playerLayoutUI) cancel() {
 	if ui.mode != "" || ui.drag != "" {
 		ui.preview = playerArrangement{}
 		ui.mode, ui.drag = "", ""
+		ui.dragPane, ui.dragRightPane, ui.dragTargets = "", "", nil
 	}
 }
 
@@ -336,6 +351,8 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 			ui.save(true)
 		case "a":
 			ui.reduced = !ui.reduced
+		case "b":
+			ui.swapBottomPanes()
 		case "d":
 			ui.toggleQueueDock()
 			ui.menu = false
@@ -440,7 +457,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 			ids = append(ids, "service-radio", "service-podcast", "service-upnp")
 		}
 		if ui.controls != nil {
-			ids = append(ids, string(playerControlPrevious), "play-pause", "transport-next", "seek-back", "seek-next")
+			ids = append(ids, string(playerControlPrevious), playerFocusPlayPause, "transport-next", "seek-back", "seek-next")
 			state := ui.controls.State()
 			if state.err != nil {
 				ids = append(ids, "controls-dismiss")
@@ -596,7 +613,7 @@ func (ui *playerLayoutUI) controlsKey(m *playerModel, key tea.KeyPressMsg) bool 
 		case string(playerControlPrevious):
 			ui.sendTransport(generation, playerControlPrevious)
 			return true
-		case "play-pause":
+		case playerFocusPlayPause:
 			ui.sendTransport(generation, playerControlPlayPause)
 			return true
 		case "transport-next":
@@ -895,20 +912,16 @@ func (ui *playerLayoutUI) paneActive(pane string) bool {
 }
 
 func (ui *playerLayoutUI) title(m *playerModel, pane string) bloom.Child {
-	marker := "  "
-	if ui.paneActive(pane) {
-		marker = "> "
-	}
-	title := marker + strings.ToUpper(pane)
+	title := ":: " + strings.ToUpper(pane)
 	shortcut := "i"
 	if index := slices.Index(ui.arrangement.Order, pane); index >= 0 {
 		shortcut = fmt.Sprintf("Alt+%d", index+1)
 	} else if pane == ModeQueue {
 		shortcut = "Q"
 	}
-	title += " " + shortcut + " ::"
-	if ui.drag == playerLayoutMove && ui.pane == pane {
-		title = marker + "[DROP] " + strings.ToUpper(pane) + " ::"
+	title += " " + shortcut
+	if ui.drag == playerLayoutMove && ui.dragPane == ui.layoutPane(pane) {
+		title = ":: MOVE " + strings.ToUpper(pane)
 	}
 	style := playerHintStyle.Bold(true)
 	if ui.paneActive(pane) {
@@ -918,31 +931,48 @@ func (ui *playerLayoutUI) title(m *playerModel, pane string) bloom.Child {
 		on.Click(func() tea.Cmd { ui.pane = pane; ui.focus.Set(pane); return nil }),
 		on.DoubleClick(func() tea.Cmd { ui.pane = pane; ui.zoomPane(); return nil }),
 	)
-	if slices.Contains(ui.arrangement.Order, pane) {
+	if slices.Contains(ui.arrangement.Order, ui.layoutPane(pane)) {
 		node = node.On(on.Drag(func(event on.Event) tea.Cmd { return ui.dragTitle(m, pane, event) }))
 	}
 	return node
 }
 
 func (ui *playerLayoutUI) dragTitle(m *playerModel, pane string, e on.Event) tea.Cmd {
-	if e.Msg == nil || m.chooserOpen || ui.menu || ui.dragBlocked {
+	if e.Msg == nil || ui.pointerModal(m) || ui.dragBlocked {
 		ui.cancel()
 		return nil
 	}
-	if ui.drag == "" {
-		ui.drag, ui.pane, ui.dragStart = playerLayoutMove, pane, e.Start.X
-		ui.dragBase = playerCopyArrangement(ui.arrangement)
-		ui.preview = playerCopyArrangement(ui.arrangement)
-	}
-	if ui.drag != playerLayoutMove {
+	if ui.drag == "" && !ui.beginTitleDrag(pane) {
 		return nil
+	}
+	if ui.drag != playerLayoutMove || ui.dragPane != ui.layoutPane(pane) {
+		return nil
+	}
+	ui.preview = playerCopyArrangement(ui.dragBase)
+	for _, target := range ui.dragTargets {
+		if !e.Screen.In(target.bounds) {
+			continue
+		}
+		order := ui.preview.Order
+		if pane == playerBottomNowPlaying || pane == playerBottomVolume {
+			order = ui.preview.BottomOrder
+		}
+		from, to := slices.Index(order, ui.dragPane), slices.Index(order, target.pane)
+		if from < to {
+			copy(order[from:to], order[from+1:to+1])
+		} else {
+			copy(order[to+1:from+1], order[to:from])
+		}
+		order[to] = ui.dragPane
+		break
 	}
 	if e.Done {
 		if _, ok := e.Msg.(tea.MouseReleaseMsg); !ok {
 			ui.cancel()
 			return nil
 		}
-		changed := !slices.Equal(ui.arrangement.Order, ui.preview.Order)
+		changed := !slices.Equal(ui.arrangement.Order, ui.preview.Order) ||
+			!slices.Equal(ui.arrangement.BottomOrder, ui.preview.BottomOrder)
 		ui.arrangement = playerCopyArrangement(ui.preview)
 		ui.cancel()
 		if changed {
@@ -950,50 +980,93 @@ func (ui *playerLayoutUI) dragTitle(m *playerModel, pane string, e on.Event) tea
 		}
 		return nil
 	}
-	for _, other := range ui.preview.Order {
-		rect, ok := ui.root.Frame().Rect("title-" + other)
-		if ok && other != pane && e.Screen.X >= rect.Min.X && e.Screen.X < rect.Max.X {
-			a, b := slices.Index(ui.preview.Order, pane), slices.Index(ui.preview.Order, other)
-			ui.preview.Order[a], ui.preview.Order[b] = ui.preview.Order[b], ui.preview.Order[a]
-			break
-		}
-	}
 	return nil
 }
 
-func (ui *playerLayoutUI) divider(m *playerModel, pane string) bloom.Child {
+func (ui *playerLayoutUI) layoutPane(pane string) string {
+	if pane == playerPaneDetails && slices.Contains(ui.arrangement.Order, ModeQueue) {
+		return ModeQueue
+	}
+	if pane == ModeQueue && slices.Contains(ui.arrangement.Order, playerPaneDetails) {
+		return playerPaneDetails
+	}
+	return pane
+}
+
+func (ui *playerLayoutUI) paneBounds(pane string) (image.Rectangle, bool) {
+	if pane == playerBottomNowPlaying || pane == playerBottomVolume {
+		return ui.root.Frame().Rect(pane + "-pane")
+	}
+	if rect, ok := ui.root.Frame().Rect("pane-" + pane); ok {
+		return rect, true
+	}
+	if pane == ModeQueue {
+		return ui.root.Frame().Rect("pane-" + playerPaneDetails)
+	}
+	if pane == playerPaneDetails {
+		return ui.root.Frame().Rect("pane-" + ModeQueue)
+	}
+	return image.Rectangle{}, false
+}
+
+func (ui *playerLayoutUI) beginTitleDrag(pane string) bool {
+	order := ui.arrangement.Order
+	bottom := pane == playerBottomNowPlaying || pane == playerBottomVolume
+	if bottom {
+		order = ui.arrangement.BottomOrder
+	}
+	var targets []playerPaneDragTarget
+	for _, id := range order {
+		if rect, ok := ui.paneBounds(id); ok && !rect.Empty() {
+			targets = append(targets, playerPaneDragTarget{pane: id, bounds: rect})
+		}
+	}
+	if len(targets) < 2 {
+		return false
+	}
+	// Preview reflow must not move the drop targets under the pointer.
+	ui.dragTargets = targets
+	ui.drag, ui.dragPane = playerLayoutMove, ui.layoutPane(pane)
+	ui.dragBase = playerCopyArrangement(ui.arrangement)
+	ui.preview = playerCopyArrangement(ui.arrangement)
+	if bottom {
+		focus := playerBottomVolume
+		if pane == playerBottomNowPlaying {
+			focus = playerFocusPlayPause
+		}
+		ui.focusBottom(focus)
+	} else {
+		ui.search.Blur()
+		ui.searchActive = false
+		ui.pane = pane
+		ui.focus.Set(pane)
+	}
+	return true
+}
+
+func (ui *playerLayoutUI) divider(m *playerModel, pane, right string) bloom.Child {
 	return bloom.Text("│").ID("divider-" + pane).On(on.Drag(func(e on.Event) tea.Cmd {
-		if e.Msg == nil || m.chooserOpen || ui.menu || ui.dragBlocked {
+		if e.Msg == nil || ui.pointerModal(m) || ui.dragBlocked {
 			ui.cancel()
 			return nil
 		}
 		if ui.drag == "" {
-			ui.drag, ui.pane, ui.dragStart = "resize", pane, e.Start.X
+			ui.drag, ui.dragStart = "resize", e.Start.X
+			ui.dragRightPane = right
 			ui.dragBase = playerCopyArrangement(ui.arrangement)
 			ui.preview = playerCopyArrangement(ui.arrangement)
-			index := slices.Index(ui.dragBase.Order, pane)
-			if index < 0 || index+1 >= len(ui.dragBase.Order) {
-				ui.cancel()
-				return nil
-			}
-			right := ui.dragBase.Order[index+1]
-			leftRect, leftOK := ui.root.Frame().Rect("title-" + pane)
-			rightRect, rightOK := ui.root.Frame().Rect("title-" + right)
+			leftRect, leftOK := ui.paneBounds(pane)
+			rightRect, rightOK := ui.paneBounds(right)
 			if !leftOK || !rightOK {
 				ui.cancel()
 				return nil
 			}
-			ui.dragLeftWidth, ui.dragRightWidth = leftRect.Dx(), rightRect.Dx()
+			ui.dragLeftWidth, ui.dragRightWidth = leftRect.Dx()-2, rightRect.Dx()-2
 		}
 		if ui.drag != "resize" {
 			return nil
 		}
-		index := slices.Index(ui.dragBase.Order, pane)
-		if index < 0 || index+1 >= len(ui.dragBase.Order) {
-			ui.cancel()
-			return nil
-		}
-		right := ui.dragBase.Order[index+1]
+		right := ui.dragRightPane
 		delta := max(playerPaneMinimum(ui.layout, pane)-ui.dragLeftWidth,
 			min(ui.dragRightWidth-playerPaneMinimum(ui.layout, right), e.Screen.X-ui.dragStart))
 		if pane != playerPaneDiscover {

@@ -215,7 +215,8 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		text := "PLAYER HELP\nTab / Shift+Tab: focus · Alt+1/2/3: panes\n" +
 			"S: speaker · s: input · /: search · Q: queue · i: details\n" +
 			"+/-: volume · m: mute · Space: play/pause · [ ]: previous/next · , .: seek\n" +
-			"p: pane menu · z: zoom · arrows: navigate · Esc: cancel · q: quit"
+			"p: pane menu (b swaps bottom panes) · z: zoom · arrows: navigate\n" +
+			"Drag :: titles within a row · Esc: cancel · q: quit"
 		content = bloom.Overlay(content, bloom.Layer(playerModal(bloom.Text(text))).ID("help").Modal().
 			Anchor(bloom.Center, bloom.Center))
 	}
@@ -315,6 +316,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 	view := ui.root.View(m.width, m.height, bloom.Transition(1, content,
 		playerSurfaceColors{foreground: playerTextColor, background: playerSurfaceColor}))
 	view.AltScreen = true
+	view.ReportFocus = true
 	return view
 }
 
@@ -333,31 +335,36 @@ func (ui *playerLayoutUI) panes(m *playerModel) bloom.Child {
 		return ui.framedPane(m, pane)
 	}
 	if m.width < 120 {
-		if ui.layout == playerListeningDesk {
+		switch {
+		case ui.layout == playerListeningDesk:
 			pane := ui.pane
 			if pane != ModeQueue && pane != playerPaneDetails {
 				pane = playerPaneDiscover
 			}
-			return bloom.Row(
-				bloom.Fixed(min(arrangement.Width[playerPaneSources], m.width/3), ui.framedPane(m, playerPaneSources)).Min(8),
-				bloom.Fixed(1, ui.divider(m, playerPaneSources)), bloom.Fill(ui.framedPane(m, pane)).Min(38),
-			)
-		}
-		if ui.pane == playerPaneSources || ui.pane == ModeQueue {
+			main := ui.layoutPane(pane)
+			filtered := make([]string, 0, 2)
+			for _, id := range order {
+				if id == playerPaneSources || id == main {
+					filtered = append(filtered, id)
+				}
+			}
+			order = filtered
+		case ui.pane == playerPaneSources || ui.pane == ModeQueue:
 			return ui.framedPane(m, ui.pane)
+		default:
+			filtered := make([]string, 0, 2)
+			for _, id := range order {
+				if id != playerPaneSources {
+					filtered = append(filtered, id)
+				}
+			}
+			order = filtered
 		}
-		detailsWidth := arrangement.Width[playerPaneDetails]
-		if detailsWidth == 0 {
-			detailsWidth = playerDefaultArrangement(playerDiscoveryBrowser).Width[playerPaneDetails]
-		}
-		return bloom.Row(bloom.Fill(ui.framedPane(m, playerPaneDiscover)).Min(38),
-			bloom.Fixed(1, ui.divider(m, playerPaneDiscover)),
-			bloom.Fixed(min(detailsWidth, m.width/2), ui.framedPane(m, playerPaneDetails)).Min(8))
 	}
 	var children []bloom.Child
 	for i, id := range order {
 		if i > 0 {
-			children = append(children, bloom.Fixed(1, ui.divider(m, order[i-1])))
+			children = append(children, bloom.Fixed(1, ui.divider(m, order[i-1], id)))
 		}
 		visible := id
 		if ui.layout == playerDiscoveryBrowser && id == playerPaneDetails && ui.pane == ModeQueue {
@@ -369,11 +376,25 @@ func (ui *playerLayoutUI) panes(m *playerModel) bloom.Child {
 		if ui.layout == playerListeningDesk && id == ModeQueue && ui.pane == playerPaneDetails {
 			visible = playerPaneDetails
 		}
+		if m.width < 120 && ui.layout == playerDiscoveryBrowser && id == ModeQueue {
+			visible = playerPaneDetails
+		}
 		pane := ui.framedPane(m, visible)
-		if id == playerPaneDiscover {
-			children = append(children, bloom.Fill(pane).Min(arrangement.Width[id]))
+		if id == playerPaneDiscover || (m.width < 120 && ui.layout == playerListeningDesk && id != playerPaneSources) {
+			minimum := arrangement.Width[id]
+			if m.width < 120 {
+				minimum = 38
+			}
+			children = append(children, bloom.Fill(pane).Min(minimum))
 		} else {
-			children = append(children, bloom.Fixed(arrangement.Width[id], pane).Min(8))
+			width := arrangement.Width[id]
+			if m.width < 120 {
+				width = min(width, m.width/2)
+				if id == playerPaneSources {
+					width = min(width, m.width/3)
+				}
+			}
+			children = append(children, bloom.Fixed(width, pane).Min(8))
 		}
 	}
 	return bloom.Row(children...)
@@ -386,7 +407,7 @@ func (ui *playerLayoutUI) framedPane(m *playerModel, pane string) bloom.Child {
 		color = playerAccentColor
 		border = lipgloss.DoubleBorder()
 	}
-	return bloom.Box(lipgloss.NewStyle().Border(border).BorderForeground(color), ui.paneView(m, pane))
+	return bloom.Box(lipgloss.NewStyle().Border(border).BorderForeground(color), ui.paneView(m, pane)).ID("pane-" + pane)
 }
 
 func (ui *playerLayoutUI) paneView(m *playerModel, pane string) bloom.Child {

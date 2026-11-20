@@ -196,8 +196,9 @@ controller.
 
 `p` opens the pane menu (Move, Resize, Zoom, Reset); `z` toggles zoom on the
 focused pane. In the menu, `m` moves, `r` resizes, `z` zooms and uppercase `R`
-resets the active layout, and `a` toggles reduced motion (the player does not
-currently animate). Use Left/Right and Enter to commit, Esc to cancel.
+resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles
+reduced motion (the player does not currently animate). Use Left/Right and
+Enter to commit, Esc to cancel.
 In Discovery Browser, `p` then `d` docks/undocks the queue in place of the
 inspector; that choice is saved with the layout. Reset preserves the other
 valid layout when only the active arrangement is invalid and the file's
@@ -212,10 +213,14 @@ selected speaker's maximum; increases are disabled if that limit cannot be
 read. Uppercase `R` retries a failed volume change when offered; uppercase `D`
 dismisses control/volume errors. Review the speaker and current state before
 retrying an uncertain action. Click controls, double-click a navigable
-container to open it or a station/episode to play, and drag pane grips,
-dividers, queue-row grips or the volume slider with a mouse. Printable
-shortcuts apply outside text fields; pane and menu keys depend on focus. Use
-`?` for help and `q` or Ctrl+C to quit.
+container to open it or a station/episode to play. Drag a pane's leading `::`
+title grip over another visible pane in the same row to reorder, including
+Now Playing and Volume. These orders are saved separately for each layout.
+Esc, losing terminal focus or dropping outside the row cancels a pane move;
+collapsed single-pane rows cannot be reordered by dragging. Drag upper-pane
+dividers to resize, queue-row grips to reorder or the volume slider to adjust.
+Printable shortcuts apply outside text fields; pane and menu keys depend on
+focus. Use `?` for help and `q` or Ctrl+C to quit.
 
 ## Live status
 

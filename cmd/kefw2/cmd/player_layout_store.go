@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -16,8 +17,9 @@ import (
 const playerLayoutVersion = 1
 
 type playerArrangement struct {
-	Order []string       `yaml:"order"`
-	Width map[string]int `yaml:"width"`
+	Order       []string       `yaml:"order"`
+	Width       map[string]int `yaml:"width"`
+	BottomOrder []string       `yaml:"bottom_order,omitempty"`
 }
 
 type playerLayoutFile struct {
@@ -29,15 +31,18 @@ func playerDefaultArrangement(layout string) playerArrangement {
 	if layout == playerDiscoveryBrowser {
 		return playerArrangement{Order: []string{playerPaneSources, playerPaneDiscover, playerPaneDetails}, Width: map[string]int{
 			playerPaneSources: 18, playerPaneDiscover: 38, playerPaneDetails: 40,
-		}}
+		}, BottomOrder: []string{playerBottomNowPlaying, playerBottomVolume}}
 	}
 	return playerArrangement{Order: []string{playerPaneSources, playerPaneDiscover, ModeQueue}, Width: map[string]int{
 		playerPaneSources: 18, playerPaneDiscover: 42, ModeQueue: 32,
-	}}
+	}, BottomOrder: []string{playerBottomNowPlaying, playerBottomVolume}}
 }
 
 func playerCopyArrangement(a playerArrangement) playerArrangement {
-	b := playerArrangement{Order: append([]string(nil), a.Order...), Width: make(map[string]int, len(a.Width))}
+	b := playerArrangement{
+		Order: slices.Clone(a.Order), Width: make(map[string]int, len(a.Width)),
+		BottomOrder: slices.Clone(a.BottomOrder),
+	}
 	for name, width := range a.Width {
 		b.Width[name] = width
 	}
@@ -45,6 +50,10 @@ func playerCopyArrangement(a playerArrangement) playerArrangement {
 }
 
 func playerValidateArrangement(layout string, a playerArrangement) error {
+	if a.BottomOrder != nil && (len(a.BottomOrder) != 2 ||
+		!slices.Contains(a.BottomOrder, playerBottomNowPlaying) || !slices.Contains(a.BottomOrder, playerBottomVolume)) {
+		return fmt.Errorf("invalid bottom pane order for %s", layout)
+	}
 	expected := playerDefaultArrangement(layout)
 	if layout == playerDiscoveryBrowser {
 		for _, id := range a.Order {
@@ -115,6 +124,10 @@ func playerReadLayoutsExcept(path, ignoredLayout string) (playerLayoutFile, erro
 		}
 		if err := playerValidateArrangement(layout, arrangement); err != nil {
 			return file, err
+		}
+		if arrangement.BottomOrder == nil {
+			arrangement.BottomOrder = playerDefaultArrangement(layout).BottomOrder
+			file.Layouts[layout] = arrangement
 		}
 	}
 	return file, nil

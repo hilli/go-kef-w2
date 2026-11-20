@@ -1375,6 +1375,306 @@ func TestPlayerTitleDragDocksAndPersists(t *testing.T) {
 	}
 }
 
+func TestPlayerTitleDragStaysAtTargetAcrossFrames(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		t.Run(layout, func(t *testing.T) {
+			m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+			m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			m.addExtension(m.ui.extension())
+			m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+			view := m.View()
+			source, _ := m.ui.root.Frame().Rect("title-sources")
+			target, _ := m.ui.root.Frame().Rect("title-" + m.ui.arrangement.Order[2])
+			press := tea.MouseClickMsg{X: source.Min.X + 1, Y: source.Min.Y, Button: tea.MouseLeft}
+			view.OnMouse(press)
+			m.Update(press)
+			for _, dx := range []int{1, target.Dx() - 3, target.Dx() - 2, target.Dx() - 1} {
+				motion := tea.MouseMotionMsg{X: target.Min.X + dx, Y: target.Min.Y, Button: tea.MouseLeft}
+				m.View().OnMouse(motion)
+				m.Update(motion)
+				if len(m.ui.preview.Order) != 3 || m.ui.preview.Order[2] != playerPaneSources {
+					t.Fatalf("drag moved away from its original target across frames: %v", m.ui.preview.Order)
+				}
+			}
+			release := tea.MouseReleaseMsg{X: target.Max.X - 1, Y: target.Min.Y, Button: tea.MouseLeft}
+			m.View().OnMouse(release)
+			m.Update(release)
+			if m.ui.arrangement.Order[2] != playerPaneSources {
+				t.Fatalf("drop did not commit the intended target: %v", m.ui.arrangement.Order)
+			}
+		})
+	}
+}
+
+func TestPlayerBottomTitlesDragAndPersist(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		t.Run(layout, func(t *testing.T) {
+			dir := t.TempDir()
+			m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+			m.ui = newPlayerLayoutUI(layout, filepath.Join(dir, "kefw2.yaml"))
+			m.ui.controls = newPlayerControlsUI()
+			m.addExtension(m.ui.extension())
+			m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+			view := m.View()
+			source, _ := m.ui.root.Frame().Rect("title-now-playing")
+			target, _ := m.ui.root.Frame().Rect("title-volume")
+			press := tea.MouseClickMsg{X: source.Min.X + 1, Y: source.Min.Y, Button: tea.MouseLeft}
+			view.OnMouse(press)
+			m.Update(press)
+			for _, dx := range []int{1, 2, 3} {
+				motion := tea.MouseMotionMsg{X: target.Min.X + dx, Y: target.Min.Y, Button: tea.MouseLeft}
+				m.View().OnMouse(motion)
+				m.Update(motion)
+			}
+			release := tea.MouseReleaseMsg{X: target.Min.X + 3, Y: target.Min.Y, Button: tea.MouseLeft}
+			m.View().OnMouse(release)
+			m.Update(release)
+			m.View()
+			now, _ := m.ui.root.Frame().Rect("now-playing-pane")
+			volume, _ := m.ui.root.Frame().Rect("volume-pane")
+			if volume.Min.X >= now.Min.X {
+				t.Fatal("bottom pane headers did not drag to reorder")
+			}
+			m.ui = newPlayerLayoutUI(layout, filepath.Join(dir, "kefw2.yaml"))
+			m.ui.controls = newPlayerControlsUI()
+			m.View()
+			now, _ = m.ui.root.Frame().Rect("now-playing-pane")
+			volume, _ = m.ui.root.Frame().Rect("volume-pane")
+			if volume.Min.X >= now.Min.X || m.ui.error != nil {
+				t.Fatalf("bottom pane order was not restored: %v", m.ui.error)
+			}
+		})
+	}
+}
+
+func TestPlayerPaneDragCancellation(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		for _, bottom := range []bool{false, true} {
+			for _, cancel := range []string{"return", "outside-row", "escape", "blur", "resize", "help", "lost-release"} {
+				t.Run(fmt.Sprintf("%s/bottom=%t/%s", layout, bottom, cancel), func(t *testing.T) {
+					m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+					m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+					m.ui.controls = newPlayerControlsUI()
+					m.addExtension(m.ui.extension())
+					m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+					m.View()
+					before := playerCopyArrangement(m.ui.arrangement)
+					from, to, outside := "sources", m.ui.arrangement.Order[2], playerBottomVolume
+					if bottom {
+						from, to, outside = playerBottomNowPlaying, playerBottomVolume, "sources"
+					}
+					source, _ := m.ui.root.Frame().Rect("title-" + from)
+					target, _ := m.ui.root.Frame().Rect("title-" + to)
+					otherRow, _ := m.ui.root.Frame().Rect("title-" + outside)
+					m.ui.searchActive = true
+					m.ui.search.Focus()
+					playerLayoutDragTestMouse(t, m, tea.MouseClickMsg{X: source.Min.X + 1, Y: source.Min.Y, Button: tea.MouseLeft})
+					playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: target.Min.X + 1, Y: target.Min.Y, Button: tea.MouseLeft})
+					if reflect.DeepEqual(m.ui.preview, before) || m.ui.searchActive {
+						t.Fatal("drag did not preview a move or leave search mode")
+					}
+					drop := target.Min
+					switch cancel {
+					case "return":
+						drop = source.Min
+					case "outside-row":
+						drop = otherRow.Min
+					case "escape":
+						m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+					case "blur":
+						m.Update(tea.BlurMsg{})
+					case "resize":
+						m.Update(tea.WindowSizeMsg{Width: 150, Height: 42})
+					case "help":
+						m.Update(tea.KeyPressMsg{Code: '?'})
+					case "lost-release":
+						playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: drop.X, Y: drop.Y, Button: tea.MouseNone})
+					}
+					playerLayoutDragTestMouse(t, m, tea.MouseReleaseMsg{X: drop.X + 1, Y: drop.Y, Button: tea.MouseLeft})
+					if !reflect.DeepEqual(m.ui.arrangement, before) || m.ui.drag != "" {
+						t.Fatalf("canceled drag changed arrangement: %+v", m.ui.arrangement)
+					}
+					if _, err := os.Stat(m.ui.path); !os.IsNotExist(err) {
+						t.Fatalf("canceled drag wrote the layout: %v", err)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestPlayerPaneDragInResponsiveLayouts(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		t.Run(layout, func(t *testing.T) {
+			m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+			m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			m.addExtension(m.ui.extension())
+			m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+			view := m.View()
+			if !view.ReportFocus || view.MouseMode != tea.MouseModeCellMotion {
+				t.Fatalf("view does not request drag and focus events: %+v", view)
+			}
+			from, to := playerPaneSources, playerPaneDiscover
+			if layout == playerDiscoveryBrowser {
+				from, to = playerPaneDiscover, playerPaneDetails
+			}
+			source, _ := m.ui.root.Frame().Rect("title-" + from)
+			target, _ := m.ui.root.Frame().Rect("title-" + to)
+			playerLayoutDragTestMouse(t, m, tea.MouseClickMsg{X: source.Min.X + 1, Y: source.Min.Y, Button: tea.MouseLeft})
+			for _, dx := range []int{1, 2, 3} {
+				playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: target.Min.X + dx, Y: target.Min.Y + 2, Button: tea.MouseLeft})
+			}
+			playerLayoutDragTestMouse(t, m, tea.MouseReleaseMsg{X: target.Min.X + 3, Y: target.Min.Y + 2, Button: tea.MouseLeft})
+			m.View()
+			moved, _ := m.ui.root.Frame().Rect("title-" + from)
+			other, _ := m.ui.root.Frame().Rect("title-" + to)
+			if moved.Min.X <= other.Min.X {
+				t.Fatal("responsive layout ignored the reordered visible panes")
+			}
+			file, err := playerReadLayouts(m.ui.path)
+			if err != nil || !reflect.DeepEqual(file.Layouts[layout], m.ui.arrangement) {
+				t.Fatalf("responsive drag was not saved: %+v %v", file, err)
+			}
+		})
+	}
+}
+
+func TestPlayerResponsiveDeskReorderedAlternatePanesFillRow(t *testing.T) {
+	for _, pane := range []string{ModeQueue, playerPaneDetails} {
+		t.Run(pane, func(t *testing.T) {
+			m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+			m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			m.addExtension(m.ui.extension())
+			m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+			m.ui.pane = pane
+			m.ui.arrangement.Order = []string{ModeQueue, playerPaneDiscover, playerPaneSources}
+			m.View()
+			main, mainOK := m.ui.root.Frame().Rect("pane-" + pane)
+			source, sourceOK := m.ui.root.Frame().Rect("pane-sources")
+			if !mainOK || !sourceOK || main.Min.X != 0 || source.Max.X != m.width ||
+				main.Dx()+source.Dx()+1 != m.width {
+				t.Fatalf("reordered alternate pane does not fill the row: %v %v", main, source)
+			}
+		})
+	}
+}
+
+func TestPlayerAlternatePaneTitlesDragUsingDockSlot(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		t.Run(layout, func(t *testing.T) {
+			m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+			m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			m.addExtension(m.ui.extension())
+			m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+			pane := playerPaneDetails
+			if layout == playerDiscoveryBrowser {
+				pane = ModeQueue
+			}
+			m.ui.pane = pane
+			slot := m.ui.arrangement.Order[2]
+			m.View()
+			source, _ := m.ui.root.Frame().Rect("title-" + pane)
+			target, _ := m.ui.root.Frame().Rect("title-sources")
+			playerLayoutDragTestMouse(t, m, tea.MouseClickMsg{X: source.Min.X + 1, Y: source.Min.Y, Button: tea.MouseLeft})
+			playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: target.Min.X + 1, Y: target.Min.Y + 2, Button: tea.MouseLeft})
+			playerLayoutDragTestMouse(t, m, tea.MouseReleaseMsg{X: target.Min.X + 1, Y: target.Min.Y + 2, Button: tea.MouseLeft})
+			m.View()
+			moved, _ := m.ui.root.Frame().Rect("pane-" + pane)
+			if m.ui.arrangement.Order[0] != slot || moved.Min.X != 0 {
+				t.Fatalf("alternate pane did not move its dock slot: %+v %v", m.ui.arrangement, moved)
+			}
+		})
+	}
+}
+
+func TestPlayerResponsiveDividerResizesVisibleNeighbors(t *testing.T) {
+	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+	m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+	m.addExtension(m.ui.extension())
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.ui.pane = ModeQueue
+	before := playerCopyArrangement(m.ui.arrangement)
+	m.View()
+	divider, _ := m.ui.root.Frame().Rect("divider-sources")
+	playerLayoutDragTestMouse(t, m, tea.MouseClickMsg{X: divider.Min.X, Y: divider.Min.Y + 1, Button: tea.MouseLeft})
+	playerLayoutDragTestMouse(t, m, tea.MouseMotionMsg{X: divider.Min.X + 5, Y: divider.Min.Y + 1, Button: tea.MouseLeft})
+	playerLayoutDragTestMouse(t, m, tea.MouseReleaseMsg{X: divider.Min.X + 5, Y: divider.Min.Y + 1, Button: tea.MouseLeft})
+	if m.ui.arrangement.Width[playerPaneSources] != before.Width[playerPaneSources]+5 ||
+		m.ui.arrangement.Width[ModeQueue] != before.Width[ModeQueue]-5 ||
+		m.ui.arrangement.Width[playerPaneDiscover] != before.Width[playerPaneDiscover] {
+		t.Fatalf("divider resized a hidden pane: %+v", m.ui.arrangement)
+	}
+}
+
+func playerLayoutDragTestMouse(t *testing.T, m *playerModel, msg tea.MouseMsg) {
+	t.Helper()
+	messages := playerLayoutTestMessages(m.View().OnMouse(msg))
+	_, command := m.Update(msg)
+	messages = append(messages, playerLayoutTestMessages(command)...)
+	if len(messages) != 0 {
+		t.Fatalf("layout drag emitted commands: %#v", messages)
+	}
+}
+
+func TestPlayerBottomOrderLegacyFilesAndKeyboardIsolation(t *testing.T) {
+	legacy := `version: 1
+layouts:
+  listening-desk:
+    order: [sources, discover, queue]
+    width: {sources: 18, discover: 42, queue: 32}
+  discovery-browser:
+    order: [sources, discover, details]
+    width: {sources: 18, discover: 38, details: 40}
+`
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		t.Run(layout, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "player-layout.yaml")
+			if err := os.WriteFile(path, []byte(legacy), 0600); err != nil {
+				t.Fatal(err)
+			}
+			m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+			m.ui = newPlayerLayoutUI(layout, filepath.Join(dir, "kefw2.yaml"))
+			m.addExtension(m.ui.extension())
+			if m.ui.error != nil {
+				t.Fatal(m.ui.error)
+			}
+			for _, key := range []rune{'p', 'b'} {
+				m.Update(tea.KeyPressMsg{Code: key})
+			}
+			file, err := playerReadLayouts(path)
+			if err != nil || m.ui.menu {
+				t.Fatalf("keyboard swap failed: %v", err)
+			}
+			for _, name := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+				want := playerDefaultArrangement(name)
+				if name == layout {
+					want.BottomOrder[0], want.BottomOrder[1] = want.BottomOrder[1], want.BottomOrder[0]
+				}
+				if !reflect.DeepEqual(file.Layouts[name], want) {
+					t.Fatalf("swap changed the wrong arrangement: %+v", file)
+				}
+			}
+		})
+	}
+	for _, order := range []string{"[]", "[volume, volume]", "[volume, discover]", "[now-playing, volume, sources]"} {
+		t.Run(order, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "player-layout.yaml")
+			invalid := strings.Replace(legacy, "    order:", "    bottom_order: "+order+"\n    order:", 1)
+			if err := os.WriteFile(path, []byte(invalid), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := playerSaveLayouts(path, playerListeningDesk, playerDefaultArrangement(playerListeningDesk), false); err == nil {
+				t.Fatal("invalid bottom order was silently overwritten")
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || string(data) != invalid {
+				t.Fatalf("invalid layout changed: %q %v", data, err)
+			}
+		})
+	}
+}
+
 func TestPlayerUncertaintyNoticeSurvivesSessionReset(t *testing.T) {
 	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
 	m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
