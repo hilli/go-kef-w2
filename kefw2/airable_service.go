@@ -138,6 +138,20 @@ func (a *AirableClient) getServiceEndpoint(service AirableServiceType, endpoint 
 	return a.GetRows(fmt.Sprintf("%s%s/%s", baseURL, config.urlPath, endpoint), 0, 50)
 }
 
+func (a *AirableClient) getServiceEndpointPage(
+	service AirableServiceType, endpoint string, offset, limit int,
+) (*RowsResponse, error) {
+	if offset < 0 || offset > 1_000_000 || limit < 1 || limit > 100 {
+		return nil, fmt.Errorf("service page requires offset 0..1000000 and limit 1..100")
+	}
+	baseURL, err := a.getServiceBaseURLPath(service)
+	if err != nil {
+		return nil, err
+	}
+	config := serviceConfigs[service]
+	return a.GetRows(fmt.Sprintf("%s%s/%s", baseURL, config.urlPath, endpoint), offset, offset+limit-1)
+}
+
 // getAllServiceEndpoint retrieves all content from a service endpoint (paginated and cached).
 func (a *AirableClient) getAllServiceEndpoint(service AirableServiceType, endpoint string) (*RowsResponse, error) {
 	baseURL, err := a.getServiceBaseURLPath(service)
@@ -344,6 +358,9 @@ func buildMediaDataRoles(data *MediaData) map[string]interface{} {
 	if data.MetaData.Live {
 		metaData["live"] = true
 	}
+	if data.MetaData.PlayLogicPath != "" {
+		metaData["playLogicPath"] = data.MetaData.PlayLogicPath
+	}
 	if data.MetaData.ContentPlayContextPath != "" {
 		metaData["contentPlayContextPath"] = data.MetaData.ContentPlayContextPath
 	}
@@ -389,6 +406,10 @@ func (a *AirableClient) playItem(item *ContentItem) error {
 		return fmt.Errorf("failed to clear playlist: %w", err)
 	}
 
+	return a.requestItemPlayback(item)
+}
+
+func (a *AirableClient) requestItemPlayback(item *ContentItem) error {
 	// Build the mediaRoles payload
 	mediaRoles := buildMediaRoles(item)
 

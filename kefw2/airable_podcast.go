@@ -61,6 +61,15 @@ func (a *AirableClient) getPodcastMenu(all bool) (*RowsResponse, error) {
 
 // SearchPodcasts searches for podcasts using direct URL pattern.
 func (a *AirableClient) SearchPodcasts(query string) (*RowsResponse, error) {
+	return a.SearchPodcastsPage(query, 0, 24)
+}
+
+// SearchPodcastsPage searches a bounded page of raw service rows.
+// offset must be between 0 and 1,000,000; limit must be between 1 and 100.
+func (a *AirableClient) SearchPodcastsPage(query string, offset, limit int) (*RowsResponse, error) {
+	if offset < 0 || offset > 1_000_000 || limit < 1 || limit > 100 {
+		return nil, fmt.Errorf("podcast search requires offset 0..1000000 and limit 1..100")
+	}
 	baseURL, err := a.getServiceBaseURLPath(ServicePodcast)
 	if err != nil {
 		return nil, err
@@ -69,7 +78,7 @@ func (a *AirableClient) SearchPodcasts(query string) (*RowsResponse, error) {
 	// Build search path with escaped query parameter
 	searchPath := fmt.Sprintf("%s/airable/feeds/search\\?q\\=%s", baseURL, url.QueryEscape(query))
 
-	return a.GetRows(searchPath, 0, 23)
+	return a.GetRows(searchPath, offset, offset+limit-1)
 }
 
 // SearchPodcastsAll searches every result page, failing rather than returning
@@ -112,19 +121,39 @@ func (a *AirableClient) GetPodcastDetailsExact(path string) (*ContentItem, error
 
 // PlayPodcastEpisodeExact requests the selected audio item, never its parent
 // container (which could start a different episode). Acceptance is not proof
-// that the speaker has resolved the stream or started physical playback.
+// that the speaker has resolved the stream or started physical playback. The
+// playlist is explicitly cleared before the play request.
 func (a *AirableClient) PlayPodcastEpisodeExact(episode *ContentItem) error {
+	return a.playPodcastEpisodeExact(episode, true)
+}
+
+// RequestPodcastEpisodeExact requests the selected audio item without
+// explicitly clearing the playlist. Acceptance does not prove playback began.
+func (a *AirableClient) RequestPodcastEpisodeExact(episode *ContentItem) error {
+	return a.playPodcastEpisodeExact(episode, false)
+}
+
+func (a *AirableClient) playPodcastEpisodeExact(episode *ContentItem, clearPlaylist bool) error {
 	if episode == nil || episode.Type != ContentTypeAudio || strings.TrimSpace(episode.Path) == "" {
 		return fmt.Errorf("an exact audio episode with a nonempty path is required")
 	}
 	item := *episode
 	item.ContainerPlayable = true
-	return a.playItem(&item)
+	if clearPlaylist {
+		return a.playItem(&item)
+	}
+	return a.requestItemPlayback(&item)
 }
 
 // GetPodcastFavorites returns the user's favorite podcasts.
 func (a *AirableClient) GetPodcastFavorites() (*RowsResponse, error) {
 	return a.getServiceEndpoint(ServicePodcast, "favorites")
+}
+
+// GetPodcastFavoritesPage returns a bounded page of favorite podcasts.
+// offset must be between 0 and 1,000,000; limit must be between 1 and 100.
+func (a *AirableClient) GetPodcastFavoritesPage(offset, limit int) (*RowsResponse, error) {
+	return a.getServiceEndpointPage(ServicePodcast, "favorites", offset, limit)
 }
 
 // GetPodcastFavoritesAll returns all favorite podcasts (paginated and cached).

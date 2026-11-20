@@ -12,7 +12,7 @@ CLI, library and apps (planned) for controlling KEFs W2 platform based speakers 
 
 Grab a version for your OS from the [releases](https://github.com/hilli/go-kef-w2/releases) page.
 
-If you are a developer and have [Go](https://go.dev/) 1.26 or newer installed, you can install the latest version directly:
+If you are a developer and have [Go](https://go.dev/) 1.27.3 or newer installed, you can install the latest version directly:
 
 ```shell
 go install github.com/hilli/go-kef-w2/cmd/kefw2@latest
@@ -248,10 +248,11 @@ These finite commands emit one JSON object with a `data` field, plus `speaker`
 identity for speaker-specific operations. JSON mode does not prompt, render
 artwork, or print progress or ANSI colors. Failures exit with status 1 and send
 diagnostics to stderr rather than returning fabricated values. Operational
-commands support `--json`; help-only command groups, shell completion and skill
-installation/display are not JSON APIs. Existing human-facing commands remain
-interactive by default. `status watch --json` emits complete snapshots, while
-`events --json` emits individual events; both are unbounded JSON Lines streams.
+commands support `--json`; the interactive player, help-only command groups,
+shell completion and skill installation/display are not JSON APIs. Existing
+human-facing commands remain interactive by default. `status watch --json`
+emits complete snapshots, while `events --json` emits individual events; both
+are unbounded JSON Lines streams.
 
 For example:
 
@@ -278,6 +279,119 @@ millisecond playback times; `playback` is `null` on standby/physical inputs and
 unknown or inapplicable playback times are `null`.
 Track metadata includes `image_url`, with an empty string when no artwork URL
 is available.
+
+### Interactive player
+
+The player controls one speaker at a time in a terminal, with keyboard and
+mouse support. Listening Desk is the default layout; Discovery Browser gives
+more space to search. Both layouts share the same controls and capabilities.
+For scriptable live status, see [Live status](#live-status); the player itself
+has no JSON interface.
+
+```shell
+kefw2 player
+kefw2 player --layout listening-desk
+kefw2 --speaker "Living Room" player --layout discovery-browser
+```
+
+`--layout` accepts `listening-desk` or `discovery-browser`. Omitting it always
+starts Listening Desk, even after using Discovery Browser. Pane arrangements
+are saved separately for each layout. Launching the player does not change the
+speaker's input or playback.
+
+At startup, `--speaker NAME_OR_IP` takes precedence over `KEFW2_SPEAKER` or
+the `speaker` configuration value, then the configured default or sole
+configured speaker. If several speakers have no default, the player opens a
+chooser. With no configured or explicit target, first use
+`kefw2 config speaker discover --save` or `kefw2 config speaker add IP`.
+Use an IP to disambiguate duplicate names; an unconfigured explicit target is
+for the current session only.
+
+Press uppercase `S` or click the speaker name to choose another configured
+speaker; lowercase `s` opens the input chooser. Changing which speaker is
+controlled does not change the saved default, transfer playback, or copy
+source, volume or queue state. If the selected speaker is unavailable, it
+remains selected: retry or choose another rather than silently controlling the
+previous speaker. An action already accepted by the previous speaker cannot be
+recalled, and failed actions are not automatically replayed. On failed status
+reads, the selected speaker's last confirmed state is marked stale. If the
+event stream disconnects, writes pause until a fresh status poll succeeds;
+unsent actions are discarded, and uncertain dispatched actions identify their
+original target.
+
+The player shows the speaker's confirmed power and actual input; the input is
+not the service being browsed. Radio and Podcasts are Wi-Fi services; browsing
+them does not switch inputs.
+The narrow Sources sidebar lists physical inputs, **Off / Standby**, and Wi-Fi
+browsing shortcuts. Click an input to select it, then use Enter, Open or a
+double-click to activate it. A single click opens a Wi-Fi service. `*` marks
+the confirmed input; Off puts only the selected speaker into standby.
+Unsupported inputs are dimmed and marked `-`.
+Active panes use cyan double borders, selected rows have filled highlights,
+and keyboard hints are amber. Saved custom widths remain unchanged; `p`, then
+`R` restores the narrower default.
+
+The bottom row has separate **Now Playing** and **Volume** panes. Now Playing
+shows the actual input, playback details and transport controls; Volume holds
+the slider and mute control. Click a pane title or use Tab to focus its controls.
+
+Search stations or podcasts, open a series to browse episodes, or browse UPnP
+and add supported tracks to the active queue. Selecting a result previews it;
+playing a station or episode is explicit and can change playback. Radio play
+requires confirmation (`y` to confirm) and can switch to Wi-Fi and replace
+the queue. TV, Optical, Coaxial, Aux and USB show `external audio` when
+playback data is unavailable; transport/seek depend on the input and media. In
+the player, UPnP supports browsing and enqueueing tracks, not search,
+favorites or direct playback from a result. To play a UPnP track, enqueue it,
+select it in the queue and press Enter; enqueueing alone does not start playback.
+
+| Action | Keyboard |
+| --- | --- |
+| Focus and navigate | `Tab` / `Shift+Tab`; arrows or `j` / `k` |
+| Speaker / input | `S` / `s`, then arrows and Enter; Esc cancels |
+| Sources sidebar | `Alt+1` by default, or Tab to focus; arrows or `j` / `k` select; Enter opens/switches |
+| Browse Wi-Fi | Click Radio, Podcasts or UPnP to open its menu in Discover; select it again to return to the menu |
+| Confirmation dialogs | Tab/Shift+Tab or Left/Right selects; Enter activates; `y` confirms, `n`/Esc cancels; Cancel is the default |
+| Search / details | `/` to search; Enter submits or opens/plays supported results; `i` opens details |
+| Queue | `Q` focuses queue; queue focus: `Ctrl+k` / `Ctrl+j` move row |
+| Panes | `p` opens Move, Resize, Zoom and Reset; `z` toggles zoom on the focused pane |
+| Playback / volume | Space toggles; `[` / `]` skip; `,` / `.` seek; `+` / `-` adjust volume; `m` toggles mute |
+| Errors | `R` retries a failed volume change when offered; `D` dismisses control/volume errors |
+| Help / quit | `?`; `q` or Ctrl+C |
+
+Printable shortcuts apply outside text fields; pane and menu keys depend on
+focus. In Discover, `1` / `2` / `3` select Radio / Podcasts / UPnP, `<` / `>`
+page results, and `e` enqueues a supported UPnP track. `r` retries an offered
+failed discovery read, not a playback, favorite or enqueue action.
+
+In Discovery Browser, `Q` also returns from the queue to discovery. With queue
+focus, Enter plays, Delete removes, `c` prompts to clear (`y` confirms), `h`
+toggles shuffle, and `t` cycles repeat. Use `r` to reload an uncertain queue
+and `a` to acknowledge it after reviewing the refreshed result. Moves check
+for intervening changes but cannot guarantee atomicity against another controller.
+
+In the `p` pane menu, `m` moves, `r` resizes, `z` zooms, uppercase `R`
+resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles
+reduced motion (panes snap instead of gliding into place). Use Left/Right, Enter
+and Esc to preview, commit or cancel changes. In Discovery Browser, `p` then
+`d` docks or undocks the queue in place
+of the inspector; the choice is saved with that layout. Reset
+preserves the other valid layout when only the active arrangement is invalid
+and the file's version and schema are supported. Resetting a malformed,
+unsupported or otherwise invalid file may discard other arrangements.
+
+With the mouse, click controls or rows, double-click a navigable container to
+open it or a station/episode to play. Drag a pane's `::` title grip over another
+visible pane in the same row to reorder; this also works for Now Playing and
+Volume. Dropped panes glide into place using Bloom layout animation. Drag upper-pane dividers to resize and queue-row grips to reorder.
+Layout changes are saved separately for each layout; Esc, losing terminal
+focus or dropping outside the row cancels a pane move. Collapsed single-pane
+rows cannot be reordered by dragging. Click or drag the volume slider,
+or use Left/Right while it has focus; `+` / `-` adjust by 1. Volume respects the
+selected speaker's maximum, and increases are disabled if that limit cannot
+be read. Seek moves by 10 seconds and requires supported, currently playing
+non-live media with a known position and duration. Review the speaker and
+current state before retrying an uncertain action.
 
 ### Live status
 

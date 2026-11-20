@@ -1,6 +1,6 @@
 # Implementation plan: dual-layout KEF player
 
-Status: planned, not implemented. This plan delivers the
+Status: implementation in progress. This plan delivers the
 [selected design](2026-11-18-player-listening-desk-design.md) in PR #44.
 Discovery Browser's [visual reference is PR #45](https://github.com/hilli/go-kef-w2/pull/45).
 The existing screenshots are design mockups; real terminal screenshots are a

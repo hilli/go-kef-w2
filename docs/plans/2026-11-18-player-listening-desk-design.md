@@ -60,7 +60,7 @@ standalone proposals.
 
 ## Listening Desk arrangement
 
-At 120+ columns and 32+ rows, use three columns: Sources (24 cells), Discover
+At 120+ columns and 32+ rows, use three columns: Sources (18 cells), Discover
 (remaining width, minimum 42), Queue (32). Keep the transport and one-line
 context-sensitive help outside the pane tree. These are terminal-cell targets;
 the accompanying HTML is an illustrative mockup, not a cell-exact renderer.
@@ -79,7 +79,7 @@ collapsing detail content. Enlarging restores the user's layout and selection.
 
 ## Discovery Browser arrangement
 
-At 120+ columns and 32+ rows, show service/source navigation (22 cells), results
+At 120+ columns and 32+ rows, show service/source navigation (18 cells), results
 (fill, minimum 38), and an inspector (40). Search stays above the pane tree;
 the same transport and volume dock remains below it. Selecting a result previews
 details without playing it. Enter on a podcast series opens its episodes; Enter
