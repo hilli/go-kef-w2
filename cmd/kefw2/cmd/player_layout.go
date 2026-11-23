@@ -763,17 +763,7 @@ func (ui *playerLayoutUI) sendScoped(generation uint64, message tea.Msg) {
 func (ui *playerLayoutUI) queueKey(key tea.KeyPressMsg) bool {
 	state := ui.queue.state()
 	ui.queueIndex = max(0, min(ui.queueIndex, len(state.Items)-1))
-	if state.Busy || state.Uncertain {
-		switch key.String() {
-		case "r":
-			ui.send(playerQueueLoadMsg{Generation: state.Generation})
-		case "a":
-			if state.ReviewReady {
-				ui.send(playerQueueAcknowledgeMsg{Generation: state.Generation, ReviewID: state.ReviewID})
-			}
-		default:
-			return true
-		}
+	if (state.Busy || state.Loading) && (key.String() == "r" || key.String() == "a") {
 		return true
 	}
 	switch key.Code {
@@ -790,8 +780,9 @@ func (ui *playerLayoutUI) queueKey(key tea.KeyPressMsg) bool {
 		ui.queueIndex = min(max(0, len(state.Items)-1), ui.queueIndex+10)
 		return true
 	}
-	if !state.Ready && slices.Contains([]string{KeyEnter, playerLayoutKeyMoveUp, playerLayoutKeyMoveDown, playerLayoutKeyDelete,
-		playerLayoutKeyBackspace, "c", "h", "t"}, key.String()) {
+	if (!state.Ready || state.Busy || state.Loading || state.Uncertain) &&
+		slices.Contains([]string{KeyEnter, playerLayoutKeyMoveUp, playerLayoutKeyMoveDown, playerLayoutKeyDelete,
+			playerLayoutKeyBackspace, "c", "h", "t"}, key.String()) {
 		return true
 	}
 	switch key.String() {

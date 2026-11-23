@@ -8,6 +8,7 @@ import (
 	"bloomfx.dev/bloom"
 	"bloomfx.dev/bloom/on"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func playerMessage(message tea.Msg) tea.Cmd { return func() tea.Msg { return message } }
@@ -20,10 +21,7 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 	status := "Enter play · Ctrl+j/k move · Del remove · c clear · h shuffle · t repeat"
 	switch {
 	case state.Uncertain:
-		status = "UNCERTAIN: review queue; r reload · a acknowledge"
-		if state.Err != nil {
-			status += ": " + state.Err.Error()
-		}
+		status = "Queue edits paused pending review"
 	case state.Busy || state.Loading:
 		status = "Loading / working..."
 	case state.Err != nil:
@@ -33,6 +31,11 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 		status += " | Mode error: " + state.ModeErr.Error()
 	}
 	children = append(children, bloom.Fixed(1, playerHint(watchText(status))))
+	recoveryHeight := 0
+	if state.Err != nil || state.Uncertain {
+		recoveryHeight = 6
+		children = append(children, bloom.Fixed(recoveryHeight, ui.queueRecoveryView(state)))
+	}
 	if !state.Ready {
 		children = append(children, bloom.Fixed(1, bloom.Text("Writes disabled: awaiting fresh speaker status")))
 	}
@@ -60,7 +63,9 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 		}))),
 	)
 	modes := bloom.Row(
-		bloom.Fixed(15, bloom.Text(fmt.Sprintf("[Shuffle %t]", state.Mode.Shuffle)).ID("queue-shuffle").On(on.Click(func() tea.Cmd {
+		bloom.Fixed(15, bloom.Text(fmt.Sprintf("[Shuffle %t]", state.Mode.Shuffle)).
+			Style(playerButtonStyle(false, state.Ready && !state.Busy && !state.Uncertain && state.ModeKnown)).
+			ID("queue-shuffle").On(on.Click(func() tea.Cmd {
 			if !state.Ready || state.Busy || state.Uncertain || !state.ModeKnown {
 				return nil
 			}
@@ -68,7 +73,9 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 				Generation: state.Generation, ReadyEpoch: state.ReadyEpoch, Enabled: !state.Mode.Shuffle,
 			})
 		}))),
-		bloom.Fill(bloom.Text(fmt.Sprintf("[Repeat %s]", state.Mode.Repeat)).ID("queue-repeat").On(on.Click(func() tea.Cmd {
+		bloom.Fill(bloom.Text(fmt.Sprintf("[Repeat %s]", state.Mode.Repeat)).
+			Style(playerButtonStyle(false, state.Ready && !state.Busy && !state.Uncertain && state.ModeKnown)).
+			ID("queue-repeat").On(on.Click(func() tea.Cmd {
 			if !state.Ready || state.Busy || state.Uncertain || !state.ModeKnown {
 				return nil
 			}
@@ -82,22 +89,10 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 			return playerMessage(playerQueueRepeatMsg{Generation: state.Generation, ReadyEpoch: state.ReadyEpoch, Mode: next})
 		}))),
 	)
-	children = append(children, bloom.Fixed(1, bar), bloom.Fixed(1, modes))
-	if state.Err != nil || state.Uncertain {
-		recovery := bloom.Row(
-			bloom.Fixed(9, bloom.Text("[Reload]").ID("queue-reload").On(on.Click(func() tea.Cmd {
-				return playerMessage(playerQueueLoadMsg{Generation: state.Generation})
-			}))),
-			bloom.Fill(bloom.Text("[Review OK]").ID("queue-review").On(on.Click(func() tea.Cmd {
-				if !state.ReviewReady {
-					return nil
-				}
-				return playerMessage(playerQueueAcknowledgeMsg{Generation: state.Generation, ReviewID: state.ReviewID})
-			}))),
-		)
-		children = append(children, bloom.Fixed(1, recovery))
-	}
-	rows := max(1, m.height-max(3, m.height/3)-11)
+	controls := bloom.Box(lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(playerBorderColor),
+		bloom.Column(bloom.Fixed(1, bar), bloom.Fixed(1, modes))).ID("queue-controls")
+	children = append(children, bloom.Fixed(4, controls))
+	rows := max(1, m.height-max(3, m.height/3)-13-recoveryHeight)
 	start := max(0, uiIndex-rows+1)
 	end := min(len(state.Items), start+rows)
 	for i := start; i < end; i++ {
@@ -144,6 +139,44 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 		ui.queueIndex = max(0, min(len(state.Items)-1, ui.queueIndex+dy))
 		return nil
 	}))
+}
+
+func (ui *playerLayoutUI) queueRecoveryView(state playerQueueUIState) bloom.Child {
+	title, instruction := "QUEUE READ FAILED", "Reload to try again."
+	if state.Uncertain {
+		title, instruction = "QUEUE NEEDS REVIEW", "Edits paused.\nReload and review order."
+	}
+	reloadStyle, reviewStyle := playerHintStyle, playerHintStyle
+	if !state.Busy && !state.Loading {
+		reloadStyle = lipgloss.NewStyle().Foreground(playerSurfaceColor).Background(playerWarningColor).Bold(true)
+		if state.Uncertain && state.ReviewReady {
+			reviewStyle = lipgloss.NewStyle().Foreground(playerSurfaceColor).Background(playerSuccessColor).Bold(true)
+		}
+	}
+	actions := []bloom.Child{
+		bloom.Fixed(13, bloom.Text("[r Reload]").Style(reloadStyle).ID("queue-reload").On(on.Click(func() tea.Cmd {
+			if state.Busy || state.Loading {
+				return nil
+			}
+			return playerMessage(playerQueueLoadMsg{Generation: state.Generation})
+		}))),
+	}
+	if state.Uncertain {
+		actions = append(actions, bloom.Fill(bloom.Text("[a Review OK]").Style(reviewStyle).
+			ID("queue-review").On(on.Click(func() tea.Cmd {
+			if state.Busy || state.Loading || !state.ReviewReady {
+				return nil
+			}
+			return playerMessage(playerQueueAcknowledgeMsg{Generation: state.Generation, ReviewID: state.ReviewID})
+		}))))
+	}
+	content := bloom.Column(
+		bloom.Fixed(1, bloom.Text(title).Style(lipgloss.NewStyle().Foreground(playerWarningColor).Bold(true))),
+		bloom.Fixed(2, bloom.Text(instruction)),
+		bloom.Fixed(1, bloom.Row(actions...)),
+	)
+	return bloom.Box(lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(playerWarningColor),
+		content).ID("queue-recovery")
 }
 
 func (ui *playerLayoutUI) openQueueClear(request playerQueueClearMsg) {

@@ -217,6 +217,8 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			"S: speaker · s: input · /: search · Q: queue · i: details\n" +
 			"+/-: volume · m: mute · Space: play/pause · [ ]: previous/next · , .: seek\n" +
 			"p: pane menu (b swaps bottom panes) · z: zoom · arrows: navigate\n" +
+			"Queue: Ctrl+k up · Ctrl+j down · Enter play · Del remove\n" +
+			"Queue recovery: r reload · review order · a acknowledge\n" +
 			"Drag :: titles within a row · Esc: cancel · q: quit"
 		content = bloom.Overlay(content, bloom.Layer(playerModal(bloom.Text(text))).ID("help").Modal().
 			Anchor(bloom.Center, bloom.Center))

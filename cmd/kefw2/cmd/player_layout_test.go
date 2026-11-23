@@ -541,6 +541,130 @@ func TestPlayerQueueKeyboardUsesRenderedSnapshot(t *testing.T) {
 	}
 }
 
+func TestPlayerQueueRecoverySeparatesAndHighlightsAvailableActions(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		for _, reviewReady := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/review=%t", layout, reviewReady), func(t *testing.T) {
+				m := newPlayerModel(context.Background(), layout, playerSelection{}, nil)
+				m.generation = 9
+				m.ui = newPlayerLayoutUI(layout, filepath.Join(t.TempDir(), "kefw2.yaml"))
+				m.ui.queue = newPlayerQueueUI()
+				snapshot := &playerQueueSnapshot{rows: []kefw2.ContentItem{{Title: "one"}, {Title: "two"}}}
+				m.ui.queue.current = playerQueueUIState{
+					Generation: 9, Snapshot: snapshot, Ready: true, Uncertain: true,
+					ReviewReady: reviewReady, ReviewID: 42, Err: errPlayerQueueUncertain,
+				}
+				m.ui.pane, m.ui.zoom = ModeQueue, ModeQueue
+				m.ui.focus.Set(ModeQueue)
+				m.addExtension(m.ui.extension())
+				m.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+				content := ansi.Strip(m.View().Content)
+				for _, text := range []string{"QUEUE NEEDS REVIEW", "Reload and review order.", "[r Reload]", "[a Review OK]", "one"} {
+					if !strings.Contains(content, text) {
+						t.Fatalf("recovery omitted %q", text)
+					}
+				}
+				recovery, recoveryOK := m.ui.root.Frame().Rect("queue-recovery")
+				controls, controlsOK := m.ui.root.Frame().Rect("queue-controls")
+				if !recoveryOK || !controlsOK || recovery.Dy() != 6 || controls.Dy() != 4 ||
+					recovery.Max.Y > controls.Min.Y {
+					t.Fatalf("recovery and controls are not separate frames: %v %v", recovery, controls)
+				}
+				reload := playerNodeCells(t, m, "queue-reload")[0]
+				review := playerNodeCells(t, m, "queue-review")[0]
+				if !playerSameColor(reload.Style.Bg, playerWarningColor) {
+					t.Fatal("available Reload is not highlighted")
+				}
+				if playerSameColor(review.Style.Bg, playerSuccessColor) != reviewReady {
+					t.Fatal("Review OK highlight does not match readback availability")
+				}
+				for _, id := range []string{"queue-play", "queue-shuffle", "queue-repeat"} {
+					if !playerSameColor(playerNodeCells(t, m, id)[0].Style.Fg, playerMutedColor) {
+						t.Fatalf("disabled %s is not dimmed", id)
+					}
+				}
+				assertPlayerQueueRecoveryClicks(t, m, reviewReady)
+				m.ui.queue.current.Busy = true
+				m.View()
+				if playerSameColor(playerNodeCells(t, m, "queue-reload")[0].Style.Bg, playerWarningColor) ||
+					playerSameColor(playerNodeCells(t, m, "queue-review")[0].Style.Bg, playerSuccessColor) {
+					t.Fatal("busy recovery actions remain highlighted")
+				}
+				for _, id := range []string{"queue-reload", "queue-review"} {
+					command, _ := m.ui.root.Click(id)
+					if messages := playerLayoutTestMessages(command); len(messages) != 0 {
+						t.Fatalf("busy %s dispatched a request: %#v", id, messages)
+					}
+				}
+			})
+		}
+	}
+}
+
+func assertPlayerQueueRecoveryClicks(t *testing.T, m *playerModel, reviewReady bool) {
+	t.Helper()
+	reloadCmd, ok := m.ui.root.Click("queue-reload")
+	messages := playerLayoutTestMessages(reloadCmd)
+	if !ok || len(messages) != 1 || messages[0] != (playerQueueLoadMsg{Generation: 9}) {
+		t.Fatalf("Reload lost its request: %#v", messages)
+	}
+	reviewCmd, ok := m.ui.root.Click("queue-review")
+	messages = playerLayoutTestMessages(reviewCmd)
+	if !ok || (!reviewReady && len(messages) != 0) ||
+		(reviewReady && (len(messages) != 1 ||
+			messages[0] != (playerQueueAcknowledgeMsg{Generation: 9, ReviewID: 42}))) {
+		t.Fatalf("Review OK ignored readback availability: %#v", messages)
+	}
+}
+
+func TestPlayerQueueRecoveryKeepsNavigationAndGlobalKeysAvailable(t *testing.T) {
+	for _, busy := range []bool{false, true} {
+		t.Run(fmt.Sprintf("busy=%t", busy), func(t *testing.T) {
+			m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
+			m.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			m.ui.queue = newPlayerQueueUI()
+			m.ui.queue.current = playerQueueUIState{
+				Generation: 9, Ready: true, Uncertain: true, Busy: busy, ReviewReady: true, ReviewID: 42,
+				Snapshot: &playerQueueSnapshot{rows: []kefw2.ContentItem{{Title: "one"}, {Title: "two"}}},
+			}
+			m.ui.pane = ModeQueue
+			m.ui.focus.Set(ModeQueue)
+			m.addExtension(m.ui.extension())
+			m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+			if m.ui.queueIndex != 1 {
+				t.Fatal("paused queue swallowed navigation")
+			}
+			for _, key := range []tea.KeyPressMsg{
+				{Code: tea.KeyEnter}, {Code: 'k', Mod: tea.ModCtrl}, {Code: 'j', Mod: tea.ModCtrl},
+				{Code: tea.KeyDelete}, {Code: 'c'}, {Code: 'h'}, {Code: 't'},
+			} {
+				_, command := m.Update(key)
+				if messages := playerLayoutTestMessages(command); len(messages) != 0 || m.ui.queueClear != nil {
+					t.Fatalf("paused queue allowed an edit: %s, %#v", key.String(), messages)
+				}
+			}
+			for _, key := range []rune{'r', 'a'} {
+				_, command := m.Update(tea.KeyPressMsg{Code: key})
+				messages := playerLayoutTestMessages(command)
+				if busy && len(messages) != 0 || !busy && len(messages) != 1 {
+					t.Fatalf("recovery key %c ignored availability: %#v", key, messages)
+				}
+			}
+			m.Update(tea.KeyPressMsg{Code: '?'})
+			if !m.ui.help {
+				t.Fatal("paused queue swallowed help")
+			}
+			m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+			if m.ui.help {
+				t.Fatal("help could not be dismissed")
+			}
+			if m.ui.key(m, tea.KeyPressMsg{Code: 'q'}) {
+				t.Fatal("paused queue swallowed the core quit key")
+			}
+		})
+	}
+}
+
 func TestPlayerMuteKeyUsesCapturedGeneration(t *testing.T) {
 	m := newPlayerModel(context.Background(), playerListeningDesk, playerSelection{}, nil)
 	m.generation = 12

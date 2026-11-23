@@ -193,6 +193,11 @@ selected row, Enter plays, Delete removes, `c` prompts to clear (`y` confirms),
 queue and `a` to acknowledge it after reviewing the refreshed result. Moves
 check for intervening changes but cannot guarantee atomicity against another
 controller.
+Queue recovery appears in a separate amber frame above the playback controls:
+`[r Reload]` is amber when available, and `[a Review OK]` turns green once a
+readback can be acknowledged. Disabled actions are dimmed. The `?` help popup
+also lists queue reordering and recovery keys. Navigation, help and quitting
+remain available while queue edits are paused.
 
 `p` opens the pane menu (Move, Resize, Zoom, Reset); `z` toggles zoom on the
 focused pane. In the menu, `m` moves, `r` resizes, `z` zooms and uppercase `R`

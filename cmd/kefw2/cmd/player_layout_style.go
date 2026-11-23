@@ -18,6 +18,8 @@ var (
 	playerAccentColor   = lipgloss.Color("#67e8f9")
 	playerBorderColor   = lipgloss.Color("#425369")
 	playerSelectionFill = lipgloss.Color("#164e63")
+	playerWarningColor  = lipgloss.Color("#fbbf24")
+	playerSuccessColor  = lipgloss.Color("#86efac")
 	playerKeyStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#fbbf24")).Bold(true)
 	playerHintStyle     = lipgloss.NewStyle().Foreground(playerMutedColor)
 )
