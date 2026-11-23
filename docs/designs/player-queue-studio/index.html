@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Jens Hilligsoe. MIT license. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kefw2 player / Queue Studio design</title>
+<style>
+:root{color-scheme:dark;--bg:#181a26;--panel:#1c1f2e;--line:#444962;--muted:#a3abc4;--ink:#e4e8f4;--accent:#baacff}
+*{box-sizing:border-box}body{margin:0;background:#0e101a;color:var(--ink);font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}main{max-width:1392px;margin:auto;padding:36px 32px}h1{font-size:27px;font-weight:500;letter-spacing:-1px;margin:6px 0}p{margin:0}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:2px}.intro{color:var(--muted);margin:0 0 25px}.terminal{border:1px solid #5b6187;background:var(--bg);box-shadow:0 24px 70px #0005}.chrome{background:#292c40;padding:10px 18px;display:flex;justify-content:space-between;font-size:12px;color:#bbc1da}.dots{color:var(--accent);letter-spacing:5px}.screen{padding:18px}.top{display:flex;justify-content:space-between;margin-bottom:16px}.brand{color:var(--accent);font-weight:bold}.muted{color:var(--muted)}.accent{color:var(--accent)}.panes{display:grid;grid-template-columns:230px minmax(0,1fr);gap:12px;height:437px}.pane{border:1px solid var(--line);background:var(--panel);min-width:0;overflow:hidden}.focus{border-color:var(--accent)}.title{border-bottom:1px solid var(--line);padding:8px 12px;display:flex;justify-content:space-between}.grip{color:#9ba6ca}.inside{padding:12px}.section{color:var(--muted);font-size:11px;letter-spacing:1px;margin:10px 0 6px}.nav{padding:5px 7px}.nav.active{color:var(--accent);background:#36344e}.small{font-size:12px}.search{border:1px solid #6e6b90;padding:8px;margin:9px 0;color:#d0c8ff;font-size:12px}.queue-tools{padding:10px 13px;font-size:12px;display:flex;justify-content:space-between;color:var(--muted)}table{border-collapse:collapse;table-layout:fixed;width:100%;font-size:13px}th{text-align:left;color:#aab2cb;font-size:10px;letter-spacing:1px;font-weight:400;background:#24283a;padding:8px}td{padding:11px 8px;border-bottom:1px solid #34394f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.position{width:69px}.artist{width:25%}.duration{width:75px}.selected{background:#38344f;color:#e3dbff}.playing{color:#8ce4c1}.insertion td{padding:0 9px;border-bottom:2px solid var(--accent);height:0}.draft{padding:10px 13px;color:#d1c5ff;font-size:11px;background:#302d45;margin-top:11px}.queue-bottom{display:flex;justify-content:space-between;padding:11px 13px;color:var(--muted);font-size:11px}.transport{margin-top:14px;border:1px solid var(--line);padding:14px 16px;display:grid;grid-template-columns:1fr 315px;gap:16px}.song{font-size:18px}.controls{margin-top:8px;word-spacing:6px}.volume{border-left:1px solid var(--line);padding-left:22px}.slider{display:flex;align-items:center;gap:3px;margin:10px 0}.fill{height:8px;background:var(--accent);width:38%}.thumb{width:7px;height:18px;background:#eee7ff}.empty{background:#444862;height:8px;flex:1}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:13px;color:#b3bdd8;font-size:11px}.annotations{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:24px;color:var(--muted);font-size:12px}.annotations b{display:block;color:#c9beff;font-weight:500;margin-bottom:3px}.note{font-size:10px;color:#858fb1;margin-top:20px}.compact{display:none}
+@media(max-width:1100px){.panes{grid-template-columns:190px minmax(0,1fr)}.artist{display:none}.transport{grid-template-columns:1fr 265px}.song{font-size:16px}.volume{padding-left:16px}}
+@media(max-width:900px){main{padding:24px}h1{font-size:23px}.intro{font-size:12px;margin-bottom:17px}.screen{padding:14px}.panes{display:block;height:393px}.library{display:none}.queue{height:100%}.compact{display:inline}.top{font-size:12px}.transport{padding:12px;grid-template-columns:1fr 235px;gap:10px}.volume{padding-left:12px}.song{font-size:15px}.transport .small{font-size:11px}.annotations{gap:15px;margin-top:17px;font-size:11px}.chrome{font-size:11px}.footer{font-size:10px;gap:10px}.note{margin-top:14px}.controls{word-spacing:3px}.queue-bottom{padding:8px 13px}.draft{margin-top:7px}}
+@media(max-width:650px){main{padding:12px}.transport{grid-template-columns:1fr}.volume{border:0;padding:0}.annotations{grid-template-columns:1fr}.duration{display:none}.chrome span:last-child{display:none}.queue-tools{font-size:10px}}
+.panes{height:auto;min-height:437px}
+@media(max-width:900px){.panes{min-height:0}.queue{height:auto}}
+</style>
+</head>
+<body>
+<main>
+<p class="eyebrow">03 / SHAPE THE NEXT HOUR</p>
+<h1>Queue Studio</h1>
+<p class="intro">A listening workbench. Put the right track next, keep the speaker's true state in view.</p>
+<div class="terminal">
+<div class="chrome"><span><span class="dots">● ● ●</span> kefw2 player</span><span>CONCEPT MOCKUP · NOT A RUNNING APP</span></div>
+<div class="screen">
+<div class="top"><span><span class="brand">KEF / STUDIO</span> <span class="muted"> · Living Room</span></span><span class="muted"><span class="accent">● connected</span> · INPUT Wi-Fi</span></div>
+<div class="panes">
+<section class="pane library">
+<div class="title"><span><span class="grip">⠿</span> Library + sources</span><span class="muted">1</span></div>
+<div class="inside">
+<div class="section">WORKSPACE</div><div class="nav active">› Speaker queue</div><div class="nav">  UPnP library</div>
+<div class="section">DISCOVER</div><div class="search">[/] Search / browse</div><div class="nav">  Radio</div><div class="nav">  Podcasts</div>
+<div class="section">INPUTS</div><div class="nav accent">  Wi-Fi / active</div><div class="nav">  Bluetooth</div><div class="nav">  TV / HDMI</div><div class="nav">  [s] All sources</div>
+<div class="small muted" style="margin-top:14px">Queue edits do not<br>change saved playlists.</div>
+</div>
+</section>
+<section class="pane queue focus">
+<div class="title"><span><span class="grip">⠿</span> Speaker queue <span class="compact muted"> / [/] Browse</span></span><span class="accent">FOCUSED</span></div>
+<div class="queue-tools"><span>6 tracks · 28:03 <span class="compact"> · [s] Source</span></span><span>[Move to...] · [Queue menu]</span></div>
+<table aria-label="Speaker queue with reorder preview">
+<thead><tr><th class="position">POS</th><th>TRACK</th><th class="artist">ARTIST</th><th class="duration">TIME</th></tr></thead>
+<tbody>
+<tr class="playing"><td>▶ 01</td><td>Soft Geometry</td><td class="artist">Mira Vale</td><td class="duration">05:12</td></tr>
+<tr><td class="muted">⠿ 02</td><td>Evening Lines</td><td class="artist muted">Field Atlas</td><td class="duration muted">04:38</td></tr>
+<tr class="selected"><td>⠿ 03</td><td>› Low Tide <span class="small muted">[moving]</span></td><td class="artist">Mira Vale</td><td class="duration">06:04</td></tr>
+<tr><td class="muted">⠿ 04</td><td>Still Air</td><td class="artist muted">North Glass</td><td class="duration muted">03:57</td></tr>
+<tr class="insertion"><td colspan="4"></td></tr>
+<tr><td class="muted">⠿ 05</td><td>A Distant Room</td><td class="artist muted">Field Atlas</td><td class="duration muted">04:02</td></tr>
+<tr><td class="muted">⠿ 06</td><td>First Light</td><td class="artist muted">North Glass</td><td class="duration muted">04:10</td></tr>
+</tbody>
+</table>
+<div class="draft">MOVE PREVIEW · Low Tide → position 4 · release to apply · Esc cancels</div>
+<div class="queue-bottom"><span>Ctrl+k / Ctrl+j reorder · Enter play</span><span>Shuffle off · Repeat off</span></div>
+</section>
+</div>
+<section class="transport">
+<div><div class="small accent">NOW PLAYING · Wi-Fi / UPnP · QUEUE TRACK 1</div><div class="song">Soft Geometry <span class="muted">/ Mira Vale</span></div><div class="small muted">02:14 ━━━━━━━━━╸──────────────── 05:12</div><div class="controls">[prev] [pause] [next] <span class="small muted">Space play/pause</span></div></div>
+<div class="volume"><div>Volume <span class="accent">28</span> <span class="small muted">/ limit 70</span><span style="float:right" class="small">[Mute]</span></div><div class="slider"><span class="fill"></span><span class="thumb"></span><span class="empty"></span></div><div class="small muted">Drag / click · +/- exact steps</div></div>
+</section>
+<div class="footer"><span>Tab focus · / discover · s source · p pane menu · i details</span><span>? help · q quit</span></div>
+</div>
+</div>
+<div class="annotations"><p><b>01 / The queue is the workspace</b>See enough tracks to shape the session. Moving an item never starts it playing.</p><p><b>02 / Deliberate, visible edits</b>A clear insertion target before drop. Refresh after every edit. Conflicts stay visible.</p><p><b>03 / Keyboard is first-class</b>Move a row, jump to a position, resize a pane, or search for a station without a mouse.</p></div>
+<p class="note">DESIGN PROPOSAL · Bubble Tea v2 + bloomfx.dev · fictional demo content · drag preview is illustrative</p>
+</main>
+</body>
+</html>
