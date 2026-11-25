@@ -22,9 +22,14 @@ const (
 
 // AddToQueue adds tracks to the end of the queue without clearing it.
 // If startIfEmpty is true and the queue is currently empty, playback will start.
+// Cancellation after the append was sent does not mean the append was undone.
 func (a *AirableClient) AddToQueue(tracks []ContentItem, startIfEmpty bool) error {
 	if len(tracks) == 0 {
 		return fmt.Errorf("no tracks provided")
+	}
+	ctx := a.context()
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("preparing tracks for queue: %w", err)
 	}
 
 	// Check if queue is empty before adding
@@ -40,6 +45,9 @@ func (a *AirableClient) AddToQueue(tracks []ContentItem, startIfEmpty bool) erro
 	// Build the items array with nsdkRoles JSON strings
 	items := make([]map[string]interface{}, len(tracks))
 	for i, track := range tracks {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("preparing tracks for queue: %w", err)
+		}
 		nsdkRoles := buildUPnPTrackRoles(&track)
 		nsdkRolesJSON, err := json.Marshal(nsdkRoles)
 		if err != nil {
@@ -71,7 +79,13 @@ func (a *AirableClient) AddToQueue(tracks []ContentItem, startIfEmpty bool) erro
 	if queueWasEmpty && startIfEmpty {
 		// Poll until queue has items (speaker needs time to process the add)
 		for attempt := 0; attempt < 20; attempt++ {
-			time.Sleep(250 * time.Millisecond)
+			timer := time.NewTimer(250 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return fmt.Errorf("waiting for added tracks: %w", ctx.Err())
+			case <-timer.C:
+			}
 			q, err := a.GetPlayQueue()
 			if err != nil {
 				return fmt.Errorf("waiting for added tracks: %w", err)
@@ -340,9 +354,10 @@ func (a *AirableClient) GetRepeatMode() (string, error) {
 // since TrackRoles.Path contains an internal item ID, not the display index.
 func (a *AirableClient) GetCurrentQueueIndex() (int, error) {
 	// Get player data
-	playerData, err := a.Speaker.PlayerData(context.Background())
+	ctx := a.context()
+	playerData, err := a.Speaker.PlayerData(ctx)
 	if err != nil {
-		return -1, err
+		return -1, airableSpeakerError(ctx, err)
 	}
 
 	// Check if playing from queue (path starts with "playlists:item/")
@@ -403,7 +418,7 @@ func (a *AirableClient) switchToWiFi(ctx context.Context, retrySourceReads bool)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if err := a.Speaker.SetSource(ctx, SourceWiFi); err != nil {
-		return fmt.Errorf("failed to switch to WiFi source: %w", err)
+		return fmt.Errorf("failed to switch to WiFi source: %w", airableSpeakerError(ctx, err))
 	}
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -415,6 +430,10 @@ func (a *AirableClient) switchToWiFi(ctx context.Context, retrySourceReads bool)
 		case <-ticker.C:
 			source, err := a.Speaker.Source(ctx)
 			if err != nil {
+				err = airableSpeakerError(ctx, err)
+				if ctx.Err() != nil {
+					return fmt.Errorf("checking WiFi source: %w", errors.Join(err, lastSourceErr))
+				}
 				if retrySourceReads {
 					lastSourceErr = err
 					continue
@@ -446,13 +465,79 @@ func (a *AirableClient) switchToWiFi(ctx context.Context, retrySourceReads bool)
 //     When shuffle is enabled, a random track is picked; otherwise it plays from
 //     the top. Returns PlayActionStartedFromQueue with track details.
 //   - If stopped and the queue is empty, returns PlayActionNothingToPlay.
+//
+// The operation keeps ctx's values and deadline and is canceled when either ctx
+// or the context set by WithContext ends; the earlier deadline applies. Nil,
+// Background, and TODO use the client context. Cancellation errors retain
+// their causes.
 func (a *AirableClient) PlayOrResumeFromQueue(ctx context.Context) (PlayResult, error) {
+	clientCtx := a.context()
+	if err := clientCtx.Err(); err != nil {
+		return PlayResult{}, playContextError(clientCtx, err)
+	}
+	if ctx == nil || ctx == context.Background() || ctx == context.TODO() {
+		ctx = clientCtx
+	}
+	if err := ctx.Err(); err != nil {
+		return PlayResult{}, playContextError(ctx, err)
+	}
+
+	if clientCtx.Done() != nil && ctx.Done() != clientCtx.Done() {
+		combined, cancel := context.WithCancelCause(ctx)
+		stop := context.AfterFunc(clientCtx, func() { cancel(context.Cause(clientCtx)) })
+		defer func() {
+			stop()
+			cancel(nil)
+		}()
+		if clientCtx.Err() != nil {
+			cancel(context.Cause(clientCtx))
+		}
+		ctx = combined
+		if deadline, ok := clientCtx.Deadline(); ok {
+			operationDeadline, hasDeadline := ctx.Deadline()
+			if !hasDeadline || deadline.Before(operationDeadline) {
+				ctx = playDeadlineContext{Context: ctx, deadline: deadline}
+			}
+		}
+	}
+
+	client := *a
+	client.bindContext(ctx, false)
+	result, err := client.playOrResumeFromQueue(ctx)
+	return result, playContextError(clientCtx, playContextError(ctx, err))
+}
+
+// Expose the earlier deadline without racing the client's cancellation cause
+// against a second deadline timer.
+type playDeadlineContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c playDeadlineContext) Deadline() (time.Time, bool) {
+	return c.deadline, true
+}
+
+func playContextError(ctx context.Context, err error) error {
+	if err == nil || ctx.Err() == nil {
+		return err
+	}
+	if ctxErr := ctx.Err(); !errors.Is(err, ctxErr) {
+		err = errors.Join(err, ctxErr)
+	}
+	if cause := context.Cause(ctx); cause != nil && !errors.Is(err, cause) {
+		err = errors.Join(err, cause)
+	}
+	return err
+}
+
+func (a *AirableClient) playOrResumeFromQueue(ctx context.Context) (PlayResult, error) {
 	wokeFromStandby := false
 
 	// Check if speaker is in standby and wake it by switching to WiFi
 	source, err := a.Speaker.Source(ctx)
 	if err != nil {
-		return PlayResult{}, fmt.Errorf("failed to get speaker source: %w", err)
+		return PlayResult{}, fmt.Errorf("failed to get speaker source: %w", airableSpeakerError(ctx, err))
 	}
 	if source == SourceStandby {
 		if err := a.switchToWiFi(ctx, true); err != nil {
@@ -463,7 +548,7 @@ func (a *AirableClient) PlayOrResumeFromQueue(ctx context.Context) (PlayResult, 
 
 	pd, err := a.Speaker.PlayerData(ctx)
 	if err != nil {
-		return PlayResult{}, fmt.Errorf("failed to get player data: %w", err)
+		return PlayResult{}, fmt.Errorf("failed to get player data: %w", airableSpeakerError(ctx, err))
 	}
 
 	switch pd.State {
@@ -472,7 +557,7 @@ func (a *AirableClient) PlayOrResumeFromQueue(ctx context.Context) (PlayResult, 
 
 	case PlayerStatePaused:
 		if err := a.Speaker.PlayPause(ctx); err != nil {
-			return PlayResult{}, fmt.Errorf("failed to resume playback: %w", err)
+			return PlayResult{}, fmt.Errorf("failed to resume playback: %w", airableSpeakerError(ctx, err))
 		}
 		return PlayResult{Action: PlayActionResumed, WokeFromStandby: wokeFromStandby}, nil
 

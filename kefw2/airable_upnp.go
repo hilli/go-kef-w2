@@ -70,11 +70,50 @@ func (a *AirableClient) SearchMediaServers(query string, searchFields ...string)
 	return resp, nil
 }
 
-// GetPlayQueue returns fresh play queue items, bypassing the browsing cache.
+// GetPlayQueue returns a complete, fresh play queue, bypassing the browsing
+// cache. It rejects changes in count or version while paging. If the speaker
+// omits versions, same-count changes cannot be detected. The queue may still
+// change immediately after the final page.
 func (a *AirableClient) GetPlayQueue() (*RowsResponse, error) {
 	uncached := *a
 	uncached.Cache = nil
-	return uncached.GetRows("playlists:pq/getitems", 0, 32766)
+	const path = "playlists:pq/getitems"
+	resp, err := uncached.GetRows(path, 0, 32766)
+	if err != nil {
+		return nil, err
+	}
+	if resp.RowsRedirect != "" || resp.RowsCount < 0 || len(resp.Rows) > resp.RowsCount {
+		return nil, fmt.Errorf("invalid queue response: count=%d rows=%d redirect=%q",
+			resp.RowsCount, len(resp.Rows), resp.RowsRedirect)
+	}
+	if len(resp.Rows) == resp.RowsCount {
+		return resp, nil
+	}
+	batchSize := len(resp.Rows)
+	if batchSize == 0 {
+		return nil, fmt.Errorf("incomplete queue: expected %d rows but received none", resp.RowsCount)
+	}
+
+	allRows := resp.Rows
+	for from := batchSize; from < resp.RowsCount; {
+		pageSize := min(batchSize, resp.RowsCount-from)
+		batch, err := uncached.GetRows(path, from, from+pageSize-1)
+		if err != nil {
+			return nil, fmt.Errorf("fetching queue at offset %d: %w", from, err)
+		}
+		if batch.RowsCount != resp.RowsCount || batch.RowsVersion != resp.RowsVersion {
+			return nil, fmt.Errorf("queue changed while paging at offset %d (count %d to %d, version %d to %d)",
+				from, resp.RowsCount, batch.RowsCount, resp.RowsVersion, batch.RowsVersion)
+		}
+		if batch.RowsRedirect != "" || len(batch.Rows) == 0 || len(batch.Rows) > pageSize {
+			return nil, fmt.Errorf("invalid queue page at offset %d: received %d rows (requested at most %d)",
+				from, len(batch.Rows), pageSize)
+		}
+		allRows = append(allRows, batch.Rows...)
+		from += len(batch.Rows)
+	}
+	resp.Rows = allRows
+	return resp, nil
 }
 
 // PlayUPnPContainer plays all tracks from a container (album/folder).
@@ -107,6 +146,10 @@ func (a *AirableClient) PlayUPnPTracks(tracks []ContentItem) error {
 	if len(tracks) == 0 {
 		return fmt.Errorf("no tracks provided")
 	}
+	ctx := a.context()
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("preparing tracks for playlist: %w", err)
+	}
 
 	// Step 1: Clear the playlist
 	if err := a.ClearPlaylist(); err != nil {
@@ -116,6 +159,9 @@ func (a *AirableClient) PlayUPnPTracks(tracks []ContentItem) error {
 	// Step 2: Add tracks to playlist
 	items := make([]map[string]interface{}, len(tracks))
 	for i, track := range tracks {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("preparing tracks for playlist: %w", err)
+		}
 		// Build nsdkRoles as JSON string (this is how the API expects it)
 		nsdkRoles := buildUPnPTrackRoles(&track)
 		nsdkRolesJSON, err := json.Marshal(nsdkRoles)
@@ -442,6 +488,9 @@ func (a *AirableClient) getContainerTracksRecursive(containerPath string, active
 	}
 	var tracks []ContentItem
 	for _, item := range resp.Rows {
+		if err := a.context().Err(); err != nil {
+			return nil, err
+		}
 		switch item.Type {
 		case ContentTypeAudio:
 			if item.Path == "" {
@@ -531,6 +580,9 @@ func (a *AirableClient) getAllTracksRecursive(containerPath string, progress Ind
 	}
 
 	for _, item := range resp.Rows {
+		if err := a.context().Err(); err != nil {
+			return nil, err
+		}
 		switch item.Type {
 		case ContentTypeAudio:
 			if item.Path == "" {
@@ -546,6 +598,9 @@ func (a *AirableClient) getAllTracksRecursive(containerPath string, progress Ind
 	state.tracksFound += len(tracks)
 	if progress != nil {
 		progress(state.containersScanned, state.tracksFound, containerTitle)
+	}
+	if err := a.context().Err(); err != nil {
+		return nil, err
 	}
 
 	// Recurse into sub-containers

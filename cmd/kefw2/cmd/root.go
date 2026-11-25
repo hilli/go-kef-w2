@@ -187,6 +187,10 @@ func prepareCommand(cmd *cobra.Command, args []string) error {
 	if err := initConfig(); err != nil {
 		return err
 	}
+	if cmd == playerCmd {
+		currentSpeaker = nil
+		return nil
+	}
 	if commandRequiresSpeaker(cmd, args) {
 		target := currentSpeakerParam
 		if target == "" {
@@ -307,6 +311,9 @@ func isFileOnlyCommand(cmd *cobra.Command, args []string) bool {
 }
 
 func commandRequiresSpeaker(cmd *cobra.Command, args []string) bool {
+	if cmd == playerCmd {
+		return false
+	}
 	cmdPath := strings.Split(cmd.CommandPath(), " ")
 	if isUtilityCommand(cmd) || slices.Contains(cmdPath, "completion") ||
 		cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" {

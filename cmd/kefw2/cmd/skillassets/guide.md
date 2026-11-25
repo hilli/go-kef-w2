@@ -23,9 +23,9 @@ capabilities when help or the speaker rejects an operation.
 
 Pass `--json` on each supported command; it is not a global output mode.
 Operational commands support JSON, including the content, queue, configuration
-and utility workflows below. Command groups that only print help, shell
-completion, and skill installation/display are not JSON APIs. Existing human
-output and TUIs remain the default when `--json` is omitted.
+and utility workflows below. The interactive `player`, command groups that
+only print help, shell completion, and skill installation/display are not JSON
+APIs. Existing human output and TUIs remain the default when `--json` is omitted.
 
 ```text
 kefw2 config speaker list --json
@@ -119,6 +119,131 @@ types, not literal JSON):
 subsequent read actually observed. Do not equate missing playback metadata with
 an error or evidence that a physical source is silent. For local configuration
 or file changes, success acknowledges the completed local operation.
+
+## Interactive player
+
+```text
+kefw2 player
+kefw2 player --layout listening-desk
+kefw2 --speaker "Living Room" player --layout discovery-browser
+```
+
+`player` requires a terminal and has no JSON interface; use the commands above
+or `status watch --json` for automation. `--layout` accepts only
+`listening-desk` and `discovery-browser`; omitting it always starts Listening
+Desk. Both layouts share controls, and save pane arrangements separately.
+Launching the player does not change the speaker's input or playback.
+
+The initial target is selected from `--speaker NAME_OR_IP`, then
+`KEFW2_SPEAKER` or the `speaker` config value, then the configured default or
+sole configured speaker. Multiple speakers without a default open a chooser.
+If there is no configured or explicit target, use
+`kefw2 config speaker discover --save` or `kefw2 config speaker add IP` first.
+Use an IP for ambiguous names; explicit unconfigured targets are session-only.
+
+Uppercase `S` or clicking the speaker header opens the configured-speaker
+chooser; lowercase `s` opens the input chooser. Use arrows and Enter to select,
+or Esc to cancel. Switching control does not alter the saved default or
+transfer playback, source, volume or queue. An unavailable target stays
+selected with retry/choose-speaker options, never a silent fallback. An action
+already accepted by the previous speaker cannot be recalled; failed actions
+are not automatically replayed. On failed status reads, the selected speaker's
+last confirmed state is marked stale. If the event stream disconnects, writes
+pause until a fresh status poll succeeds; unsent actions are discarded, and
+uncertain dispatched actions identify their original target.
+
+The bottom row has separate Now Playing and Volume panes. Now Playing shows
+confirmed power, the actual input, playback details and transport controls;
+Volume contains the slider and mute control. Click a pane title or use Tab to
+focus its controls. Radio and Podcasts are Wi-Fi services; browsing alone does
+not switch inputs. Search radio/podcasts, open a series to see episodes, or browse UPnP and enqueue
+supported tracks. A selection previews; explicit playback can switch input or
+replace playback. Radio play requires confirmation and can replace the queue.
+Radio-play and queue-clear dialogs default to Cancel: Tab/Shift+Tab or left/right
+select a button, Enter activates it, `y` confirms, and `n`/Esc cancels.
+TV, Optical, Coaxial, Aux and USB show `external audio`
+when playback data is unavailable; transport and seek depend on the source and
+media. Player UPnP supports browsing, enqueueing and searching an indexed
+library, not favorites or direct playback from a result. Open Settings → UPnP
+library (or click Library in Discover): Enter uses the selected server, `I`
+builds or refreshes its index, `x` cancels and `r` reloads the server list.
+Closing settings does not cancel indexing; progress/errors stay visible in Discover.
+Enqueue a track, then select it in the queue and press Enter to play; enqueueing
+alone does not start playback.
+
+The compact Sources sidebar lists physical inputs, **Off / Standby**, and
+Radio/Podcasts/UPnP browsing shortcuts. Focus it with Alt+1 by default (or Tab), use
+arrows or j/k to select, and Enter or the Open button to activate. A mouse
+click selects an input; a double-click activates it. A single click on a Browse
+Wi-Fi entry opens that service's top-level menu in Discover, also available with
+Enter or Open. Selecting it again returns to the menu. `*` marks the confirmed current input;
+unsupported inputs are dimmed and marked `-`. Off puts only the selected speaker
+into standby. Browsing a Wi-Fi service does not change the physical input.
+The `s` chooser also includes Off / Standby. Active panes have cyan double
+borders; filled rows mark selection, and amber text identifies keyboard hints.
+Custom pane widths are preserved; use `p`, then `R` to restore the narrower
+default Sources width.
+
+Use `Tab` / `Shift+Tab` to focus, arrows or `j` / `k` to navigate, `/` to
+search and Enter to submit or activate. In Discover, `1` / `2` / `3` select
+Radio / Podcasts / UPnP, `<` / `>` page results, and `e` enqueues a supported
+UPnP track. `r` retries an offered failed discovery read only, never a failed
+playback, favorite or enqueue action.
+
+`Q` focuses the queue; in Discovery Browser, press it again to return to
+discovery. `i` opens details. With queue focus, `Ctrl+k` / `Ctrl+j` reorder the
+selected row, Enter plays, Delete removes, `c` prompts to clear (`y` confirms),
+`h` toggles shuffle, and `t` cycles repeat. Use `r` to reload an uncertain
+queue and `a` to acknowledge it after reviewing the refreshed result. Moves
+check for intervening changes but cannot guarantee atomicity against another
+controller.
+Queue recovery appears in a separate amber frame above the playback controls:
+`[r Reload]` is amber when available, and `[a Review OK]` turns green once a
+readback can be acknowledged. Disabled actions are dimmed. The `?` help popup
+also lists queue reordering and recovery keys. Navigation, help and quitting
+remain available while queue edits are paused.
+
+Click Settings or press `Ctrl+,` where supported to open the settings dialog.
+Arrows/Tab select; Enter opens/toggles; Esc returns/closes. Settings groups
+speaker/input selection, UPnP library, pane arrangement and reduced motion.
+Existing `S`, `s`, `p` and UPnP `u`/`I`/`x` shortcuts remain available outside dialogs.
+
+`Ctrl+Shift+P` opens the command palette when the terminal reports Shift
+distinctly; `Ctrl+P` is the fallback for terminals/multiplexers that cannot.
+Click Commands for mouse access. Type to fuzzy-filter actions and settings;
+arrows/Tab select, Enter runs, Esc closes. Each action shows its shortcut;
+disabled actions explain their requirements. Each supported input, including
+`Input: Off / Standby`, is a direct command that switches without the picker. Existing readiness checks and
+confirmation dialogs still apply. Ctrl+k/Ctrl+j remain queue-reordering keys.
+
+`p` opens the pane menu (Move, Resize, Zoom, Reset); `z` toggles zoom on the
+focused pane. In the menu, `m` moves, `r` resizes, `z` zooms and uppercase `R`
+resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles
+reduced motion (panes snap instead of gliding into place). Use Left/Right and
+Enter to commit, Esc to cancel.
+In Discovery Browser, `p` then `d` docks/undocks the queue in place of the
+inspector; that choice is saved with the layout. Reset preserves the other
+valid layout when only the active arrangement is invalid and the file's
+version and schema are supported. Resetting a malformed, unsupported or
+otherwise invalid file may discard other arrangements.
+
+Outside menus, Space toggles playback, `[` / `]` skip, `,` / `.` seek by 10
+seconds, `+` / `-` change volume by 1, and `m` toggles mute. Seek requires
+supported, currently playing non-live media with a known position and
+duration. The slider supports focused Left/Right keys and respects the
+selected speaker's maximum; increases are disabled if that limit cannot be
+read. Uppercase `R` retries a failed volume change when offered; uppercase `D`
+dismisses control/volume errors. Review the speaker and current state before
+retrying an uncertain action. Click controls, double-click a navigable
+container to open it or a station/episode to play. Drag a pane's leading `::`
+title grip over another visible pane in the same row to reorder, including
+Now Playing and Volume; dropped panes glide into place. These orders are
+saved separately for each layout.
+Esc, losing terminal focus or dropping outside the row cancels a pane move;
+collapsed single-pane rows cannot be reordered by dragging. Drag upper-pane
+dividers to resize, queue-row grips to reorder or the volume slider to adjust.
+Printable shortcuts apply outside text fields; pane and menu keys depend on
+focus. Use `?` for help and `q` or Ctrl+C to quit.
 
 ## Live status
 

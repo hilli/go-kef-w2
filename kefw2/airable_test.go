@@ -198,7 +198,7 @@ func TestAirableClient_PlayItemMediaData(t *testing.T) {
 	defer server.Close()
 	expected := &MediaData{
 		MetaData: MediaMetaData{
-			ServiceID: "radio", Live: true, ContentPlayContextPath: "context",
+			ServiceID: "radio", Live: true, PlayLogicPath: "playlogic", ContentPlayContextPath: "context",
 			PrePlayPath: "prepare", MaximumRetryCount: 3, PlaybackStateChangePath: "state", RadioStation: true,
 		},
 		Resources: []MediaResource{{URI: "https://example.test/stream", MimeType: "audio/mpeg",

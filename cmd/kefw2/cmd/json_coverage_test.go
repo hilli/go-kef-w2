@@ -11,6 +11,9 @@ import (
 func TestOperationalCommandsSupportJSON(t *testing.T) {
 	var visit func(*cobra.Command)
 	visit = func(cmd *cobra.Command) {
+		if cmd == playerCmd {
+			return // The player is an interactive terminal application.
+		}
 		switch cmd.Name() {
 		case "skill", "completion", "help":
 			return
