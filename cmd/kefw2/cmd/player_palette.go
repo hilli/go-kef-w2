@@ -171,6 +171,24 @@ func (ui *playerLayoutUI) paletteCommands(m *playerModel) []playerPaletteCommand
 	add("settings", "Settings: open", "Ctrl+,", true, "", ui.openSettings)
 	add("speaker", "Speaker: choose", "S", true, "", m.openSpeakerChooser)
 	add("input", "Input: choose", "s", ui.controls != nil, "No speaker controls available.", ui.openSource)
+	epoch, ready, current := ui.sourceNavStatus(m)
+	for _, item := range ui.sourceNavItems() {
+		if item.service != "" {
+			continue
+		}
+		reason := ""
+		switch {
+		case !item.enabled:
+			reason = "Unsupported or unverified for this speaker model."
+		case !ready:
+			reason = "Waiting for fresh speaker status."
+		case current == item.source:
+			reason = "Already the active input."
+		}
+		add("input-"+string(item.source), "Input: "+item.label, "", reason == "", reason, func() {
+			ui.outbound = append(ui.outbound, ui.activateSourceNav(m.generation, epoch, ready, current, item))
+		})
+	}
 	add("library", "UPnP: configure server and index", "Settings > Library", ui.discovery != nil,
 		"Discovery is unavailable.", func() { ui.openLibrarySettings(m) })
 	add("queue", "Queue: focus", "Q", true, "", func() { navigate(ModeQueue) })

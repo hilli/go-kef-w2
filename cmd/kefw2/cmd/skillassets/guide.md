@@ -212,7 +212,8 @@ Existing `S`, `s`, `p` and UPnP `u`/`I`/`x` shortcuts remain available outside d
 distinctly; `Ctrl+P` is the fallback for terminals/multiplexers that cannot.
 Click Commands for mouse access. Type to fuzzy-filter actions and settings;
 arrows/Tab select, Enter runs, Esc closes. Each action shows its shortcut;
-disabled actions explain their requirements. Existing readiness checks and
+disabled actions explain their requirements. Each supported input, including
+`Input: Off / Standby`, is a direct command that switches without the picker. Existing readiness checks and
 confirmation dialogs still apply. Ctrl+k/Ctrl+j remain queue-reordering keys.
 
 `p` opens the pane menu (Move, Resize, Zoom, Reset); `z` toggles zoom on the

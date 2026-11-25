@@ -383,6 +383,8 @@ remain available outside text fields and dialogs.
 
 The command palette also opens from **Commands** in the header. It lists player
 actions and settings with their shortcuts, and explains disabled actions.
+Every supported input, including **Off / Standby**, is a direct command
+(for example, type `input off`); Enter switches immediately without the picker.
 Bubble Tea requests enhanced keyboard reporting; **Ctrl+Shift+P** works when
 the terminal sends its Shift modifier distinctly. Many terminals and multiplexers
 report it as **Ctrl+P**, which opens the same palette and is the reliable fallback.

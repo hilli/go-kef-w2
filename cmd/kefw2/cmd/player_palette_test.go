@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -150,5 +151,50 @@ func TestPlayerPaletteQueuePlayUsesExistingSnapshotMessage(t *testing.T) {
 	play, ok := messages[0].(playerQueuePlayMsg)
 	if !ok || play.Generation != 7 || play.Snapshot != snapshot || play.Index != 0 {
 		t.Fatalf("command bypassed existing queue snapshot validation: %#v", messages[0])
+	}
+}
+
+func TestPlayerPaletteSwitchesInputsDirectlyIncludingOff(t *testing.T) {
+	for _, test := range []struct {
+		query  string
+		source kefw2.Source
+	}{
+		{"input bluetooth", kefw2.SourceBluetooth},
+		{"input off", kefw2.SourceStandby},
+	} {
+		t.Run(string(test.source), func(t *testing.T) {
+			h := newPlayerControlsUITestHarness(t)
+			h.model.ui = newPlayerLayoutUI(playerListeningDesk, filepath.Join(t.TempDir(), "kefw2.yaml"))
+			h.model.ui.controls = h.ui
+			h.model.addExtension(h.model.ui.extension())
+			h.sendRaw(tea.WindowSizeMsg{Width: 100, Height: 30})
+			h.status(playerControlsUITestSnapshot(25))
+			h.info("LS60W")
+			h.until(t, func() bool { return h.ui.State().ready })
+
+			h.sendRaw(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
+			h.model.ui.paletteSearch.SetValue("input wifi")
+			current := h.model.ui.paletteMatches(h.model)
+			if len(current) == 0 || current[0].id != "input-"+string(kefw2.SourceWiFi) || current[0].disabled == "" {
+				t.Fatalf("active input is not listed as disabled: %+v", current)
+			}
+			h.sendRaw(tea.KeyPressMsg{Code: tea.KeyEnter})
+			h.noCall(t)
+
+			h.model.ui.paletteSearch.SetValue(test.query)
+			matches := h.model.ui.paletteMatches(h.model)
+			if len(matches) == 0 || matches[0].id != "input-"+string(test.source) || matches[0].disabled != "" {
+				t.Fatalf("%q did not select an enabled direct input: %+v", test.query, matches)
+			}
+			h.sendRaw(tea.KeyPressMsg{Code: tea.KeyEnter})
+			if h.model.ui.palette || h.model.ui.sourceOpen {
+				t.Fatal("direct input opened a picker or left the palette open")
+			}
+			h.until(t, func() bool { return h.ui.State().pending })
+			call := h.call(t, "source")
+			if call.target.IPAddress != "a" || call.source != test.source {
+				t.Fatalf("wrong source dispatch: %+v", call)
+			}
+		})
 	}
 }
