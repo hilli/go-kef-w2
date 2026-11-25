@@ -108,6 +108,12 @@ type playerDiscoveryPresentation struct {
 	busy           bool
 	writeReady     bool
 	action         *playerDiscoveryActionStatus
+	upnp           playerUPnPPresentation
+}
+
+// searchable reports whether the current service can run a search.
+func (p playerDiscoveryPresentation) searchable() bool {
+	return p.service != playerDiscoveryUPnP || p.upnp.searchable
 }
 
 type playerDiscoveryUIClient interface {
@@ -170,6 +176,8 @@ type playerDiscoveryUI struct {
 	actionRequest playerDiscoveryRequestID
 	actionID      uint64
 	factory       playerDiscoveryUIFactory
+	library       playerUPnPLibrary
+	upnp          playerUPnPSetup
 
 	workerMu sync.Mutex
 	workers  map[*playerDiscoveryUIWorker]struct{}
@@ -182,6 +190,7 @@ func newPlayerDiscoveryUI() *playerDiscoveryUI {
 			speaker := target.newSpeaker()
 			return kefw2.NewAirableClient(speaker, kefw2.WithContext(ctx)), speaker
 		},
+		library: newPlayerUPnPLibrary(),
 		workers: make(map[*playerDiscoveryUIWorker]struct{}),
 	}
 }
@@ -195,6 +204,7 @@ func (ui *playerDiscoveryUI) presentation() playerDiscoveryPresentation {
 	presentation := playerDiscoveryPresentation{
 		service: ui.service, target: ui.target, hasTarget: ui.hasTarget, generation: ui.generation, query: ui.query,
 		state: ui.state, selection: ui.selection, busy: ui.busy, canRetry: ui.canRetry(), writeReady: ui.writeReady(),
+		upnp: ui.upnp.presentation(),
 	}
 	presentation.state.page = playerDiscoveryCopyPage(ui.state.page)
 	if ui.state.hasPage && !ui.state.stale {
@@ -255,7 +265,7 @@ func (ui *playerDiscoveryUI) update(m *playerModel, msg tea.Msg) (tea.Cmd, bool)
 	case playerDiscoveryUIActionResult:
 		return ui.actionResult(m, msg), true
 	default:
-		return nil, false
+		return ui.updateUPnP(msg)
 	}
 }
 
@@ -299,6 +309,16 @@ func (ui *playerDiscoveryUI) currentRequest(msg tea.Msg) bool {
 		return ui.currentPage(msg.generation, msg.request)
 	case playerDiscoveryEnqueueMsg:
 		return ui.currentPage(msg.generation, msg.request)
+	case playerUPnPUseServerMsg:
+		return ui.currentPage(msg.generation, msg.request)
+	case playerUPnPIndexMsg:
+		return ui.currentGeneration(msg.generation)
+	case playerUPnPCancelIndexMsg:
+		return ui.currentGeneration(msg.generation)
+	case playerUPnPTickMsg:
+		return ui.currentGeneration(msg.generation)
+	case playerUPnPIndexResult:
+		return ui.currentGeneration(msg.generation)
 	default:
 		return true
 	}
@@ -358,6 +378,7 @@ func (ui *playerDiscoveryUI) sessionStarted(m *playerModel, msg playerSessionSta
 }
 
 func (ui *playerDiscoveryUI) reset(_ *playerModel) {
+	ui.resetUPnP()
 	ui.cancelWrites()
 	if ui.cancel != nil {
 		ui.cancel()
@@ -659,6 +680,7 @@ type playerDiscoveryUIReadResult struct {
 	request playerDiscoveryRequestID
 	page    playerDiscoveryPage
 	err     error
+	upnp    *playerUPnPStatus
 }
 
 func (ui *playerDiscoveryUI) load(input playerDiscoveryUIReadRequest) tea.Cmd {
@@ -671,7 +693,11 @@ func (ui *playerDiscoveryUI) load(input playerDiscoveryUIReadRequest) tea.Cmd {
 	request := playerDiscoveryRequestID{generation: ui.generation, sequence: ui.sequence}
 	ui.state = playerDiscoveryBegin(ui.state, request)
 	ui.readRequest = request
-	target, factory := ui.target, ui.factory
+	target, factory, library := ui.target, ui.factory, ui.library
+	upnpRoot := input.service == playerDiscoveryUPnP && input.kind == playerDiscoveryBrowsePage && input.item == nil
+	if upnpRoot {
+		ui.upnp.config = library.config()
+	}
 	if input.item != nil {
 		item := playerDiscoveryCopyItem(*input.item)
 		input.item = &item
@@ -681,9 +707,18 @@ func (ui *playerDiscoveryUI) load(input playerDiscoveryUIReadRequest) tea.Cmd {
 		if err := ctx.Err(); err != nil {
 			return playerDiscoveryUIReadResult{request: request, err: err}
 		}
+		if input.kind == playerDiscoverySearchPage && input.service == playerDiscoveryUPnP {
+			page, err := playerDiscoveryUPnPSearch(ctx, library.load, input.query, input.offset, input.limit)
+			return playerDiscoveryUIReadResult{request: request, page: page, err: err}
+		}
 		client, _ := factory(ctx, target)
 		page, err := playerDiscoveryUIFetch(ctx, client, input)
-		return playerDiscoveryUIReadResult{request: request, page: page, err: err}
+		result := playerDiscoveryUIReadResult{request: request, page: page, err: err}
+		if upnpRoot {
+			index, err := library.load()
+			result.upnp = &playerUPnPStatus{summary: playerUPnPSummarize(index), err: err}
+		}
+		return result
 	})
 	if err != nil {
 		ui.readRequest = playerDiscoveryRequestID{}
@@ -716,6 +751,9 @@ func (ui *playerDiscoveryUI) readResult(m *playerModel, result playerDiscoveryUI
 	}
 	ui.readCancel = nil
 	ui.readRequest = playerDiscoveryRequestID{}
+	if result.upnp != nil {
+		ui.upnp.summary, ui.upnp.loadErr, ui.upnp.checked = result.upnp.summary, result.upnp.err, true
+	}
 	ui.state = playerDiscoveryFinish(ui.state, ui.state.request, result.page, result.err)
 	if result.err == nil {
 		ui.lastRead = nil

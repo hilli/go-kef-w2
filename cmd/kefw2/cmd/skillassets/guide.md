@@ -163,9 +163,11 @@ Radio-play and queue-clear dialogs default to Cancel: Tab/Shift+Tab or left/righ
 select a button, Enter activates it, `y` confirms, and `n`/Esc cancels.
 TV, Optical, Coaxial, Aux and USB show `external audio`
 when playback data is unavailable; transport and seek depend on the source and
-media. Player UPnP supports browsing and enqueueing, not search, favorites or
-direct playback from a result. Enqueue a track, then select it in the queue
-and press Enter to play; enqueueing alone does not start playback.
+media. Player UPnP supports browsing, enqueueing and searching an indexed
+library, not favorites or direct playback from a result. On the UPnP server list,
+`u` uses the selected server and `I` builds or refreshes its index (`x` cancels).
+Enqueue a track, then select it in the queue and press Enter to play; enqueueing
+alone does not start playback.
 
 The compact Sources sidebar lists physical inputs, **Off / Standby**, and
 Radio/Podcasts/UPnP browsing shortcuts. Focus it with Alt+1 by default (or Tab), use

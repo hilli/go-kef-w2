@@ -83,16 +83,19 @@ Examples:
 		server, err := client.GetMediaServerByName(serverName)
 		exitOnError(err, "Error")
 
-		// Save to config
-		viper.Set("upnp.default_server", server.Title)
-		viper.Set("upnp.default_server_path", server.Path)
-		err = saveConfig()
-		exitOnError(err, "Error saving config")
+		exitOnError(setDefaultUPnPServer(server.Title, server.Path), "Error saving config")
 
 		taskConpletedPrinter.Print("Default UPnP server set: ")
 		contentPrinter.Println(server.Title)
 	},
 	ValidArgsFunction: UPnPServerCompletion,
+}
+
+// setDefaultUPnPServer stores the server used for indexing and search.
+func setDefaultUPnPServer(title, path string) error {
+	viper.Set("upnp.default_server", title)
+	viper.Set("upnp.default_server_path", path)
+	return saveConfig()
 }
 
 // upnpServerListCmd lists available servers.

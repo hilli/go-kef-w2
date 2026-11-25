@@ -266,7 +266,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		}
 		return true
 	}
-	if ui.searchActive && ui.discovery != nil && ui.discovery.presentation().service == playerDiscoveryUPnP {
+	if ui.searchActive && ui.discovery != nil && !ui.discovery.presentation().searchable() {
 		ui.search.Blur()
 		ui.searchActive = false
 	}
@@ -405,7 +405,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 			ui.sendScoped(p.generation, playerDiscoveryServiceMsg{generation: p.generation, service: service})
 			return true
 		case "search":
-			if ui.discovery.presentation().service != playerDiscoveryUPnP {
+			if ui.discovery.presentation().searchable() {
 				ui.searchActive = true
 				ui.outbound = append(ui.outbound, ui.search.Focus())
 			}
@@ -434,7 +434,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		ui.focus.Push("help")
 		return true
 	case "/":
-		if ui.discovery != nil && ui.discovery.presentation().service != playerDiscoveryUPnP {
+		if ui.discovery != nil && ui.discovery.presentation().searchable() {
 			ui.pane, ui.searchActive = playerPaneDiscover, true
 			ui.focus.Set("search")
 			ui.outbound = append(ui.outbound, ui.search.Focus())
@@ -458,7 +458,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		}
 		ids := append([]string{playerFocusSpeaker, "queue-open", "details-open", "panes-open"}, ui.arrangement.Order...)
 		if ui.discovery != nil {
-			if ui.discovery.presentation().service != playerDiscoveryUPnP {
+			if ui.discovery.presentation().searchable() {
 				ids = append(ids, "search")
 			}
 			ids = append(ids, "service-radio", "service-podcast", "service-upnp")

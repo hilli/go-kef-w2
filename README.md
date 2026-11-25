@@ -341,8 +341,10 @@ playing a station or episode is explicit and can change playback. Radio play
 requires confirmation (`y` to confirm) and can switch to Wi-Fi and replace
 the queue. TV, Optical, Coaxial, Aux and USB show `external audio` when
 playback data is unavailable; transport/seek depend on the input and media. In
-the player, UPnP supports browsing and enqueueing tracks, not search,
-favorites or direct playback from a result. To play a UPnP track, enqueue it,
+the player, UPnP supports browsing, enqueueing and searching an indexed library,
+not favorites or direct playback from a result. On the UPnP server list, select
+a server and press `u` to use it, then `I` to build or refresh its search index
+(`x` cancels indexing; browsing keeps working). To play a UPnP track, enqueue it,
 select it in the queue and press Enter; enqueueing alone does not start playback.
 
 | Action | Keyboard |

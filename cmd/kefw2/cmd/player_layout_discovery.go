@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"bloomfx.dev/bloom"
 	"bloomfx.dev/bloom/on"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/hilli/go-kef-w2/kefw2"
@@ -107,6 +109,25 @@ func (ui *playerLayoutUI) discoveryKey(key tea.KeyPressMsg) bool {
 			return true
 		}
 		ui.sendScoped(p.generation, playerDiscoveryFavoritesMsg{generation: p.generation})
+	case "u":
+		if p.service != playerDiscoveryUPnP {
+			return false
+		}
+		if playerUPnPOnServerList(p, index) && p.upnp.phase != playerUPnPIndexing {
+			ui.sendScoped(p.generation, playerUPnPUseServerMsg{generation: p.generation, request: request, index: index})
+		}
+	case "I":
+		if p.service != playerDiscoveryUPnP {
+			return false
+		}
+		if p.upnp.phase != playerUPnPIndexing {
+			ui.sendScoped(p.generation, playerUPnPIndexMsg{generation: p.generation})
+		}
+	case "x":
+		if p.service != playerDiscoveryUPnP || p.upnp.phase != playerUPnPIndexing {
+			return false
+		}
+		ui.sendScoped(p.generation, playerUPnPCancelIndexMsg{generation: p.generation})
 	case "r":
 		if !p.canRetry {
 			return false
@@ -133,11 +154,13 @@ func (ui *playerLayoutUI) discoveryView(m *playerModel) bloom.Child {
 		children = append(children, bloom.Fixed(1, ui.discoverySearch()))
 	}
 	children = append(children, playerDiscoveryStatusChildren(p)...)
+	card := ui.upnpSetupCard(p)
+	children = append(children, card...)
 	if !p.writeReady {
 		children = append(children, bloom.Fixed(1, bloom.Text("Writes disabled: awaiting fresh speaker status")))
 	}
 	children = append(children, bloom.Fixed(2, ui.discoveryActions(p)))
-	rows := max(1, m.height-max(3, m.height/3)-13)
+	rows := max(1, m.height-max(3, m.height/3)-13-len(card))
 	start := max(0, p.selection-rows+1)
 	for index := start; index < len(p.state.page.items) && index < start+rows; index++ {
 		item := p.state.page.items[index]
@@ -146,7 +169,11 @@ func (ui *playerLayoutUI) discoveryView(m *playerModel) bloom.Child {
 		if index == p.selection {
 			marker = "> "
 		}
-		node := bloom.Text(marker+watchText(item.Title)).
+		label := marker + watchText(item.Title)
+		if playerUPnPOnServerList(p, index) && item.Path == p.upnp.config.path {
+			label += "  · search library"
+		}
+		node := bloom.Text(label).
 			Style(playerSelectionStyle(index == p.selection, ui.paneActive(playerPaneDiscover))).
 			ID(fmt.Sprintf("discovery-row-%d", index)).Focusable().On(
 			on.Click(func() tea.Cmd {
@@ -174,7 +201,7 @@ func (ui *playerLayoutUI) discoveryView(m *playerModel) bloom.Child {
 	children = append(children, bloom.Fill(bloom.Text("")))
 	help := "Enter play/open · f/F favorite · < > pages · v favorites"
 	if p.service == playerDiscoveryUPnP {
-		help = "Enter browse · e enqueue · play from Queue · < > pages"
+		help = "Enter browse · e enqueue · u use server · I index · < > pages"
 	}
 	children = append(children, bloom.Fixed(1, playerHint(help)))
 	return bloom.Column(children...).On(on.Scroll(func(_, dy int) tea.Cmd {
@@ -219,7 +246,10 @@ func playerDiscoveryStatusChildren(p playerDiscoveryPresentation) []bloom.Child 
 		status += " | r retry read"
 	}
 	if p.service == playerDiscoveryUPnP && p.state.err == nil && p.action == nil {
-		status += " | no UPnP search, favorites or direct play"
+		if status != "" {
+			status += " | "
+		}
+		status += "play via Queue · no favorites"
 	}
 	if p.action != nil {
 		label := "ACTION"
@@ -238,8 +268,8 @@ func playerDiscoveryStatusChildren(p playerDiscoveryPresentation) []bloom.Child 
 }
 
 func (ui *playerLayoutUI) discoverySearch() bloom.Child {
-	if ui.discovery.presentation().service == playerDiscoveryUPnP {
-		return bloom.Text("UPnP search unavailable · browse servers instead").ID("search")
+	if !ui.discovery.presentation().searchable() {
+		return bloom.Text("Search: build a UPnP index first (I)").Style(playerHintStyle).Truncate().ID("search")
 	}
 	return playerSearchField{ui: ui}
 }
@@ -253,6 +283,9 @@ func (field playerSearchField) Layout(ctx bloom.Context) bloom.Child {
 	ui := field.ui
 	input := ui.search
 	input.SetWidth(max(1, ctx.Width-8))
+	if ui.discovery != nil && ui.discovery.presentation().service == playerDiscoveryUPnP {
+		input.Placeholder = "Search your UPnP library (artist:\"…\" album:\"…\")"
+	}
 	input.SetCursor(input.Position())
 	return bloom.Text("Search: " + input.View()).Style(playerSelectionStyle(ui.searchActive || ui.focus.Is("search"), true)).
 		ID("search").Focusable().On(on.Click(func() tea.Cmd {
@@ -303,13 +336,25 @@ func (ui *playerLayoutUI) discoveryActions(p playerDiscoveryPresentation) bloom.
 		queueLabel = "[Queue]"
 		enqueue = playerDiscoveryEnqueueMsg{generation: gen, request: request, index: index}
 	}
+	first := make([]bloom.Child, 0, 4)
+	if p.service != playerDiscoveryUPnP {
+		first = append(first, button("[Open/Play]", activate), button("[+Fav]", addFavorite), button("[-Fav]", removeFavorite))
+	} else {
+		var use, index tea.Msg
+		if playerUPnPOnServerList(p, p.selection) && p.upnp.phase != playerUPnPIndexing {
+			use = playerUPnPUseServerMsg{generation: gen, request: request, index: p.selection}
+		}
+		indexLabel := "[Index]"
+		switch {
+		case p.upnp.phase == playerUPnPIndexing:
+			indexLabel, index = "[Cancel index]", playerUPnPCancelIndexMsg{generation: gen}
+		case p.upnp.config.path != "":
+			index = playerUPnPIndexMsg{generation: gen}
+		}
+		first = append(first, button("[Open/Play]", activate), button("[Use server]", use), button(indexLabel, index))
+	}
 	return bloom.Column(
-		bloom.Fixed(1, bloom.Row(
-			button("[Open/Play]", activate),
-			button("[+Fav]", addFavorite),
-			button("[-Fav]", removeFavorite),
-			button(queueLabel, enqueue),
-		)),
+		bloom.Fixed(1, bloom.Row(append(first, button(queueLabel, enqueue))...)),
 		bloom.Fixed(1, bloom.Row(
 			button("[<]", previous), button("[>]", next),
 			button("[Back]", playerDiscoveryBackMsg{generation: gen, request: request}),
@@ -362,4 +407,109 @@ func (ui *playerLayoutUI) discoveryDetails() string {
 		details += "\n" + watchText(p.action.err.Error())
 	}
 	return details
+}
+
+// playerUPnPOnServerList reports whether index is a media server on the UPnP root page.
+func playerUPnPOnServerList(p playerDiscoveryPresentation, index int) bool {
+	page := p.state.page
+	if p.service != playerDiscoveryUPnP || !p.state.hasPage || p.state.stale ||
+		page.kind != playerDiscoveryBrowsePage || page.path != playerDiscoveryUPnPRootPath ||
+		index < 0 || index >= len(page.items) {
+		return false
+	}
+	item := page.items[index]
+	return item.Type == kefw2.ContentTypeContainer && playerDiscoveryUPnPPath(item.Path)
+}
+
+var playerUPnPSpinner = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+// upnpSetupCard guides UPnP server choice and index building; it is empty for other services.
+func (ui *playerLayoutUI) upnpSetupCard(p playerDiscoveryPresentation) []bloom.Child {
+	if p.service != playerDiscoveryUPnP {
+		return nil
+	}
+	u := p.upnp
+	badge := lipgloss.NewStyle().Foreground(playerAccentColor).Bold(true)
+	text := lipgloss.NewStyle().Foreground(playerTextColor)
+	muted, warning := playerHintStyle, playerHintStyle.Foreground(playerWarningColor)
+	server := watchText(u.config.server)
+	choose := ""
+	if playerUPnPOnServerList(p, p.selection) {
+		choose = " · u use selected server"
+	}
+	var headline, hint string
+	switch u.phase {
+	case playerUPnPChecking:
+		headline, hint = badge.Render("LIBRARY ")+muted.Render("checking search index…"), "Enter browse servers"
+	case playerUPnPNoServer:
+		headline = badge.Render("SET UP SEARCH ") + text.Render("pick the media server that holds your music")
+		hint = "↑↓ select a server · u use it · I build the index"
+	case playerUPnPNoIndex:
+		headline = badge.Render("LIBRARY ") + text.Render(server) + muted.Render(" · no search index yet")
+		hint = "I build index" + choose
+	case playerUPnPOtherServer:
+		headline = badge.Render("LIBRARY ") + text.Render(server) +
+			warning.Render(" · index is for "+watchText(u.summary.server))
+		hint = "I rebuild index" + choose
+	case playerUPnPIndexing:
+		spin := playerUPnPSpinner[u.frame%len(playerUPnPSpinner)]
+		if ui.reduced {
+			spin = "•"
+		}
+		headline = badge.Render(spin+" INDEXING ") + text.Render(server) + muted.Render(fmt.Sprintf(
+			" · %s tracks · %s folders · %s", playerCount(u.tracks), playerCount(u.containers), playerClock(u.elapsed)))
+		hint = "x cancel · browsing and enqueue keep working"
+	case playerUPnPFailed:
+		cause := u.err
+		for errors.Unwrap(cause) != nil {
+			cause = errors.Unwrap(cause)
+		}
+		headline = warning.Bold(true).Render("INDEX FAILED ") + warning.Render(watchText(cause.Error()))
+		hint = "I retry" + choose
+	case playerUPnPCanceled:
+		headline = badge.Render("LIBRARY ") + text.Render(server) + muted.Render(" · indexing canceled")
+		if u.searchable {
+			headline += muted.Render(", previous index kept")
+		}
+		hint = "I start again" + choose
+	case playerUPnPReady:
+		headline = lipgloss.NewStyle().Foreground(playerSuccessColor).Bold(true).Render("✓ LIBRARY ") +
+			text.Render(server) + muted.Render(fmt.Sprintf(" · %s tracks · indexed %s",
+			playerCount(u.summary.tracks), playerAge(time.Since(u.summary.indexedAt))))
+		hint = "/ search tracks · I refresh index" + choose
+		if u.stale {
+			headline += warning.Render(" · stale")
+			hint = "I refresh index · / search tracks" + choose
+		}
+	}
+	return []bloom.Child{
+		bloom.Fixed(1, bloom.Text(headline).Truncate().ID("upnp-setup")),
+		bloom.Fixed(1, playerHint(hint).Truncate()),
+	}
+}
+
+func playerCount(n int) string {
+	digits := fmt.Sprint(n)
+	for i := len(digits) - 3; i > 0 && digits[i-1] != '-'; i -= 3 {
+		digits = digits[:i] + "," + digits[i:]
+	}
+	return digits
+}
+
+func playerClock(d time.Duration) string {
+	seconds := int(d.Round(time.Second) / time.Second)
+	return fmt.Sprintf("%d:%02d", seconds/60, seconds%60)
+}
+
+func playerAge(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d/time.Minute))
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d/time.Hour))
+	default:
+		return fmt.Sprintf("%dd ago", int(d/(24*time.Hour)))
+	}
 }
