@@ -372,7 +372,10 @@ for intervening changes but cannot guarantee atomicity against another controlle
 
 In the `p` pane menu, `m` moves, `r` resizes, `z` zooms, uppercase `R`
 resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles
-reduced motion (panes snap instead of gliding into place). Use Left/Right, Enter
+reduced motion (panes snap instead of gliding into place). Rounded frames and
+cyan titles indicate the active pane; keyboard focus highlights controls without
+moving their neighbors. Now Playing emphasizes the track, while warnings remain
+amber and dialogs dim the background. Use Left/Right, Enter
 and Esc to preview, commit or cancel changes. In Discovery Browser, `p` then
 `d` docks or undocks the queue in place
 of the inspector; the choice is saved with that layout. Reset

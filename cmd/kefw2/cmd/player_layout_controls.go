@@ -9,7 +9,6 @@ import (
 	"bloomfx.dev/bloom"
 	"bloomfx.dev/bloom/on"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/hilli/go-kef-w2/kefw2"
@@ -39,10 +38,7 @@ func (ui *playerLayoutUI) focusBottom(id string) {
 }
 
 func (ui *playerLayoutUI) bottomTitle(m *playerModel, pane, label, focus string) bloom.Child {
-	style := playerHintStyle.Bold(true)
-	if ui.bottomFocus() == pane {
-		style = style.Foreground(playerAccentColor)
-	}
+	style := playerTitleStyle(ui.bottomFocus() == pane)
 	if ui.drag == playerLayoutMove && ui.dragPane == pane {
 		label = "MOVE " + label
 	}
@@ -62,13 +58,7 @@ func (ui *playerLayoutUI) bottomRow(now, volume bloom.Child, volumeWidth int) bl
 }
 
 func (ui *playerLayoutUI) bottomFrame(pane string, content bloom.Child) bloom.Child {
-	color := playerBorderColor
-	border := lipgloss.NormalBorder()
-	if ui.bottomFocus() == pane {
-		color = playerAccentColor
-		border = lipgloss.DoubleBorder()
-	}
-	return bloom.Box(lipgloss.NewStyle().Border(border).BorderForeground(color), content).ID(pane + "-pane")
+	return bloom.Box(playerFrameStyle(ui.bottomFocus() == pane), content).ID(pane + "-pane")
 }
 
 func (ui *playerLayoutUI) controlsStateForView(m *playerModel) playerControlsUIState {
@@ -107,13 +97,8 @@ func (ui *playerLayoutUI) transportStatus(m *playerModel, status []string, state
 	}
 	for i := range status {
 		status[i] = watchText(status[i])
-		for _, prefix := range []string{
-			"UNCERTAIN", "STALE", "Events disconnected", "LAYOUT ERROR", "Control error", "Control unavailable",
-		} {
-			if strings.HasPrefix(status[i], prefix) {
-				status[i] = ansi.Wordwrap(status[i], max(1, m.width-playerBottomVolumeWidth(m.width)-2), "")
-				break
-			}
+		if playerProblemLine(status[i]) {
+			status[i] = ansi.Wordwrap(status[i], max(1, m.width-playerBottomVolumeWidth(m.width)-2), "")
 		}
 	}
 	return status
@@ -137,12 +122,13 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, state p
 	volumeWidth := playerBottomVolumeWidth(m.width)
 	if ui.controls == nil {
 		now := bloom.Column(bloom.Fixed(1, ui.bottomTitle(m, playerBottomNowPlaying, "NOW PLAYING", playerFocusPlayPause)),
-			bloom.Fill(bloom.Text(strings.Join(status, "\n")).ID("transport")))
+			bloom.Fill(playerStatusText(status).ID("transport")))
 		volume := bloom.Column(bloom.Fixed(1, ui.bottomTitle(m, playerBottomVolume, "VOLUME", "volume")),
 			bloom.Fill(bloom.Text("Volume unavailable")))
 		return ui.bottomRow(now, volume, volumeWidth)
 	}
 	generation, epoch := m.generation, state.epoch
+	buttonWidth := 0
 	control := func(id, label string, message tea.Msg, action playerControlAction) bloom.Child {
 		reason := ""
 		if !state.ready || state.confirmed == nil {
@@ -153,10 +139,9 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, state p
 		if reason != "" {
 			label = strings.TrimSuffix(label, "]") + "×]"
 		}
-		if ui.focus.Is(id) {
-			label = ">" + label
-		}
-		return bloom.Fixed(ansi.StringWidth(label), bloom.Text(label).
+		width := ansi.StringWidth(label)
+		buttonWidth += width
+		return bloom.Fixed(width, bloom.Text(label).
 			Style(playerButtonStyle(ui.focus.Is(id), reason == "")).ID(id).Focusable().On(on.Click(func() tea.Cmd {
 			ui.focusBottom(id)
 			if reason != "" {
@@ -167,10 +152,9 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, state p
 		})))
 	}
 	button := func(id, label string, message tea.Msg) bloom.Child {
-		if ui.focus.Is(id) {
-			label = ">" + label
-		}
-		return bloom.Fixed(ansi.StringWidth(label), bloom.Text(label).
+		width := ansi.StringWidth(label)
+		buttonWidth += width
+		return bloom.Fixed(width, bloom.Text(label).
 			Style(playerButtonStyle(ui.focus.Is(id), true)).ID(id).Focusable().On(on.Click(func() tea.Cmd {
 			ui.focusBottom(id)
 			return playerScopedCmd(generation, playerMessage(message))
@@ -193,9 +177,13 @@ func (ui *playerLayoutUI) transportView(m *playerModel, status []string, state p
 		control("seek-back", seekBack, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlSeekBackward}, playerControlSeekBackward),
 		control("seek-next", seekNext, playerTransportRequest{generation: generation, epoch: epoch, action: playerControlSeekForward}, playerControlSeekForward),
 	)
+	gap := 0
+	if m.width-volumeWidth-2 >= buttonWidth+len(playbackButtons)-1 {
+		gap = 1
+	}
 	now := bloom.Column(bloom.Fixed(1, ui.bottomTitle(m, playerBottomNowPlaying, "NOW PLAYING", playerFocusPlayPause)),
-		bloom.Fill(bloom.Text(strings.Join(status, "\n")).ID("transport")),
-		bloom.Fixed(1, bloom.Row(playbackButtons...)))
+		bloom.Fill(playerStatusText(status).ID("transport")),
+		bloom.Fixed(1, bloom.Row(playbackButtons...).Gap(gap)))
 	volume := ui.volumeView(m, state, volumeWidth, control, button)
 	return ui.bottomRow(now, volume, volumeWidth)
 }
@@ -261,15 +249,15 @@ func (ui *playerLayoutUI) volumeView(
 		bloom.Fixed(1, ui.bottomTitle(m, playerBottomVolume, "VOLUME", "volume")),
 		bloom.Fixed(1, bloom.Text(volume).Truncate()),
 		bloom.Fixed(1, track),
-		bloom.Fill(bloom.Text(strings.Join(problems, "\n"))),
+		bloom.Fill(bloom.Text(strings.Join(problems, "\n")).Style(playerHintStyle.Foreground(playerWarningColor))),
 		bloom.Fixed(1, bloom.Row(buttons...)),
 	)
 }
 
 func (ui *playerLayoutUI) volumeSlider(m *playerModel, state playerControlsUIState, width, filled int) bloom.Child {
 	generation, epoch := m.generation, state.epoch
-	return bloom.Text(playerButtonStyle(false, state.ready).Render(strings.Repeat("=", filled))+
-		playerHintStyle.Render(strings.Repeat("-", width-filled))).
+	return bloom.Text(playerButtonStyle(false, state.ready).Render(strings.Repeat("━", filled))+
+		playerHintStyle.Render(strings.Repeat("─", width-filled))).
 		Style(playerSelectionStyle(ui.focus.Is("volume"), true)).
 		ID("volume").Focusable().On(
 		on.ClickAt(func(event on.Event) tea.Cmd {

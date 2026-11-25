@@ -1150,7 +1150,8 @@ func TestPlayerBottomPaneFocusAndKeyboardVolume(t *testing.T) {
 	}
 	volumePane, _ := m.ui.root.Frame().Rect("volume-pane")
 	line := strings.Split(m.View().Content, "\n")[volumePane.Min.Y]
-	if playerRenderedCells(line)[volumePane.Min.X].Content != "╔" {
+	border := playerRenderedCells(line)[volumePane.Min.X]
+	if border.Content != "╭" || !playerSameColor(border.Style.Fg, playerAccentColor) {
 		t.Fatal("the focused volume pane did not receive the active border")
 	}
 	_, command := m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
@@ -1308,7 +1309,7 @@ func TestPlayerVolumeSliderUsesConfirmedValueWhenMaximumIsUnknown(t *testing.T) 
 	m.addExtension(m.ui.extension())
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	content := m.View().Content
-	if !strings.Contains(content, "VOL 30") || !strings.Contains(content, strings.Repeat("=", 50)) {
+	if !strings.Contains(content, "VOL 30") || !strings.Contains(content, strings.Repeat("━", 50)) {
 		t.Fatalf("slider did not reflect the confirmed volume with an unknown maximum: %q", content)
 	}
 }
@@ -1754,6 +1755,12 @@ func TestPlayerPaneDropGlidesUnlessReducedMotion(t *testing.T) {
 			gliding := mid.Min.X > start.Min.X && mid.Min.X < end.Min.X
 			if gliding == reduced {
 				t.Fatalf("reduced=%t but mid-drop sources pane at %v (from %v to %v)", reduced, mid, end, start)
+			}
+			now = now.Add(210 * time.Millisecond)
+			m.View()
+			settled, _ := m.ui.root.Frame().Rect("pane-sources")
+			if settled.Min.X-start.Min.X > max(1, (end.Min.X-start.Min.X)/30) {
+				t.Fatalf("pane reflow did not settle within 250ms: %v -> %v", end, settled)
 			}
 		})
 	}

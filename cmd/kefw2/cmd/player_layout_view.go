@@ -9,6 +9,7 @@ import (
 
 	"bloomfx.dev/bloom"
 	"bloomfx.dev/bloom/anim"
+	"bloomfx.dev/bloom/fx"
 	"bloomfx.dev/bloom/on"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -40,6 +41,13 @@ func playerModal(content bloom.Child) bloom.Child {
 		playerSurfaceColors{foreground: playerTextColor, background: playerSurfaceColor})
 }
 
+func playerModalLayer(id string, content bloom.Child) bloom.LayerNode {
+	return bloom.Layer(playerModal(content)).ID(id).Modal().
+		Backdrop(fx.Recolor{Fg: playerMutedColor, Bg: playerSurfaceColor, Amount: 0.65}).
+		Shadow(2, 1, fx.Recolor{Fg: playerBorderColor, Bg: playerSurfaceColor}).
+		Anchor(bloom.Center, bloom.Center)
+}
+
 //nolint:gocyclo // Composes the independent overlays and status states.
 func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 	if m.width < 1 || m.height < 1 {
@@ -50,21 +58,15 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 	if m.target != nil {
 		header = playerSpeakerHeader(m)
 	}
-	if ui.focus.Is(playerFocusSpeaker) {
-		header = "> " + header
-	}
 	if m.target != nil {
 		connection := " | " + string(m.connection)
-		width := max(0, m.width-24-ansi.StringWidth(connection))
+		width := max(0, m.width-25-ansi.StringWidth(connection))
 		if ansi.StringWidth(header) > width {
 			target := *m.target
 			if m.speakerInfo != nil && m.speakerInfo.Name != "" {
 				target.Name = m.speakerInfo.Name
 			}
 			prefix := "Speaker: "
-			if ui.focus.Is(playerFocusSpeaker) {
-				prefix = "> " + prefix
-			}
 			tail := ""
 			if !target.Configured {
 				tail = " [session-only]"
@@ -87,7 +89,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			ui.toggleQueue()
 			return nil
 		}))),
-		bloom.Fixed(9, bloom.Text("[Details]").Style(playerButtonStyle(ui.focus.Is("details-open"), true)).ID("details-open").Focusable().On(on.Click(func() tea.Cmd {
+		bloom.Fixed(10, bloom.Text("[Details]").Style(playerButtonStyle(ui.focus.Is("details-open"), true)).ID("details-open").Focusable().On(on.Click(func() tea.Cmd {
 			ui.pane = playerPaneDetails
 			ui.focus.Set(ui.pane)
 			return nil
@@ -220,17 +222,14 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			"Queue: Ctrl+k up · Ctrl+j down · Enter play · Del remove\n" +
 			"Queue recovery: r reload · review order · a acknowledge\n" +
 			"Drag :: titles within a row · Esc: cancel · q: quit"
-		content = bloom.Overlay(content, bloom.Layer(playerModal(bloom.Text(text))).ID("help").Modal().
-			Anchor(bloom.Center, bloom.Center))
+		content = bloom.Overlay(content, playerModalLayer("help", bloom.Text(text)))
 	}
 	if ui.menu {
 		menu := ui.paneMenu()
-		content = bloom.Overlay(content, bloom.Layer(playerModal(menu)).ID("pane-menu").Modal().
-			Anchor(bloom.Center, bloom.Center))
+		content = bloom.Overlay(content, playerModalLayer("pane-menu", menu))
 	}
 	if ui.sourceOpen && ui.controls != nil && ui.sourceEpoch == ui.controls.State().epoch {
-		content = bloom.Overlay(content, bloom.Layer(playerModal(ui.sourceChooser(m))).ID("source-chooser").Modal().
-			Anchor(bloom.Center, bloom.Center))
+		content = bloom.Overlay(content, playerModalLayer("source-chooser", ui.sourceChooser(m)))
 	}
 	if ui.queueClear != nil && (ui.queue == nil || ui.queue.state().Ready) {
 		lines := []string{"Clear the active queue?"}
@@ -259,8 +258,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			)),
 			bloom.Fixed(1, playerHint("Tab/←/→ select · Enter activate · y confirm · n/Esc cancel")))
 		dialog := bloom.Column(dialogChildren...)
-		content = bloom.Overlay(content, bloom.Layer(playerModal(dialog)).ID("queue-clear").Modal().
-			Anchor(bloom.Center, bloom.Center))
+		content = bloom.Overlay(content, playerModalLayer("queue-clear", dialog))
 	}
 	if ui.discovery != nil {
 		ui.syncDiscoveryConfirmation()
@@ -294,8 +292,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 				)),
 				bloom.Fixed(1, playerHint("Tab/←/→ select · Enter activate · y confirm · n/Esc cancel")))
 			dialog := bloom.Column(dialogChildren...)
-			content = bloom.Overlay(content, bloom.Layer(playerModal(dialog)).ID("discovery-confirm").Modal().
-				Anchor(bloom.Center, bloom.Center))
+			content = bloom.Overlay(content, playerModalLayer("discovery-confirm", dialog))
 		}
 	}
 	if m.chooserOpen {
@@ -313,8 +310,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			children = append(children, bloom.Fixed(1, node))
 		}
 		dialog := bloom.Column(children...)
-		content = bloom.Overlay(content, bloom.Layer(playerModal(dialog)).ID("speaker-chooser").Modal().
-			Anchor(bloom.Center, bloom.Center))
+		content = bloom.Overlay(content, playerModalLayer("speaker-chooser", dialog))
 	}
 	view := ui.root.View(m.width, m.height, bloom.Transition(1, content,
 		playerSurfaceColors{foreground: playerTextColor, background: playerSurfaceColor}))
@@ -410,17 +406,11 @@ func (ui *playerLayoutUI) dockSlot(id string, slot bloom.SlotNode) bloom.SlotNod
 	if ui.reduced || ui.drag == playerLayoutResize {
 		return slot
 	}
-	return slot.Animate(anim.Spring(18, 1))
+	return slot.Animate(anim.Spring(24, 1))
 }
 
 func (ui *playerLayoutUI) framedPane(m *playerModel, pane string) bloom.Child {
-	color := playerBorderColor
-	border := lipgloss.NormalBorder()
-	if ui.paneActive(pane) {
-		color = playerAccentColor
-		border = lipgloss.DoubleBorder()
-	}
-	return bloom.Box(lipgloss.NewStyle().Border(border).BorderForeground(color), ui.paneView(m, pane)).ID("pane-" + pane)
+	return bloom.Box(playerFrameStyle(ui.paneActive(pane)), ui.paneView(m, pane)).ID("pane-" + pane)
 }
 
 func (ui *playerLayoutUI) paneView(m *playerModel, pane string) bloom.Child {

@@ -89,10 +89,14 @@ func (ui *playerLayoutUI) queueView(m *playerModel) bloom.Child {
 			return playerMessage(playerQueueRepeatMsg{Generation: state.Generation, ReadyEpoch: state.ReadyEpoch, Mode: next})
 		}))),
 	)
-	controls := bloom.Box(lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(playerBorderColor),
-		bloom.Column(bloom.Fixed(1, bar), bloom.Fixed(1, modes))).ID("queue-controls")
-	children = append(children, bloom.Fixed(4, controls))
-	rows := max(1, m.height-max(3, m.height/3)-13-recoveryHeight)
+	var controls bloom.Child = bloom.Column(bloom.Fixed(1, bar), bloom.Fixed(1, modes))
+	controlsHeight := 2
+	if state.Err != nil || state.Uncertain {
+		controls = bloom.Box(playerFrameStyle(false), controls)
+		controlsHeight = 4
+	}
+	children = append(children, bloom.Fixed(controlsHeight, bloom.Column(controls).ID("queue-controls")))
+	rows := max(1, m.height-max(3, m.height/3)-9-controlsHeight-recoveryHeight)
 	start := max(0, uiIndex-rows+1)
 	end := min(len(state.Items), start+rows)
 	for i := start; i < end; i++ {

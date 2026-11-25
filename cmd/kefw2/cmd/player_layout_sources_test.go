@@ -261,8 +261,9 @@ func TestPlayerVisualHierarchyFollowsPaneAndSelection(t *testing.T) {
 			}
 			titleRect, _ := m.ui.root.Frame().Rect("title-sources")
 			borderLine := strings.Split(m.View().Content, "\n")[titleRect.Min.Y-1]
-			if playerRenderedCells(borderLine)[titleRect.Min.X-1].Content != "╔" {
-				t.Fatal("active pane lacks the double-border focus cue")
+			border := playerRenderedCells(borderLine)[titleRect.Min.X-1]
+			if border.Content != "╭" || !playerSameColor(border.Style.Fg, playerAccentColor) {
+				t.Fatal("active pane lacks the accented rounded-border focus cue")
 			}
 			row := playerNodeCells(t, m, "source-nav-0")
 			if !playerSameColor(row[0].Style.Bg, playerSelectionFill) {
@@ -302,6 +303,63 @@ func TestPlayerVisualHierarchyFollowsPaneAndSelection(t *testing.T) {
 				t.Fatal("confirmation highlight did not follow keyboard navigation")
 			}
 		})
+	}
+}
+
+func TestPlayerSearchUsesAvailablePaneWidth(t *testing.T) {
+	for _, layout := range []string{playerListeningDesk, playerDiscoveryBrowser} {
+		for _, width := range []int{60, 80, 100, 140} {
+			t.Run(fmt.Sprintf("%s/%d", layout, width), func(t *testing.T) {
+				m := playerSourcesTestModel(t, layout, width, 30)
+				m.ui.pane = playerPaneDiscover
+				m.View()
+				if !strings.Contains(ansi.Strip(m.View().Content), "Search radio or podcasts") {
+					t.Fatal("search placeholder is clipped despite sufficient pane width")
+				}
+				query := strings.Repeat("long query ", 20) + "ending"
+				m.ui.search.SetValue(query)
+				m.ui.search.CursorEnd()
+				m.ui.searchActive = true
+				m.ui.search.Focus()
+				m.View()
+				cells := playerNodeCells(t, m, "search")
+				var text strings.Builder
+				for _, cell := range cells {
+					text.WriteString(cell.Content)
+				}
+				if !strings.Contains(text.String(), "ending") || m.ui.search.Value() != query {
+					t.Fatalf("search did not reveal its cursor without changing the query: %q", text.String())
+				}
+			})
+		}
+	}
+}
+
+func TestPlayerServiceFocusDoesNotShiftToolbar(t *testing.T) {
+	m := playerSourcesTestModel(t, playerListeningDesk, 140, 30)
+	m.View()
+	before, _ := m.ui.root.Frame().Rect("service-podcast")
+	m.ui.focus.Set("service-radio")
+	m.View()
+	after, _ := m.ui.root.Frame().Rect("service-podcast")
+	if before != after {
+		t.Fatalf("focusing a service moved its neighbor: %v -> %v", before, after)
+	}
+}
+
+func TestPlayerDisabledControlFocusRemainsVisibleWithoutMovingNeighbors(t *testing.T) {
+	m := playerSourcesTestModel(t, playerListeningDesk, 140, 30)
+	m.View()
+	before, _ := m.ui.root.Frame().Rect(playerFocusPlayPause)
+	m.ui.focus.Set(string(playerControlPrevious))
+	m.View()
+	after, _ := m.ui.root.Frame().Rect(playerFocusPlayPause)
+	if before != after {
+		t.Fatalf("focusing a disabled control moved its neighbor: %v -> %v", before, after)
+	}
+	focused := playerNodeCells(t, m, string(playerControlPrevious))
+	if focused[0].Style.Underline == 0 {
+		t.Fatal("disabled keyboard control lost its visible focus cue")
 	}
 }
 

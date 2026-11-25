@@ -14,6 +14,7 @@ import (
 var (
 	playerTextColor     = lipgloss.Color("#e8f1f3")
 	playerSurfaceColor  = lipgloss.Color("#101820")
+	playerRaisedColor   = lipgloss.Color("#1b2a35")
 	playerMutedColor    = lipgloss.Color("#94a3b8")
 	playerAccentColor   = lipgloss.Color("#67e8f9")
 	playerBorderColor   = lipgloss.Color("#425369")
@@ -56,12 +57,59 @@ func playerSelectionStyle(selected, active bool) lipgloss.Style {
 
 func playerButtonStyle(focused, enabled bool) lipgloss.Style {
 	if !enabled {
+		if focused {
+			return playerHintStyle.Underline(true)
+		}
 		return playerHintStyle
 	}
 	if focused {
 		return lipgloss.NewStyle().Foreground(playerSurfaceColor).Background(playerAccentColor).Bold(true)
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("#93c5fd"))
+	return lipgloss.NewStyle().Foreground(playerAccentColor)
+}
+
+func playerFrameStyle(active bool) lipgloss.Style {
+	border := playerBorderColor
+	if active {
+		border = playerAccentColor
+	}
+	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(border)
+}
+
+func playerTitleStyle(active bool) lipgloss.Style {
+	style := lipgloss.NewStyle().Foreground(playerMutedColor).Background(playerRaisedColor).Bold(true)
+	if active {
+		style = style.Foreground(playerAccentColor)
+	}
+	return style
+}
+
+func playerProblemLine(line string) bool {
+	for _, prefix := range []string{
+		"UNCERTAIN", "STALE", "Events disconnected", "LAYOUT ERROR", "Control error", "Control unavailable",
+	} {
+		if strings.HasPrefix(line, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func playerStatusText(lines []string) bloom.TextNode {
+	styled := make([]string, len(lines))
+	for i, line := range lines {
+		style := playerHintStyle
+		switch {
+		case playerProblemLine(line):
+			style = style.Foreground(playerWarningColor)
+		case strings.HasPrefix(line, "Track: "):
+			style = style.Foreground(playerTextColor).Bold(true)
+		case strings.HasPrefix(line, "Playback: "):
+			style = style.Foreground(playerTextColor)
+		}
+		styled[i] = style.Render(line)
+	}
+	return bloom.Text(strings.Join(styled, "\n"))
 }
 
 func playerHint(text string) bloom.TextNode {

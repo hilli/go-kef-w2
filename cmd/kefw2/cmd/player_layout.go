@@ -13,7 +13,6 @@ import (
 	"bloomfx.dev/bloom/on"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/hilli/go-kef-w2/kefw2"
 )
@@ -109,7 +108,14 @@ func newPlayerLayoutUI(layout, configPath string) *playerLayoutUI {
 	}
 	ui.root = bloom.New(bloom.WithFocus(&ui.focus))
 	ui.search = textinput.New()
+	ui.search.Prompt = ""
 	ui.search.Placeholder = "Search radio or podcasts"
+	styles := ui.search.Styles()
+	styles.Focused.Text = playerSelectionStyle(false, true)
+	styles.Blurred.Text = playerSelectionStyle(false, true)
+	styles.Focused.Placeholder = playerHintStyle
+	styles.Blurred.Placeholder = playerHintStyle
+	ui.search.SetStyles(styles)
 	ui.focus.Set(playerPaneDiscover)
 	file, err := playerReadLayouts(ui.path)
 	if err != nil {
@@ -915,10 +921,7 @@ func (ui *playerLayoutUI) title(m *playerModel, pane string) bloom.Child {
 	if ui.drag == playerLayoutMove && ui.dragPane == ui.layoutPane(pane) {
 		title = ":: MOVE " + strings.ToUpper(pane)
 	}
-	style := playerHintStyle.Bold(true)
-	if ui.paneActive(pane) {
-		style = style.Foreground(playerAccentColor).Background(lipgloss.Color("#123447"))
-	}
+	style := playerTitleStyle(ui.paneActive(pane))
 	node := bloom.Text(title).Style(style).Truncate().ID("title-"+pane).Focusable().On(
 		on.Click(func() tea.Cmd { ui.pane = pane; ui.focus.Set(pane); return nil }),
 		on.DoubleClick(func() tea.Cmd { ui.pane = pane; ui.zoomPane(); return nil }),
@@ -1037,7 +1040,7 @@ func (ui *playerLayoutUI) beginTitleDrag(pane string) bool {
 }
 
 func (ui *playerLayoutUI) divider(m *playerModel, pane, right string) bloom.Child {
-	return bloom.Text("│").ID("divider-" + pane).On(on.Drag(func(e on.Event) tea.Cmd {
+	return bloom.Text("│").Style(playerHintStyle).ID("divider-" + pane).On(on.Drag(func(e on.Event) tea.Cmd {
 		if e.Msg == nil || ui.pointerModal(m) || ui.dragBlocked {
 			ui.cancel()
 			return nil
