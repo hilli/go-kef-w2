@@ -2140,7 +2140,7 @@ func TestPlayerDiscoveryUPnPCapabilitiesAreVisible(t *testing.T) {
 	m.addExtension(m.ui.extension())
 	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	content := ansi.Strip(m.View().Content)
-	for _, want := range []string{"play via Queue · no favorites", "build a UPnP index first", "I index"} {
+	for _, want := range []string{"play via Queue · no favorites", "build a UPnP index first", "[Library]"} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("UPnP capability %q not visible in %q", want, content)
 		}
@@ -2178,7 +2178,7 @@ func TestPlayerDiscoveryUPnPDisablesUnsupportedActions(t *testing.T) {
 		}
 	}
 	view := m.View()
-	for _, id := range []string{"discovery-action-[Open/Play]", "discovery-action-[Use server]", "discovery-action-[Favs]"} {
+	for _, id := range []string{"discovery-action-[Open/Play]", "discovery-action-[Favs]"} {
 		rect, ok := m.ui.root.Frame().Rect(id)
 		if !ok {
 			t.Fatalf("missing action %s", id)

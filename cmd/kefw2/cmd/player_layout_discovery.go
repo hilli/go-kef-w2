@@ -154,7 +154,10 @@ func (ui *playerLayoutUI) discoveryView(m *playerModel) bloom.Child {
 		children = append(children, bloom.Fixed(1, ui.discoverySearch()))
 	}
 	children = append(children, playerDiscoveryStatusChildren(p)...)
-	card := ui.upnpSetupCard(p)
+	card := ui.upnpSetupCard(p, "upnp-setup")
+	if len(card) > 1 {
+		card = card[:1]
+	}
 	children = append(children, card...)
 	if !p.writeReady {
 		children = append(children, bloom.Fixed(1, bloom.Text("Writes disabled: awaiting fresh speaker status")))
@@ -201,7 +204,7 @@ func (ui *playerLayoutUI) discoveryView(m *playerModel) bloom.Child {
 	children = append(children, bloom.Fill(bloom.Text("")))
 	help := "Enter play/open · f/F favorite · < > pages · v favorites"
 	if p.service == playerDiscoveryUPnP {
-		help = "Enter browse · e enqueue · u use server · I index · < > pages"
+		help = "Enter browse · e enqueue · < > pages · Settings library"
 	}
 	children = append(children, bloom.Fixed(1, playerHint(help)))
 	return bloom.Column(children...).On(on.Scroll(func(_, dy int) tea.Cmd {
@@ -269,7 +272,7 @@ func playerDiscoveryStatusChildren(p playerDiscoveryPresentation) []bloom.Child 
 
 func (ui *playerLayoutUI) discoverySearch() bloom.Child {
 	if !ui.discovery.presentation().searchable() {
-		return bloom.Text("Search: build a UPnP index first (I)").Style(playerHintStyle).Truncate().ID("search")
+		return bloom.Text("Search: build a UPnP index first in Settings").Style(playerHintStyle).Truncate().ID("search")
 	}
 	return playerSearchField{ui: ui}
 }
@@ -340,18 +343,14 @@ func (ui *playerLayoutUI) discoveryActions(p playerDiscoveryPresentation) bloom.
 	if p.service != playerDiscoveryUPnP {
 		first = append(first, button("[Open/Play]", activate), button("[+Fav]", addFavorite), button("[-Fav]", removeFavorite))
 	} else {
-		var use, index tea.Msg
-		if playerUPnPOnServerList(p, p.selection) && p.upnp.phase != playerUPnPIndexing {
-			use = playerUPnPUseServerMsg{generation: gen, request: request, index: p.selection}
-		}
-		indexLabel := "[Index]"
-		switch {
-		case p.upnp.phase == playerUPnPIndexing:
-			indexLabel, index = "[Cancel index]", playerUPnPCancelIndexMsg{generation: gen}
-		case p.upnp.config.path != "":
-			index = playerUPnPIndexMsg{generation: gen}
-		}
-		first = append(first, button("[Open/Play]", activate), button("[Use server]", use), button(indexLabel, index))
+		first = append(first, button("[Open/Play]", activate),
+			bloom.Fixed(11, bloom.Text("[Library]").Style(playerButtonStyle(false, true)).
+				ID("discovery-library").On(on.Click(func() tea.Cmd {
+				ui.openSettings()
+				ui.settingsLibrary, ui.settingsServer = true, 0
+				ui.sendScoped(gen, playerDiscoveryServiceMsg{generation: gen, service: playerDiscoveryUPnP, browseRoot: true})
+				return ui.takeOutbound()
+			}))))
 	}
 	return bloom.Column(
 		bloom.Fixed(1, bloom.Row(append(first, button(queueLabel, enqueue))...)),
@@ -424,7 +423,7 @@ func playerUPnPOnServerList(p playerDiscoveryPresentation, index int) bool {
 var playerUPnPSpinner = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // upnpSetupCard guides UPnP server choice and index building; it is empty for other services.
-func (ui *playerLayoutUI) upnpSetupCard(p playerDiscoveryPresentation) []bloom.Child {
+func (ui *playerLayoutUI) upnpSetupCard(p playerDiscoveryPresentation, id string) []bloom.Child {
 	if p.service != playerDiscoveryUPnP {
 		return nil
 	}
@@ -483,7 +482,7 @@ func (ui *playerLayoutUI) upnpSetupCard(p playerDiscoveryPresentation) []bloom.C
 		}
 	}
 	return []bloom.Child{
-		bloom.Fixed(1, bloom.Text(headline).Truncate().ID("upnp-setup")),
+		bloom.Fixed(1, bloom.Text(headline).Truncate().ID(id)),
 		bloom.Fixed(1, playerHint(hint).Truncate()),
 	}
 }

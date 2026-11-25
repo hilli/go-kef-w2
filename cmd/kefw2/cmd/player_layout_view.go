@@ -89,15 +89,8 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			ui.toggleQueue()
 			return nil
 		}))),
-		bloom.Fixed(10, bloom.Text("[Details]").Style(playerButtonStyle(ui.focus.Is("details-open"), true)).ID("details-open").Focusable().On(on.Click(func() tea.Cmd {
-			ui.pane = playerPaneDetails
-			ui.focus.Set(ui.pane)
-			return nil
-		}))),
-		bloom.Fixed(7, bloom.Text("[Panes]").Style(playerButtonStyle(ui.focus.Is("panes-open"), true)).ID("panes-open").Focusable().On(on.Click(func() tea.Cmd {
-			ui.cancelPointerInteractions()
-			ui.menu = true
-			ui.focus.Push("pane-menu")
+		bloom.Fixed(10, bloom.Text("[Settings]").Style(playerButtonStyle(ui.focus.Is("settings-open"), true)).ID("settings-open").Focusable().On(on.Click(func() tea.Cmd {
+			ui.openSettings()
 			return nil
 		}))),
 	)
@@ -194,7 +187,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 	}
 	dockHeight := max(6, min(maxDockHeight, max(statusRows+2, volumeRows+4)+2))
 	dock := ui.transportView(m, dockStatus, state)
-	help := playerHint("Tab panes · / search · S speaker · s input · Q queue · p panes · ? help · q quit").
+	help := playerHint("Tab focus · / search · Q queue · Ctrl+, settings · ? help · q quit").
 		ID("help-open").Focusable().On(on.Click(func() tea.Cmd {
 		ui.cancelPointerInteractions()
 		ui.help = true
@@ -221,6 +214,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			"p: pane menu (b swaps bottom panes) · z: zoom · arrows: navigate\n" +
 			"Queue: Ctrl+k up · Ctrl+j down · Enter play · Del remove\n" +
 			"Queue recovery: r reload · review order · a acknowledge\n" +
+			"Settings: Ctrl+, or click Settings · speaker/input, library, layout\n" +
 			"UPnP: u use server · I build/refresh index · x cancel indexing\n" +
 			"Drag :: titles within a row · Esc: cancel · q: quit"
 		content = bloom.Overlay(content, playerModalLayer("help", bloom.Text(text)))
@@ -228,6 +222,14 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 	if ui.menu {
 		menu := ui.paneMenu()
 		content = bloom.Overlay(content, playerModalLayer("pane-menu", menu))
+	}
+	if ui.settings {
+		height := 12
+		if ui.settingsLibrary {
+			height = min(20, m.height-2)
+		}
+		content = bloom.Overlay(content, playerModalLayer("settings", ui.settingsView(m)).
+			Size(min(72, m.width-2), min(height, m.height-2)))
 	}
 	if ui.sourceOpen && ui.controls != nil && ui.sourceEpoch == ui.controls.State().epoch {
 		content = bloom.Overlay(content, playerModalLayer("source-chooser", ui.sourceChooser(m)))

@@ -200,7 +200,7 @@ func (ui *playerLayoutUI) closeQueueClear() {
 }
 
 func (ui *playerLayoutUI) queueRowDrag(m *playerModel, state playerQueueUIState, index int, event on.Event) tea.Cmd {
-	if event.Msg == nil || m.chooserOpen || ui.menu || ui.queueClear != nil || !state.Ready || state.Busy || state.Uncertain ||
+	if event.Msg == nil || ui.pointerModal(m) || !state.Ready || state.Busy || state.Uncertain ||
 		ui.queueDragBlocked {
 		ui.queueDrag = nil
 		return nil

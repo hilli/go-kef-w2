@@ -164,8 +164,10 @@ select a button, Enter activates it, `y` confirms, and `n`/Esc cancels.
 TV, Optical, Coaxial, Aux and USB show `external audio`
 when playback data is unavailable; transport and seek depend on the source and
 media. Player UPnP supports browsing, enqueueing and searching an indexed
-library, not favorites or direct playback from a result. On the UPnP server list,
-`u` uses the selected server and `I` builds or refreshes its index (`x` cancels).
+library, not favorites or direct playback from a result. Open Settings → UPnP
+library (or click Library in Discover): Enter uses the selected server, `I`
+builds or refreshes its index, `x` cancels and `r` reloads the server list.
+Closing settings does not cancel indexing; progress/errors stay visible in Discover.
 Enqueue a track, then select it in the queue and press Enter to play; enqueueing
 alone does not start playback.
 
@@ -200,6 +202,11 @@ Queue recovery appears in a separate amber frame above the playback controls:
 readback can be acknowledged. Disabled actions are dimmed. The `?` help popup
 also lists queue reordering and recovery keys. Navigation, help and quitting
 remain available while queue edits are paused.
+
+Click Settings or press `Ctrl+,` where supported to open the settings dialog.
+Arrows/Tab select; Enter opens/toggles; Esc returns/closes. Settings groups
+speaker/input selection, UPnP library, pane arrangement and reduced motion.
+Existing `S`, `s`, `p` and UPnP `u`/`I`/`x` shortcuts remain available outside dialogs.
 
 `p` opens the pane menu (Move, Resize, Zoom, Reset); `z` toggles zoom on the
 focused pane. In the menu, `m` moves, `r` resizes, `z` zooms and uppercase `R`

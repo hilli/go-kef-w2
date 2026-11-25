@@ -274,7 +274,7 @@ func (ui *playerLayoutUI) volumeSlider(m *playerModel, state playerControlsUISta
 			}))
 		}),
 		on.Drag(func(event on.Event) tea.Cmd {
-			if event.Msg == nil || m.chooserOpen || ui.sourceOpen || ui.menu || ui.sliderBlocked {
+			if event.Msg == nil || ui.pointerModal(m) || ui.sliderBlocked {
 				ui.sliderDragging = false
 				return nil
 			}

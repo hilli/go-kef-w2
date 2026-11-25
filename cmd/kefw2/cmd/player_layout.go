@@ -28,6 +28,7 @@ const (
 	playerLayoutKeyMoveDown  = "ctrl+j"
 	playerLayoutKeyMoveUp    = "ctrl+k"
 	playerLayoutKeyTab       = "tab"
+	playerLayoutKeyShiftTab  = "shift+tab"
 	playerLayoutMove         = "move"
 	playerLayoutResize       = "resize"
 )
@@ -44,6 +45,10 @@ type playerLayoutUI struct {
 	zoom                string
 	menu                bool
 	help                bool
+	settings            bool
+	settingsLibrary     bool
+	settingsIndex       int
+	settingsServer      int
 	mode                string
 	drag                string
 	dragBlocked         bool
@@ -97,7 +102,7 @@ type playerPaneDragTarget struct {
 }
 
 func (ui *playerLayoutUI) pointerModal(m *playerModel) bool {
-	return m.chooserOpen || ui.menu || ui.help || ui.sourceOpen || ui.queueClear != nil ||
+	return m.chooserOpen || ui.menu || ui.help || ui.settings || ui.sourceOpen || ui.queueClear != nil ||
 		(ui.discovery != nil && ui.discovery.presentation().confirmation != nil)
 }
 
@@ -133,6 +138,7 @@ func (ui *playerLayoutUI) extension() playerExtension {
 		ui.search.Blur()
 		ui.searchActive = false
 		ui.sourceOpen = false
+		ui.closeSettings()
 		ui.sourceNavIndex = 0
 		ui.sliderDragging = false
 		ui.controlReason = ""
@@ -266,6 +272,9 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		}
 		return true
 	}
+	if ui.settings {
+		return ui.settingsKey(m, key)
+	}
 	if ui.searchActive && ui.discovery != nil && !ui.discovery.presentation().searchable() {
 		ui.search.Blur()
 		ui.searchActive = false
@@ -396,6 +405,10 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		ui.focus.Push("pane-menu")
 		return true
 	}
+	if key.Code == tea.KeyEnter && ui.focus.Is("settings-open") {
+		ui.openSettings()
+		return true
+	}
 	if key.Code == tea.KeyEnter && ui.discovery != nil {
 		focus, _ := ui.focus.Current()
 		switch focus {
@@ -428,6 +441,9 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		return true
 	}
 	switch key.String() {
+	case "ctrl+,":
+		ui.openSettings()
+		return true
 	case "?":
 		ui.cancelPointerInteractions()
 		ui.help = true
@@ -451,12 +467,12 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 	case "z":
 		ui.zoomPane()
 		return true
-	case playerLayoutKeyTab, "shift+tab":
+	case playerLayoutKeyTab, playerLayoutKeyShiftTab:
 		step := 1
 		if key.Mod&tea.ModShift != 0 {
 			step = -1
 		}
-		ids := append([]string{playerFocusSpeaker, "queue-open", "details-open", "panes-open"}, ui.arrangement.Order...)
+		ids := append([]string{playerFocusSpeaker, "queue-open", "settings-open"}, ui.arrangement.Order...)
 		if ui.discovery != nil {
 			if ui.discovery.presentation().searchable() {
 				ids = append(ids, "search")
@@ -517,7 +533,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 
 func playerConfirmationKey(key tea.KeyPressMsg, accept *bool) (bool, bool) {
 	switch key.String() {
-	case playerLayoutKeyTab, "shift+tab":
+	case playerLayoutKeyTab, playerLayoutKeyShiftTab:
 		*accept = !*accept
 	case watchKeyLeft:
 		*accept = true

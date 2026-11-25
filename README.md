@@ -342,8 +342,9 @@ requires confirmation (`y` to confirm) and can switch to Wi-Fi and replace
 the queue. TV, Optical, Coaxial, Aux and USB show `external audio` when
 playback data is unavailable; transport/seek depend on the input and media. In
 the player, UPnP supports browsing, enqueueing and searching an indexed library,
-not favorites or direct playback from a result. On the UPnP server list, select
-a server and press `u` to use it, then `I` to build or refresh its search index
+not favorites or direct playback from a result. Open **Settings → UPnP library**
+(or click **Library** in Discover), select a server and press Enter to use it,
+then `I` to build or refresh its search index
 (`x` cancels indexing; browsing keeps working). To play a UPnP track, enqueue it,
 select it in the queue and press Enter; enqueueing alone does not start playback.
 
@@ -356,6 +357,7 @@ select it in the queue and press Enter; enqueueing alone does not start playback
 | Confirmation dialogs | Tab/Shift+Tab or Left/Right selects; Enter activates; `y` confirms, `n`/Esc cancels; Cancel is the default |
 | Search / details | `/` to search; Enter submits or opens/plays supported results; `i` opens details |
 | Queue | `Q` focuses queue; queue focus: `Ctrl+k` / `Ctrl+j` move row |
+| Settings | Click Settings or `Ctrl+,` where supported; arrows/Tab select, Enter opens/toggles, Esc returns/closes |
 | Panes | `p` opens Move, Resize, Zoom and Reset; `z` toggles zoom on the focused pane |
 | Playback / volume | Space toggles; `[` / `]` skip; `,` / `.` seek; `+` / `-` adjust volume; `m` toggles mute |
 | Errors | `R` retries a failed volume change when offered; `D` dismisses control/volume errors |
@@ -371,6 +373,12 @@ focus, Enter plays, Delete removes, `c` prompts to clear (`y` confirms), `h`
 toggles shuffle, and `t` cycles repeat. Use `r` to reload an uncertain queue
 and `a` to acknowledge it after reviewing the refreshed result. Moves check
 for intervening changes but cannot guarantee atomicity against another controller.
+
+Settings consolidates speaker/input selection, UPnP server and index management,
+pane arrangement and reduced motion. Index progress/errors remain visible in
+Discover; the dialog offers reload, retry/refresh and cancel. Closing it does
+not cancel indexing. The existing `S`, `s`, `p` and UPnP `u`/`I`/`x` shortcuts
+remain available outside text fields and dialogs.
 
 In the `p` pane menu, `m` moves, `r` resizes, `z` zooms, uppercase `R`
 resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles
