@@ -4,9 +4,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -21,6 +23,46 @@ func playerDialogTestModel(t *testing.T) *playerModel {
 	m.addExtension(m.ui.extension())
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	return m
+}
+
+func TestPlayerSettingsCompactLibraryKeepsProgressErrorsAndRecoveryVisible(t *testing.T) {
+	for _, failed := range []bool{false, true} {
+		m := playerDialogTestModel(t)
+		d := newPlayerDiscoveryUI()
+		m.ui.discovery = d
+		d.service = playerDiscoveryUPnP
+		d.upnp = playerUPnPSetup{checked: true, config: playerUPnPConfig{server: "Plex", path: "upnp:/plex"}}
+		d.state.hasPage = true
+		d.state.page = playerDiscoveryPage{
+			kind: playerDiscoveryBrowsePage, path: playerDiscoveryUPnPRootPath,
+			items: []kefw2.ContentItem{{Title: "Plex", Type: kefw2.ContentTypeContainer, Path: "upnp:/plex"}},
+		}
+		if failed {
+			d.upnp.err = errors.New("failed to browse media server: context deadline exceeded")
+			d.state.err = errors.New("failed to load servers: network connection unavailable")
+		} else {
+			d.upnp.indexing = true
+			d.upnp.progress = &playerUPnPProgress{}
+			d.upnp.progress.report(214, 12840, "Music/Jazz")
+			d.upnp.elapsed = 83 * time.Second
+		}
+		m.ui.openSettings()
+		m.ui.settingsLibrary = true
+		m.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+		content := ansi.Strip(m.View().Content)
+		content = strings.Join(strings.Fields(strings.ReplaceAll(content, "│", "")), " ")
+		wants := []string{"[I Build/refresh]", "[x Cancel]", "[r Reload]", "Esc back"}
+		if failed {
+			wants = append(wants, "context deadline exceeded", "network connection unavailable")
+		} else {
+			wants = append(wants, "12,840 tracks", "214 folders", "1:23 elapsed")
+		}
+		for _, want := range wants {
+			if !strings.Contains(content, want) {
+				t.Fatalf("failed=%t: compact library lost %q: %s", failed, want, content)
+			}
+		}
+	}
 }
 
 func TestPlayerSettingsFocusIsolationAndToggle(t *testing.T) {

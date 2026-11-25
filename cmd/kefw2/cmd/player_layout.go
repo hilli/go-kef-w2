@@ -49,6 +49,9 @@ type playerLayoutUI struct {
 	settingsLibrary     bool
 	settingsIndex       int
 	settingsServer      int
+	palette             bool
+	paletteSearch       textinput.Model
+	paletteIndex        int
 	mode                string
 	drag                string
 	dragBlocked         bool
@@ -102,7 +105,7 @@ type playerPaneDragTarget struct {
 }
 
 func (ui *playerLayoutUI) pointerModal(m *playerModel) bool {
-	return m.chooserOpen || ui.menu || ui.help || ui.settings || ui.sourceOpen || ui.queueClear != nil ||
+	return m.chooserOpen || ui.menu || ui.help || ui.settings || ui.palette || ui.sourceOpen || ui.queueClear != nil ||
 		(ui.discovery != nil && ui.discovery.presentation().confirmation != nil)
 }
 
@@ -121,6 +124,10 @@ func newPlayerLayoutUI(layout, configPath string) *playerLayoutUI {
 	styles.Focused.Placeholder = playerHintStyle
 	styles.Blurred.Placeholder = playerHintStyle
 	ui.search.SetStyles(styles)
+	ui.paletteSearch = textinput.New()
+	ui.paletteSearch.Prompt = ""
+	ui.paletteSearch.Placeholder = "Type a command…"
+	ui.paletteSearch.SetStyles(styles)
 	ui.focus.Set(playerPaneDiscover)
 	file, err := playerReadLayouts(ui.path)
 	if err != nil {
@@ -139,6 +146,7 @@ func (ui *playerLayoutUI) extension() playerExtension {
 		ui.searchActive = false
 		ui.sourceOpen = false
 		ui.closeSettings()
+		ui.closePalette()
 		ui.sourceNavIndex = 0
 		ui.sliderDragging = false
 		ui.controlReason = ""
@@ -223,6 +231,10 @@ func (ui *playerLayoutUI) update(m *playerModel, msg tea.Msg) (tea.Cmd, bool) {
 		}
 		return cmd, false
 	default:
+		if ui.palette {
+			ui.updatePaletteInput(msg)
+			return tea.Batch(ui.root.Update(msg), ui.takeOutbound()), false
+		}
 		return ui.root.Update(msg), false
 	}
 }
@@ -270,6 +282,13 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 				ui.send(request)
 			}
 		}
+		return true
+	}
+	if ui.palette {
+		return ui.paletteKey(m, key)
+	}
+	if playerPaletteShortcut(key) {
+		ui.openPalette()
 		return true
 	}
 	if ui.settings {
@@ -409,6 +428,10 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		ui.openSettings()
 		return true
 	}
+	if key.Code == tea.KeyEnter && ui.focus.Is("commands-open") {
+		ui.openPalette()
+		return true
+	}
 	if key.Code == tea.KeyEnter && ui.discovery != nil {
 		focus, _ := ui.focus.Current()
 		switch focus {
@@ -472,7 +495,7 @@ func (ui *playerLayoutUI) key(m *playerModel, key tea.KeyPressMsg) bool {
 		if key.Mod&tea.ModShift != 0 {
 			step = -1
 		}
-		ids := append([]string{playerFocusSpeaker, "queue-open", "settings-open"}, ui.arrangement.Order...)
+		ids := append([]string{playerFocusSpeaker, "queue-open", "settings-open", "commands-open"}, ui.arrangement.Order...)
 		if ui.discovery != nil {
 			if ui.discovery.presentation().searchable() {
 				ids = append(ids, "search")

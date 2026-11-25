@@ -358,6 +358,7 @@ select it in the queue and press Enter; enqueueing alone does not start playback
 | Search / details | `/` to search; Enter submits or opens/plays supported results; `i` opens details |
 | Queue | `Q` focuses queue; queue focus: `Ctrl+k` / `Ctrl+j` move row |
 | Settings | Click Settings or `Ctrl+,` where supported; arrows/Tab select, Enter opens/toggles, Esc returns/closes |
+| Command palette | `Ctrl+Shift+P`, or `Ctrl+P` fallback; type to fuzzy-filter actions, arrows select, Enter runs, Esc closes |
 | Panes | `p` opens Move, Resize, Zoom and Reset; `z` toggles zoom on the focused pane |
 | Playback / volume | Space toggles; `[` / `]` skip; `,` / `.` seek; `+` / `-` adjust volume; `m` toggles mute |
 | Errors | `R` retries a failed volume change when offered; `D` dismisses control/volume errors |
@@ -379,6 +380,15 @@ pane arrangement and reduced motion. Index progress/errors remain visible in
 Discover; the dialog offers reload, retry/refresh and cancel. Closing it does
 not cancel indexing. The existing `S`, `s`, `p` and UPnP `u`/`I`/`x` shortcuts
 remain available outside text fields and dialogs.
+
+The command palette also opens from **Commands** in the header. It lists player
+actions and settings with their shortcuts, and explains disabled actions.
+Bubble Tea requests enhanced keyboard reporting; **Ctrl+Shift+P** works when
+the terminal sends its Shift modifier distinctly. Many terminals and multiplexers
+report it as **Ctrl+P**, which opens the same palette and is the reliable fallback.
+Ctrl+k/Ctrl+j keep their queue-reordering meaning. Typing in the palette never
+triggers player shortcuts; playback and queue actions keep their existing
+readiness checks and confirmations.
 
 In the `p` pane menu, `m` moves, `r` resizes, `z` zooms, uppercase `R`
 resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles

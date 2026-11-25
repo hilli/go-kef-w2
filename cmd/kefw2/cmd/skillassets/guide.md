@@ -208,6 +208,13 @@ Arrows/Tab select; Enter opens/toggles; Esc returns/closes. Settings groups
 speaker/input selection, UPnP library, pane arrangement and reduced motion.
 Existing `S`, `s`, `p` and UPnP `u`/`I`/`x` shortcuts remain available outside dialogs.
 
+`Ctrl+Shift+P` opens the command palette when the terminal reports Shift
+distinctly; `Ctrl+P` is the fallback for terminals/multiplexers that cannot.
+Click Commands for mouse access. Type to fuzzy-filter actions and settings;
+arrows/Tab select, Enter runs, Esc closes. Each action shows its shortcut;
+disabled actions explain their requirements. Existing readiness checks and
+confirmation dialogs still apply. Ctrl+k/Ctrl+j remain queue-reordering keys.
+
 `p` opens the pane menu (Move, Resize, Zoom, Reset); `z` toggles zoom on the
 focused pane. In the menu, `m` moves, `r` resizes, `z` zooms and uppercase `R`
 resets the active layout, `b` swaps Now Playing and Volume, and `a` toggles

@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"bloomfx.dev/bloom"
 	"bloomfx.dev/bloom/on"
@@ -191,26 +192,57 @@ func (ui *playerLayoutUI) takeOutbound() tea.Cmd {
 func (ui *playerLayoutUI) librarySettingsView(m *playerModel) bloom.Child {
 	p := ui.discovery.presentation()
 	width := max(1, min(68, m.width-6))
+	fixedRows := 1
 	children := []bloom.Child{
 		bloom.Fixed(1, bloom.Text("SETTINGS / UPnP LIBRARY").Style(playerTitleStyle(true))),
 	}
-	children = append(children, ui.upnpSetupCard(p, "settings-upnp-status")...)
+	card := ui.upnpSetupCard(p, "settings-upnp-status")
+	if p.upnp.phase == playerUPnPIndexing {
+		card[0] = bloom.Fixed(1, bloom.Text("INDEXING "+watchText(p.upnp.config.server)).
+			Style(playerButtonStyle(false, true)).Truncate())
+		card[1] = bloom.Fixed(1, playerHintStyleText(fmt.Sprintf("%s tracks · %s folders · %s elapsed",
+			playerCount(p.upnp.tracks), playerCount(p.upnp.containers), playerClock(p.upnp.elapsed))))
+	}
+	if p.upnp.phase == playerUPnPFailed {
+		card[0] = bloom.Fixed(1, bloom.Text("INDEX FAILED").Style(playerHintStyle.Foreground(playerWarningColor).Bold(true)))
+	}
+	children = append(children, card...)
+	fixedRows += len(card)
+	appendProblem := func(text string) {
+		lines := strings.Split(ansi.Wrap(watchText(text), width, ""), "\n")
+		if len(lines) > 2 {
+			lines = append(lines[:1], ansi.Truncate(lines[1], width-1, "")+"…")
+		}
+		children = append(children, bloom.Fixed(len(lines), bloom.Text(strings.Join(lines, "\n")).
+			Style(playerHintStyle.Foreground(playerWarningColor))))
+		fixedRows += len(lines)
+	}
+	if p.upnp.err != nil {
+		appendProblem(playerUPnPError(p.upnp.err))
+	}
 	folder := p.upnp.config.container
 	if folder == "" {
 		folder = "automatic (CLI configuration)"
 	}
 	children = append(children, bloom.Fixed(1, playerHintStyleText("Index folder: "+watchText(folder))))
+	fixedRows++
 	if p.upnp.phase == playerUPnPIndexing && p.upnp.current != "" {
 		children = append(children, bloom.Fixed(1, playerHintStyleText("Scanning: "+watchText(p.upnp.current))))
+		fixedRows++
 	}
-	if p.state.err != nil || p.action != nil {
-		children = append(children, playerDiscoveryStatusChildren(p)...)
-	} else if p.state.status == playerDiscoveryLoading {
+	switch {
+	case p.action != nil && p.action.err != nil:
+		appendProblem(p.action.action + ": " + p.action.err.Error())
+	case p.state.err != nil:
+		appendProblem("Servers: " + p.state.err.Error())
+	case p.state.status == playerDiscoveryLoading:
 		children = append(children, bloom.Fixed(1, playerHintStyleText("Loading media servers…")))
+		fixedRows++
 	}
 	children = append(children, bloom.Fixed(1, nil))
 	ui.settingsServer = min(max(0, ui.settingsServer), max(0, len(p.state.page.items)-1))
-	rows := max(1, min(7, m.height-13))
+	fixedRows += 3
+	rows := max(1, min(7, min(20, m.height-2)-2-fixedRows))
 	start := max(0, ui.settingsServer-rows+1)
 	for index := start; index < len(p.state.page.items) && index < start+rows; index++ {
 		item := p.state.page.items[index]

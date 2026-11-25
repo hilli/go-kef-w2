@@ -459,11 +459,7 @@ func (ui *playerLayoutUI) upnpSetupCard(p playerDiscoveryPresentation, id string
 			" · %s tracks · %s folders · %s", playerCount(u.tracks), playerCount(u.containers), playerClock(u.elapsed)))
 		hint = "x cancel · browsing and enqueue keep working"
 	case playerUPnPFailed:
-		cause := u.err
-		for errors.Unwrap(cause) != nil {
-			cause = errors.Unwrap(cause)
-		}
-		headline = warning.Bold(true).Render("INDEX FAILED ") + warning.Render(watchText(cause.Error()))
+		headline = warning.Bold(true).Render("INDEX FAILED ") + warning.Render(playerUPnPError(u.err))
 		hint = "I retry" + choose
 	case playerUPnPCanceled:
 		headline = badge.Render("LIBRARY ") + text.Render(server) + muted.Render(" · indexing canceled")
@@ -485,6 +481,13 @@ func (ui *playerLayoutUI) upnpSetupCard(p playerDiscoveryPresentation, id string
 		bloom.Fixed(1, bloom.Text(headline).Truncate().ID(id)),
 		bloom.Fixed(1, playerHint(hint).Truncate()),
 	}
+}
+
+func playerUPnPError(err error) string {
+	for errors.Unwrap(err) != nil {
+		err = errors.Unwrap(err)
+	}
+	return watchText(err.Error())
 }
 
 func playerCount(n int) string {

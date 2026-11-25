@@ -60,7 +60,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 	}
 	if m.target != nil {
 		connection := " | " + string(m.connection)
-		width := max(0, m.width-25-ansi.StringWidth(connection))
+		width := max(0, m.width-28-ansi.StringWidth(connection))
 		if ansi.StringWidth(header) > width {
 			target := *m.target
 			if m.speakerInfo != nil && m.speakerInfo.Name != "" {
@@ -92,6 +92,10 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		bloom.Fixed(10, bloom.Text("[Settings]").Style(playerButtonStyle(ui.focus.Is("settings-open"), true)).ID("settings-open").Focusable().On(on.Click(func() tea.Cmd {
 			ui.openSettings()
 			return nil
+		}))),
+		bloom.Fixed(10, bloom.Text("[Commands]").Style(playerButtonStyle(ui.focus.Is("commands-open"), true)).ID("commands-open").Focusable().On(on.Click(func() tea.Cmd {
+			ui.openPalette()
+			return ui.takeOutbound()
 		}))),
 	)
 	tooSmall := m.width < 60 || m.height < 18
@@ -187,7 +191,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 	}
 	dockHeight := max(6, min(maxDockHeight, max(statusRows+2, volumeRows+4)+2))
 	dock := ui.transportView(m, dockStatus, state)
-	help := playerHint("Tab focus · / search · Q queue · Ctrl+, settings · ? help · q quit").
+	help := playerHint("Tab focus · / search · Ctrl+P commands · ? help · q quit").
 		ID("help-open").Focusable().On(on.Click(func() tea.Cmd {
 		ui.cancelPointerInteractions()
 		ui.help = true
@@ -215,6 +219,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 			"Queue: Ctrl+k up · Ctrl+j down · Enter play · Del remove\n" +
 			"Queue recovery: r reload · review order · a acknowledge\n" +
 			"Settings: Ctrl+, or click Settings · speaker/input, library, layout\n" +
+			"Commands: Ctrl+Shift+P (enhanced terminals) · Ctrl+P fallback\n" +
 			"UPnP: u use server · I build/refresh index · x cancel indexing\n" +
 			"Drag :: titles within a row · Esc: cancel · q: quit"
 		content = bloom.Overlay(content, playerModalLayer("help", bloom.Text(text)))
@@ -230,6 +235,10 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		}
 		content = bloom.Overlay(content, playerModalLayer("settings", ui.settingsView(m)).
 			Size(min(72, m.width-2), min(height, m.height-2)))
+	}
+	if ui.palette {
+		content = bloom.Overlay(content, playerModalLayer("command-palette", ui.paletteView(m)).
+			Size(min(72, m.width-2), min(15, m.height-2)))
 	}
 	if ui.sourceOpen && ui.controls != nil && ui.sourceEpoch == ui.controls.State().epoch {
 		content = bloom.Overlay(content, playerModalLayer("source-chooser", ui.sourceChooser(m)))
@@ -319,6 +328,7 @@ func (ui *playerLayoutUI) view(m *playerModel) tea.View {
 		playerSurfaceColors{foreground: playerTextColor, background: playerSurfaceColor}))
 	view.AltScreen = true
 	view.ReportFocus = true
+	view.KeyboardEnhancements.ReportAlternateKeys = true
 	return view
 }
 

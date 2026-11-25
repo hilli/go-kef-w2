@@ -59,7 +59,9 @@ func (ui *playerLayoutUI) paneMenu() bloom.Child {
 func (ui *playerLayoutUI) swapBottomPanes() {
 	order := ui.arrangement.BottomOrder
 	order[0], order[1] = order[1], order[0]
-	ui.menu = false
-	ui.focus.Pop()
+	if ui.menu {
+		ui.menu = false
+		ui.focus.Pop()
+	}
 	ui.save(false)
 }
